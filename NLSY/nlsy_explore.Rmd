@@ -20,16 +20,8 @@ set_urbn_defaults(style = "print")
 
 ```{r}
 # Read data
+nlsydf = readRDS(paste0(here::here(), "/NLSY/NLSY-college-finance.rds"))
 
-nlsydf = readRDS("NLSY-college-finance2.rds")
-
-# Frame with weights
-wtdf = read_table(
-  'customweight_nlsy97_651b190a18af1d9d269.dat',
-  col_names = c('id','wt'),
-  col_types = 'id'
-  ) |>
-  mutate(wt=wt/100)
 ```
 
 
@@ -45,9 +37,9 @@ basedf = nlsydf |>
     hisp =      "KEY_ETHNICITY_1997",
     race =      "KEY_RACE_1997",
     pincome =   "CV_INCOME_GROSS_YR_1997",
-    pnetworth = "CV_HH_NET_WORTH_P_1997"
-  ) |>
-  left_join(wtdf, by='id')
+    pnetworth = "CV_HH_NET_WORTH_P_1997",
+    wt
+  )
 
 basedf = basedf |> 
   mutate(
