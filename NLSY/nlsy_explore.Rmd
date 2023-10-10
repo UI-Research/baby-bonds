@@ -1,0 +1,287 @@
+---
+title: "NLSY Data Exploration"
+output: html_document
+date: '2023-10-07'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+library(tidyverse)
+library(scales)
+library(ggridges)
+library(mice)
+library(urbnthemes)
+
+set_urbn_defaults(style = "print")
+
+```
+
+```{r}
+# Read data
+
+nlsydf = readRDS("NLSY-college-finance2.rds")
+
+# Frame with weights
+wtdf = read_table(
+  'customweight_nlsy97_651b190a18af1d9d269.dat',
+  col_names = c('id','wt'),
+  col_types = 'id'
+  ) |>
+  mutate(wt=wt/100)
+```
+
+
+```{r}
+# Base frame with demographic characteristics
+basedf = nlsydf |>
+  select(
+    id =        "PUBID_1997",
+    age0 =      "CV_AGE_12/31/96_1997",
+    sex =       "KEY_SEX_1997",
+    bdate_m =   "KEY_BDATE_M_1997",
+    bdate_y =   "KEY_BDATE_Y_1997",
+    hisp =      "KEY_ETHNICITY_1997",
+    race =      "KEY_RACE_1997",
+    pincome =   "CV_INCOME_GROSS_YR_1997",
+    pnetworth = "CV_HH_NET_WORTH_P_1997"
+  ) |>
+  left_join(wtdf, by='id')
+
+basedf = basedf |> 
+  mutate(
+    race = droplevels(race),
+    hisp = fct_recode(
+      hisp,
+      'Hispanic'     = 'Yes',
+      'Non-Hispanic' = 'No'
+    )
+  )
+
+```
+
+
+# NLSY Data
+
+## Sample Composition
+
+The racial and ethnic composition of the sample is following:
+
+```{r}
+knitr::kable(table(basedf$race, basedf$hisp, useNA="ifany"))
+
+basedf = basedf |> 
+  mutate(
+    race = fct_recode(
+      race,
+      'Other'  = "Something else? (SPECIFY)",
+      'Black'  = "Black or African American",
+      'Other'  = "Asian or Pacific Islander",
+      'Other' = "American Indian, Eskimo, or Aleut"
+    )
+  )
+```
+
+
+Because the sample sizes for people who identify as American Indian, Eskimo, or Aleut and Asian or Pacific Islander are small, we group them with others.
+
+```{r}
+
+basedf = basedf |> 
+  filter(!is.na(race) & !is.na(hisp) & race!='No information')
+
+knitr::kable(table(basedf$race, basedf$hisp, useNA="ifany"))
+#knitr::kable(table(basedf$race, basedf$bdate_y, useNA="ifany"))
+
+```
+
+
+## Wealth and Income
+
+
+The number of observations with missing parental wealth is `r basedf |> filter(is.na(pnetworth)) |> summarize(n=n())`, those that are missing parental income is `r basedf |> filter(is.na(pincome)) |> summarize(n=n())` and those that are missing either one is `r basedf |> filter(is.na(pnetworth) | is.na(pincome)) |> summarize(n=n())`.
+
+```{r fig.cap="Missing Values for Parents' Net Worth and Income"}
+md.pattern(select(basedf, pincome, pnetworth))
+```
+
+
+```{r fig.cap="Distributiuon of Parents' Net Worth by Race (Thousands od Dollars)"}
+
+basedf |>
+  ggplot() +
+  geom_boxplot(aes(y=pnetworth, color=race, fill=race)) +
+  scale_y_continuous(labels=\(x) x/1000) +
+  ylab("Net Worth") + remove_axis(axis='x') + remove_ticks()
+```
+
+```{r fig.cap="Distributiuon of Parents' Income by Race (Thousands od Dollars)"}
+
+basedf |>
+  ggplot() +
+  geom_boxplot(aes(y=pincome, color=race, fill=race)) +
+  scale_y_continuous(labels=\(x) x/1000) +
+  ylab("Income") + remove_axis(axis='x') + remove_ticks()
+```
+
+```{r fig.cap="Parents' Net Worth and Gross Income by Race (Thousands of Dollars)"}
+
+basedf |>
+  ggplot(aes(x=pnetworth, y=pincome, color=race)) +
+  geom_point(size=1) + 
+  scale_y_continuous(labels=\(x) x/1000) +
+  scale_x_continuous(labels=\(x) x/1000) +
+  xlab("Net Worth") + ylab('Income')
+
+```
+
+```{r fig.cap="Distribution of Parents' Net Worth by Race (Thousands of Dollars)"}
+
+basedf |>
+  ggplot() +
+  geom_freqpoly(aes(x=pnetworth, y=after_stat(density), color=race)) +
+  scale_x_continuous(labels=\(x) x/1000) +
+  xlab("Net worth") + ylab("Race")
+
+
+```
+
+## College Enrollment
+
+```{r}
+# Frame with school enrollment
+schdf = nlsydf |>
+  select(
+    id =        "PUBID_1997",
+    starts_with('CV_ENROLLSTAT')
+  ) |>
+  rename_with(~gsub('_EDT_', '_', .x)) |>
+  pivot_longer(
+    starts_with('CV_ENROLLSTAT'), 
+    names_to='year', 
+    names_prefix='CV_ENROLLSTAT_') |>
+  mutate(year=as.integer(year)) |>
+  mutate(colenr = case_when(
+    (value=="Enrolled in a 2-year college" |
+     value=="Enrolled in a 4-year college") ~ 1,
+    TRUE ~ 0
+    ) 
+  )
+
+col1styrdf = schdf |>
+  group_by(id) |>
+  filter(colenr==1) |>
+  filter(row_number()==1) |>
+  rename(first_col_year=year)
+
+# Frame with ever attended college
+evercoldf = schdf |>
+  group_by(id) |>
+  summarise(evercol = max(colenr))
+
+# Sample of 
+table(evercoldf$evercol)
+# 0    1 
+# 3606 5378 
+
+evercoldf = left_join(
+  evercoldf,
+  basedf,
+  by='id'
+)
+
+
+
+```
+
+```{r fig.cap="Share of Ever Attended College by Parents' Net-Worth Quartile and Race"}
+
+
+
+evercoldf |>
+  filter(!is.na(pnetworth)) |>
+  group_by(race) |>
+  mutate(
+    pnworth_cat = cut(
+      pnetworth, 
+      breaks=quantile(pnetworth), 
+      labels=c('1st','2nd','3rd','4th'),
+      include.lowest = TRUE)
+  ) |>
+  group_by(race, pnworth_cat) |>
+  mutate(`College Attendance`=weighted.mean(evercol, wt)) |>
+  ggplot() +
+    geom_col(aes(x=pnworth_cat,y=`College Attendance`,fill=race), position="dodge") +
+    xlab("Net Worth Quartile")
+```
+
+```{r fig.cap="Share of Ever Attended College by Parents' Income Quartile and Race"}
+
+
+
+evercoldf |>
+  filter(!is.na(pincome)) |>
+  group_by(race) |>
+  mutate(
+    pincome_cat = cut(
+      pincome, 
+      breaks=quantile(pincome), 
+      labels=c('1st','2nd','3rd','4th'),
+      include.lowest = TRUE)
+  ) |>
+  group_by(race, pincome_cat) |>
+  mutate(`College Attendance`=weighted.mean(evercol, wt)) |>
+  ggplot() +
+    geom_col(aes(x=pincome_cat,y=`College Attendance`,fill=race), position="dodge") +
+    xlab("Income Quartile")
+```
+
+# Student loans
+
+```{r}
+# Student loans
+sloandf = nlsydf |>
+  select(
+    id =        "PUBID_1997",
+    starts_with('YSCH-25700')
+  ) |>
+  left_join(evercoldf, by='id') |>
+  filter(evercol==1) |>
+  select(-"YSCH-25700.01_1997", -evercol) |>
+  pivot_longer(
+    starts_with('YSCH-25700'), 
+    names_to=c('college', 'term', 'year'),
+    names_pattern='YSCH-25700\\.(\\d\\d)\\.(\\d\\d)\\_(\\d\\d\\d\\d)'
+    ) |>
+  group_by(id, year) |>
+  summarise(debt=sum(value, na.rm=TRUE)) |>
+  mutate(hasdebt=ifelse(debt>0, 1, 0))
+  
+
+sloandf = left_join(
+  basedf |> select(id, bdate_y, sex, race, hisp, wt),
+  sloandf,
+  by='id'
+)
+```
+
+```{r}
+  
+plotdf = sloandf |>
+  filter(hasdebt==1) |>
+  group_by(year, race) |>
+  summarise(
+    debtavg=weighted.mean(debt, wt),
+    debtmed=median(debt)
+    )
+  
+plotdf |>
+  ggplot() +
+    geom_line(aes(x=year, y=debtavg, color=race, group=race))
+
+plotdf |>
+  ggplot() +
+  geom_line(aes(x=year, y=debtmed, color=race, group=race))
+
+```
