@@ -8,6 +8,7 @@ date: '2023-10-07'
 knitr::opts_chunk$set(echo = FALSE)
 knitr::opts_chunk$set(message = FALSE)
 knitr::opts_chunk$set(warning = FALSE)
+library(Hmisc)
 library(tidyverse)
 library(scales)
 library(ggridges)
@@ -102,39 +103,48 @@ md.pattern(select(basedf, pincome, pnetworth))
 ```{r fig.cap="Distributiuon of Parents' Net Worth by Race (Thousands od Dollars)"}
 
 basedf |>
+  select(id, pnetworth, race, wt) |>
+  mutate(wt=as.integer(wt/100)) |>
+  uncount(wt) |>
   ggplot() +
   geom_boxplot(aes(y=pnetworth, color=race, fill=race)) +
   scale_y_continuous(labels=\(x) x/1000) +
-  ylab("Net Worth") + remove_axis(axis='x') + remove_ticks()
+  ylab("Net Worth ($1,000") + remove_axis(axis='x') + remove_ticks()
 ```
 
 ```{r fig.cap="Distributiuon of Parents' Income by Race (Thousands od Dollars)"}
 
 basedf |>
+  select(id, pincome, race, wt) |>
+  mutate(wt=as.integer(wt/100)) |>
+  uncount(wt) |>
   ggplot() +
   geom_boxplot(aes(y=pincome, color=race, fill=race)) +
   scale_y_continuous(labels=\(x) x/1000) +
-  ylab("Income") + remove_axis(axis='x') + remove_ticks()
+  ylab("Income ($1,000") + remove_axis(axis='x') + remove_ticks()
 ```
 
 ```{r fig.cap="Parents' Net Worth and Gross Income by Race (Thousands of Dollars)"}
 
 basedf |>
   ggplot(aes(x=pnetworth, y=pincome, color=race)) +
-  geom_point(size=1) + 
-  scale_y_continuous(labels=\(x) x/1000) +
-  scale_x_continuous(labels=\(x) x/1000) +
-  xlab("Net Worth") + ylab('Income')
+    geom_point(size=1) + 
+    scale_y_continuous(labels=\(x) x/1000) +
+    scale_x_continuous(labels=\(x) x/1000) +
+    xlab("Net Worth ($1,000") + ylab('Income ($1,000')
 
 ```
 
 ```{r fig.cap="Distribution of Parents' Net Worth by Race (Thousands of Dollars)"}
 
 basedf |>
+  select(id, pnetworth, pincome, race, wt) |>
+  mutate(wt=as.integer(wt/100)) |>
+  uncount(wt) |>
   ggplot() +
   geom_freqpoly(aes(x=pnetworth, y=after_stat(density), color=race)) +
   scale_x_continuous(labels=\(x) x/1000) +
-  xlab("Net worth") + ylab("Density")
+  xlab("Net worth ($1,000") + ylab("Density")
 
 
 ```
@@ -193,11 +203,10 @@ evercoldf = left_join(
 
 evercoldf |>
   filter(!is.na(pnetworth)) |>
-  group_by(race) |>
   mutate(
     pnworth_cat = cut(
       pnetworth, 
-      breaks=quantile(pnetworth), 
+      breaks=Hmisc::wtd.quantile(pnetworth, wt),
       labels=c('1st','2nd','3rd','4th'),
       include.lowest = TRUE)
   ) |>
@@ -214,11 +223,10 @@ evercoldf |>
 
 evercoldf |>
   filter(!is.na(pincome)) |>
-  group_by(race) |>
   mutate(
     pincome_cat = cut(
       pincome, 
-      breaks=quantile(pincome), 
+      breaks=Hmisc::wtd.quantile(pincome, wt), 
       labels=c('1st','2nd','3rd','4th'),
       include.lowest = TRUE)
   ) |>
