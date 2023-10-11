@@ -134,7 +134,7 @@ basedf |>
   ggplot() +
   geom_freqpoly(aes(x=pnetworth, y=after_stat(density), color=race)) +
   scale_x_continuous(labels=\(x) x/1000) +
-  xlab("Net worth") + ylab("Race")
+  xlab("Net worth") + ylab("Density")
 
 
 ```
