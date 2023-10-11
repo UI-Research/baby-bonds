@@ -76,7 +76,7 @@ basedf = basedf |>
 ```
 
 
-Because the sample sizes for people who identify as American Indian, Eskimo, or Aleut and Asian or Pacific Islander are small, we group them with others.
+Because the sample sizes for people who identify as American Indian, Eskimo, or Aleut and Asian or Pacific Islander are small, we group them with others. We also drop those who miss race information.
 
 ```{r}
 
@@ -139,7 +139,7 @@ basedf |>
 
 ```
 
-## College Enrollment
+## College Attendance
 
 ```{r}
 # Frame with school enrollment
