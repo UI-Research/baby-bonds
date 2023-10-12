@@ -11,6 +11,11 @@ source('common.R')
 setwd(nlsy_data_dir)
 source("College-finance2.R")
 
+categories <- vallabels(new_data)
+new_data <- qnames(new_data)
+categories <- qnames(categories)
+
+
 # Frame with weights
 wtdf = read_table(
   'customweight_nlsy97_651b190a18af1d9d269.dat',
