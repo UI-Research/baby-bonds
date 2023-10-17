@@ -8,3 +8,4 @@ It is assumed that an R project file is in the repo's root folder and that the B
 
 * `make_nlsy.R`: Run it once to create a local RDS file.
 * `explore_nlsy.Rmd`: RMarkdown file that explores NLSY data.
+* [`explore_nlsy.html`][https://ui-research.github.io/baby-bonds/]: Rendering of the above file.
