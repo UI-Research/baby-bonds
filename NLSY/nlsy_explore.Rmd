@@ -141,7 +141,7 @@ md.pattern(select(basedf, pincome, pnetworth))
 ```
 
 
-```{r fig.cap="Distributiuon of Parents' Net Worth by Race (Thousands od Dollars)"}
+```{r fig.cap="Distribution of Parents' Net Worth by Race (Thousands od Dollars)"}
 
 basedf |>
   select(id, pnetworth, race, wt) |>
@@ -153,7 +153,7 @@ basedf |>
   ylab("Net Worth ($1,000)") + remove_axis(axis='x') + remove_ticks()
 ```
 
-```{r fig.cap="Distributiuon of Parents' Income by Race (Thousands od Dollars)"}
+```{r fig.cap="Distribution of Parents' Income by Race (Thousands od Dollars)"}
 
 basedf |>
   select(id, pincome, race, wt) |>
@@ -190,7 +190,9 @@ basedf |>
 
 ```
 
-## College Attendance
+# College Education
+
+## Ever Attended College
 
 ```{r}
 # Frame with school enrollment
@@ -287,6 +289,132 @@ evercoldf |>
     xlab("Income Quintile")
 ```
 
+## College Enrollment History
+
+```{r}
+# Frame with college enrollment
+colstdf = nlsydf |>
+  select(
+    id =        "PUBID_1997",
+    starts_with('SCH_COLLEGE_STATUS_')
+  ) |>
+  pivot_longer(
+    starts_with('SCH_COLLEGE_STATUS_'), 
+    names_to=c('year', 'month'),
+    names_pattern='SCH_COLLEGE_STATUS_(\\d\\d\\d\\d)\\.(\\d\\d)_XRND',
+    values_to='college_status'
+    ) |>
+  mutate(
+    year=as.integer(year),
+    month=as.integer(month),
+    in_college=as.integer(college_status %in% 
+      c("Enrolled in 2-year college",
+       "Enrolled in 4-year college")
+    ),
+    in_gradsch=as.integer(college_status == 'Enrolled in Graduate program')
+  )
+
+colstdf = colstdf |> 
+  # We are interested in new academic year that starts in August
+  filter(month >= 8) |>
+  group_by(id, year) |> 
+  summarise(
+    # All months are missing
+    allna = all(is.na(college_status)),
+    # Enrolled during any month 
+    enrolled=any(in_college, na.rm=TRUE)
+    )
+
+# Frame with highest grade completed
+hgcdf = nlsydf |>
+  select(
+    id =        "PUBID_1997",
+    matches('CV_HGC_EVER_1997'),
+    matches('CV_HGC_EVER_EDT_\\d\\d\\d\\d'),
+  ) |>
+  rename_with(~gsub('_EDT_', '_', .x)) |>
+  pivot_longer(
+    starts_with('CV_HGC_EVER_'), 
+    names_to='year',
+    names_prefix='CV_HGC_EVER_',
+    values_to='hgc'
+    ) |>
+  mutate(
+    year=as.integer(year),
+    # Highest college year completed
+    hcyc=case_when(
+      hgc=='1ST YEAR COLLEGE'         ~ 1,
+      hgc=='2ND YEAR COLLEGE'         ~ 2,
+      hgc=='3RD YEAR COLLEGE'         ~ 3,
+      hgc=='4TH YEAR COLLEGE'         ~ 4,
+      hgc=='5TH YEAR COLLEGE'         ~ 5,
+      hgc=='6TH YEAR COLLEGE'         ~ 6,
+      hgc=='7TH YEAR COLLEGE'         ~ 7,
+      hgc=='8TH YEAR COLLEGE OR MORE' ~ 8,
+      TRUE                            ~ NA
+    )) |>
+  group_by(id) |>
+  # Add years between surveys
+  complete(year=1997:2019) |>
+  # Fill missing values with the previous year
+  fill(hcyc) |>
+  mutate(
+    hcyc = case_when(
+      # Try to avoid increases by more than 1, but not in 2019 because lead() creates NA
+      lead(hcyc)-hcyc>1 ~ hcyc+1,
+      # Some people jump from 12th grade to 2nd year of college. Try to avoid it.
+      lead(hcyc)==2 & hgc=='12TH GRADE' & lag(hgc)=='12TH GRADE' ~ 1, 
+      lead(hcyc)==2 & hcyc==2 & lag(hgc)=='12TH GRADE' ~ 1, 
+      TRUE ~ hcyc
+    )
+  )
+
+colstdf = left_join(
+  colstdf,
+  hgcdf,
+  by=c('id', 'year')
+)
+
+
+# The year in which graduated from high school
+# Expressed as number of months since 1/1/1980.
+# If diploma was obtained in August or later, increment year
+hscompdf = nlsydf |>
+  select(
+    id  = "PUBID_1997",
+    hs  = "CVC_HS_DIPLOMA_XRND",
+    ged = "CVC_GED_XRND"
+  ) |>
+  mutate(
+    hs_comp_date = case_when(
+      !is.na(hs)  ~ hs,
+      !is.na(ged) ~ ged,
+      TRUE ~ NA
+    )
+  ) |>
+  mutate(
+    hs_comp_year = 1980 + hs_comp_date %/% 12,
+    hs_comp_month = hs_comp_date %% 12,
+    hs_comp_year = ifelse(hs_comp_month >= 8, hs_comp_year+1, hs_comp_year)
+    ) |>
+  select(id, hs_comp_year) |>
+  filter(!is.na(hs_comp_year))
+
+colstdf = left_join(
+  colstdf,
+  hscompdf,
+  by=c('id')
+)
+
+colstdf = colstdf |>
+  filter(year>=hs_comp_year) |>
+  mutate(
+    cumenr = cumsum(enrolled),
+    col1 = as.integer(enrolled==TRUE & cumenr==1),
+    )
+
+
+```
 # Student loans
 
 ```{r}
