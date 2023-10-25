@@ -291,6 +291,7 @@ evercoldf |>
 
 ## College Enrollment History
 
+
 ```{r}
 # Frame with college enrollment
 colstdf = nlsydf |>
@@ -341,6 +342,7 @@ hgcdf = nlsydf |>
     ) |>
   mutate(
     year=as.integer(year),
+    completed_hs = as.integer(hgc=='12TH GRADE'),
     # Highest college year completed
     hcyc=case_when(
       hgc=='1ST YEAR COLLEGE'         ~ 1,
@@ -359,6 +361,12 @@ hgcdf = nlsydf |>
   # Fill missing values with the previous year
   fill(hcyc) |>
   mutate(
+    completed_hs = cumsum(completed_hs),
+    hs_comp_year = case_when(
+      completed_hs == 1 ~ year,
+      TRUE ~ NA
+    ),
+    hs_comp_year = min(hs_comp_year, na.rm=TRUE),
     hcyc = case_when(
       # Try to avoid increases by more than 1, but not in 2019 because lead() creates NA
       lead(hcyc)-hcyc>1 ~ hcyc+1,
@@ -367,7 +375,8 @@ hgcdf = nlsydf |>
       lead(hcyc)==2 & hcyc==2 & lag(hgc)=='12TH GRADE' ~ 1, 
       TRUE ~ hcyc
     )
-  )
+  ) |>
+  filter(!is.na(hs_comp_year))
 
 colstdf = left_join(
   colstdf,
@@ -375,46 +384,91 @@ colstdf = left_join(
   by=c('id', 'year')
 )
 
-
+# Do not use this!
+#
+# This way of constructing the year of graduation from high-school is inconsistent with
+# the CV_HGC_EVER_ variables. Using it results in people who graduated from high school 
+# and completed first year of college in the same year.
+#
 # The year in which graduated from high school
 # Expressed as number of months since 1/1/1980.
 # If diploma was obtained in August or later, increment year
-hscompdf = nlsydf |>
-  select(
-    id  = "PUBID_1997",
-    hs  = "CVC_HS_DIPLOMA_XRND",
-    ged = "CVC_GED_XRND"
-  ) |>
-  mutate(
-    hs_comp_date = case_when(
-      !is.na(hs)  ~ hs,
-      !is.na(ged) ~ ged,
-      TRUE ~ NA
-    )
-  ) |>
-  mutate(
-    hs_comp_year = 1980 + hs_comp_date %/% 12,
-    hs_comp_month = hs_comp_date %% 12,
-    hs_comp_year = ifelse(hs_comp_month >= 8, hs_comp_year+1, hs_comp_year)
-    ) |>
-  select(id, hs_comp_year) |>
-  filter(!is.na(hs_comp_year))
-
-colstdf = left_join(
-  colstdf,
-  hscompdf,
-  by=c('id')
-)
+# hscompdf = nlsydf |>
+#   select(
+#     id  = "PUBID_1997",
+#     hs  = "CVC_HS_DIPLOMA_XRND",
+#     ged = "CVC_GED_XRND"
+#   ) |>
+#   mutate(
+#     hs_comp_date = case_when(
+#       !is.na(hs)  ~ hs,
+#       !is.na(ged) ~ ged,
+#       TRUE ~ NA
+#     )
+#   ) |>
+#   mutate(
+#     hs_comp_year = 1980 + hs_comp_date %/% 12,
+#     hs_comp_month = hs_comp_date %% 12,
+#     hs_comp_year = ifelse(hs_comp_month >= 8, hs_comp_year+1, hs_comp_year)
+#     ) |>
+#   select(id, hs_comp_year) |>
+#   filter(!is.na(hs_comp_year))
+# 
+# colstdf = left_join(
+#   colstdf,
+#   hscompdf,
+#   by=c('id')
+# )
 
 colstdf = colstdf |>
   filter(year>=hs_comp_year) |>
   mutate(
     cumenr = cumsum(enrolled),
     col1 = as.integer(enrolled==TRUE & cumenr==1),
+    year_since_hs = year-hs_comp_year
     )
 
 
 ```
+
+
+This chart shows the number of college years completed in every year of the survey since the graduation from high school. Each row represents an NLSY participant who graduated from high school and the x-axis represents the number of years since the graduation. Cells are color-coded according to the number of years of college completed.
+
+```{r fig.width=7, fig.height=10}
+
+plotdf = colstdf |> 
+  ungroup() |>
+  select(id, year_since_hs, hcyc) |>
+  pivot_wider(id_cols=id, names_from=year_since_hs, values_from = hcyc, names_prefix="y") |>
+  arrange(y0,y1,y2,y3,y4,y5,y6,y7,y8,y9,y10,y11,y12,y13,y14,y15,y16,y17,y18,y19,y20,y21,y22) |>
+  mutate(id2=row_number()) |>
+  pivot_longer(
+    starts_with('y'),
+    names_prefix='y',
+    values_to = 'hcyc',
+    names_to='year_since_hs') |>
+  mutate(
+    year_since_hs=as.integer(year_since_hs)
+    ) 
+
+plotdf |>
+  ggplot() + 
+    geom_tile(aes(x=year_since_hs, y=id2, fill=hcyc)) +
+    theme() + 
+    scale_fill_gradientn() +
+    theme(legend.position = "right",
+          legend.direction = "vertical",
+          axis.line.x = element_blank(),
+          axis.title.y=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          panel.grid.major.y = element_blank()) +
+    remove_ticks() +
+    xlab("Years Since High School")
+
+```
+
+
 # Student loans
 
 ```{r}
