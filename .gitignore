@@ -1,6 +1,19 @@
-.Rproj.user
-.Rhistory
-.RData
-.Ruserdata
-*.RProj
-*.rds
+# Ignore everything
+*.*
+# Include .gitignore and README.md
+!.gitignore
+!README.md
+# Include R, Python, and SAS files
+!*.R
+!*.py
+!*.Rproj
+!*.sas
+!*.do
+# Include quarto notebooks
+!*.qmd
+!*.RMD
+!*.html
+# Allow renv files
+!*renv.lock
+!*.Rprofile
+!*renv.activate.R

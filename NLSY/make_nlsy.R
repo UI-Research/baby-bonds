@@ -1,16 +1,10 @@
 
-# Execute the script provided by NLSY that reads the data and 
+# Execute the script provided by NLSY that reads the data and
 # save them in an RDS file.
 
 library(tidyverse)
 
-# Get the NLSY data path
-source('common.R')
-
-# The NLSY script has to be executed in the data folder
-setwd(nlsy_data_dir)
-source("College-finance2.R")
-
+# Not sure what packages these functions come from - could not run these three lines
 categories <- vallabels(new_data)
 new_data <- qnames(new_data)
 categories <- qnames(categories)
@@ -18,7 +12,7 @@ categories <- qnames(categories)
 
 # Frame with weights
 wtdf = read_table(
-  'customweight_nlsy97_651b190a18af1d9d269.dat',
+  'https://urbanorg.box.com/shared/static/v8ps9iechzoamynkvkwgymx7iisd1tr8.dat',
   col_names = c('PUBID_1997','wt'),
   col_types = 'id'
 ) |>
