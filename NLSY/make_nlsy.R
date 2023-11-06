@@ -1,15 +1,20 @@
 
-# Execute the script provided by NLSY that reads the data and 
+# Execute the script provided by NLSY that reads the data and
 # save them in an RDS file.
 
 library(tidyverse)
 
-# Get the NLSY data path
-source('common.R')
-
-# The NLSY script has to be executed in the data folder
-setwd(nlsy_data_dir)
-source("College-finance2.R")
+# Load in College-finance2.dat
+new_data <- read.table('https://urbanorg.box.com/shared/static/f8tyxcohac1ha11a3mcw0dzq8ywqayyn.dat', sep=' ')
+# Source College-finance2.R to clean the data just loaded in.
+# Note: The first 6 lines need to be removed and because the script is so large, doing so
+# programmatically is the least intrusive way.
+colfin_link = 'https://urbanorg.box.com/shared/static/wc9eg6bzygf2l7abpjb6sdnd9qyx96tq.r'
+colfin_r = readLines(colfin_link)
+colfin_r = colfin_r[-1:-6]
+tc = textConnection(colfin_r)
+source(tc)
+close(tc)
 
 categories <- vallabels(new_data)
 new_data <- qnames(new_data)
@@ -18,7 +23,7 @@ categories <- qnames(categories)
 
 # Frame with weights
 wtdf = read_table(
-  'customweight_nlsy97_651b190a18af1d9d269.dat',
+  'https://urbanorg.box.com/shared/static/v8ps9iechzoamynkvkwgymx7iisd1tr8.dat',
   col_names = c('PUBID_1997','wt'),
   col_types = 'id'
 ) |>
@@ -26,7 +31,7 @@ wtdf = read_table(
 
 categories = left_join(categories, wtdf, by='PUBID_1997')
 
-setwd(here::here())
-saveRDS(categories, "NLSY/NLSY-college-finance.rds")
+# Note: This data was uploaded from Box and can be read in from there
+saveRDS(categories, here::here("NLSY", "NLSY-college-finance.rds"))
 rm(list=c('new_data', 'categories', 'wtdf', 'qnames', 'varlabels', 'vallabels', 'vallabels_continuous'))
 
