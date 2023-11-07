@@ -25,7 +25,6 @@ nlsydf = readRDS(paste0(here::here(), "/NLSY/NLSY-college-finance.rds"))
 
 ```
 
-
 ```{r}
 # Base frame with demographic characteristics
 basedf = nlsydf |>
@@ -56,7 +55,7 @@ basedf = basedf |>
     has_retsav = case_when(
       has_retsav=='YES' ~ 1,
       has_retsav=='NO'  ~ 0,
-      TRUE ~ NA
+      TRUE ~ as.double(NA)
     )
   )
 
@@ -70,16 +69,16 @@ basedf = basedf |>
     retsav2 == "E.    $50,001   -    $100,000"       ~ runif(n(), 50001, 100000),
     retsav2 == "F.    $100,001       $250,000"       ~ runif(n(), 100001, 250000),
     retsav2 == "G.    More than $250,000"            ~ runif(n(), 250001, 500000),
-    TRUE ~ NA
+    TRUE ~ as.double(NA)
     )
   )
 
 basedf = basedf |>
   mutate(
     retsav = case_when(
-      !is.na(retsav1) ~ retsav1,
-      !is.na(retsav3) ~ retsav3,
-      TRUE ~ NA
+      !is.na(retsav1) ~ as.double(retsav1),
+      !is.na(retsav3) ~ as.double(retsav3),
+      TRUE ~ as.double(NA)
     )
   )
 
@@ -94,7 +93,6 @@ stopifnot(
   )[1] == 0
 )
 ```
-
 
 # NLSY Data
 
@@ -117,7 +115,6 @@ basedf = basedf |>
   )
 ```
 
-
 Because the sample sizes for people who identify as American Indian, Eskimo, or Aleut and Asian or Pacific Islander are small, we group them with others. We also drop those who miss race information.
 
 ```{r}
@@ -130,16 +127,13 @@ knitr::kable(table(basedf$race, basedf$hisp, useNA="ifany"))
 
 ```
 
-
 ## Wealth and Income
-
 
 The number of observations with missing parental wealth is `r basedf |> filter(is.na(pnetworth)) |> summarize(n=n())`, those that are missing parental income is `r basedf |> filter(is.na(pincome)) |> summarize(n=n())` and those that are missing either one is `r basedf |> filter(is.na(pnetworth) | is.na(pincome)) |> summarize(n=n())`.
 
 ```{r fig.cap="Missing Values for Parents' Net Worth and Income"}
 md.pattern(select(basedf, pincome, pnetworth))
 ```
-
 
 ```{r fig.cap="Distributiuon of Parents' Net Worth by Race (Thousands od Dollars)"}
 
@@ -342,18 +336,18 @@ plotdf |>
 
 The NLSY survey defines independence fairly broadly. To better understand the degree of dependence on parents, we construct a variable that is true if any of the following lives in the same household as the participant:
 
-* Mother,
-* Father,
-* Adoptive mother,                          
-* Adoptive father,
-* Step-mother,
-* Step-father,                              
-* Foster mother,
-* Foster father
+-   Mother,
+-   Father,
+-   Adoptive mother,\
+-   Adoptive father,
+-   Step-mother,
+-   Step-father,\
+-   Foster mother,
+-   Foster father
 
-From https://www.nlsinfo.org/content/cohorts/nlsy97/topical-guide/income/income:
+From <https://www.nlsinfo.org/content/cohorts/nlsy97/topical-guide/income/income>:
 
->To be considered independent, a respondent had at least one of these characteristics: was age 18 or older, had a child, was enrolled in a 4-year college, was or had been married or was in a marriage-like relationship (defined in rounds 1-8 as a sexual relationship where partners of the opposite sex live together) at the time of the survey, was no longer enrolled in school, or was not living with any parents or parent-figures. Beginning in round 8, all respondents were classified as independent.
+> To be considered independent, a respondent had at least one of these characteristics: was age 18 or older, had a child, was enrolled in a 4-year college, was or had been married or was in a marriage-like relationship (defined in rounds 1-8 as a sexual relationship where partners of the opposite sex live together) at the time of the survey, was no longer enrolled in school, or was not living with any parents or parent-figures. Beginning in round 8, all respondents were classified as independent.
 
 ```{r}
 
