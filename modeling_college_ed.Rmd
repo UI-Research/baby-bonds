@@ -1,0 +1,214 @@
+---
+title: "Modeling College Education"
+author: "Damir Cosic"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+library(Hmisc)
+library(tidyverse)
+library(scales)
+library(ggridges)
+library(mice)
+library(urbnthemes)
+
+set_urbn_defaults(style = "print")
+```
+
+```{r}
+
+source(here::here("NLSY/nlsy_lib.R"))
+
+# Frame with college enrollment
+colstdf = nlsy_get_col_stat_fall_df()
+
+# Frame with highest grade completed
+hgcdf = nlsy_get_highest_grade_completed_df()
+
+colstdf = left_join(
+  colstdf,
+  hgcdf,
+  by=c('id', 'year')
+)
+
+colstdf = colstdf |>
+  filter(year>=hs_comp_year) |>
+  mutate(
+    cumenr = cumsum(enrolled),
+    col1 = as.integer(enrolled==TRUE & cumenr==1),
+    year_since_hs = year-hs_comp_year
+    )
+
+```
+
+
+# Introduction
+
+The main purpose of this document is to define a new model of college education that is sensitive to parents' wealth and income.
+
+# Current Model
+
+The model of college education in the current version of DYNASIM consists of three models: models four separate college-related events each year:
+
+1. Enrollment, for those who graduated from high school,
+2. Returning to college, for those who are enrolled in college but not yet in their senior year,
+3. Failing the senior year and remaining enrolled, for those who reach senior year, and
+3. Dropping out of college, for thoe in senior year.
+
+Those who reach the senior year, don't fail it, and don't drop out gradute from college. 
+
+The likelihood of these events, which is implemented as a transition-probability look-up table, is modeled as a function of:
+
+- gender,
+- parents’ education (less than high school, high-school diploma, some college, or college diploma or more), and
+- race/ethnicity (Black Non-Hispanic, Hispanic, and White Non-Hispanic).
+
+Parents’ education is the education of the head of a family. In two-parent households, in which parents are heterosexual couples, the father is assigned as the head.
+
+This is a simplified model, as it assumes that each year spent in college, before the senior year, is successfully completed.
+
+# Logistic Hazard Model
+
+The new model of college education will use the logistic hazard model rather than tables of transitional probabilities. This section introduces some concepts and notation. 
+
+## Survival and Hazard Functions
+
+Assuming discrete time $t=1,2,...$ and a random variable $T$ that indicates the timing of an event (e.g., college enrollment), we define a *survival function* $S(.)$ at the end of time $t$ as:
+$$Pr(T>t) = 1-F(t) = S(t) = S_t$$
+Similarly, at the beginning of $y$, the survival function is $Pr(T>t-1) = 1-F(t-1) = S(t-1)$. The (unconditional) probability of exit during the interval $t$ is $Pr(t-1<T<t) = S_{t-1}-S_t$. The conditional probability of exit during time $t$ conditional on surviving until $t-1$ is *interval hazard rate*:
+\begin{align}
+h_t &= Pr(t-1<T<t|T>t-1) \\
+     &= \frac{Pr(t-1<T<t)}{Pr(T>t-1)} \\
+     &= \frac{S_{t-1}-S_t}{S_{t-1}}
+\end{align}
+
+The probability of survival until the end of interval $t$ is the product of probabilities of not experiencing an event in each of the intervals ${1,...,t}$:
+
+$$S_t = \Pi_{k=1}^{t} (1-h_k)$$
+
+## Proportional Odds and Logistic Hazard Model
+
+The proportional odds model assumes that the odds ratio for a person with a vector of individual characteristics $X$ at time $t$ is proportional to the odds ratio at $t$ that is common to all individuals and an individual-specific scaling factor:
+
+$$\frac{h(t,X)}{1-h(t,X)} = \frac{h_0(t)}{1-h_0(t)} \exp (\beta' X)$$
+
+Taking into account the definition of the logit function $\text{logit}(x) = \log(x/(1-x))$ and denoting $\text{logit}(h_0(t))=\alpha_t$, yields the *logistic hazard model*:
+
+$$h(t,X) = \frac{1}{1+\exp(-\alpha_t -\beta' X)}$$
+
+
+# Proposed Model
+
+The proposed model of college education consists of three models, effectively merging models 2. and 3. into one:
+
+1. Enrollment, for those who graduated from high school,
+2. Dropping out of college, for those who are enrolled in college,
+3. Graduating from college, for those who reach their senior year.
+
+
+## Enrollment
+
+The college enrollment model simulates enrollment into college for high-school graduates. To allow high-school graduates to take a break before enrolling into college, we need to model enrollment as a *survival model*, in which all high-school graduate who have not enrolled in college are at risk of enrolling in each year after graduating from high school for some number of years. The current model allows college enrollment for seven years after high-school graduation.
+
+The data for estimating this model should have one observation per person per year. The time should be measured in years since the high-school graduation. The dependent variable should have value zero in years in which a person was not enrolled in college, and one in the year in which the person enrolled into college. A person who enrolled in college, the year of enrollment would be last year in the dataset. A person who did not enroll during the *enrollment window* would have a zero for each year during that window.
+
+Note that a simpler way to implement this model would be as a one-shot logistic regression model that selects high-school graduates who enroll into college. Those who are not selected don't get another opportunity. However, this model does not represent reality well because many people don't enroll into college immediately after their high-school graduation (figure 1). If this kind of model was calibrated to match the total enrollment, it would result in the average college graduation age that is younger than that in the population.
+
+
+```{r fig.cap="Figure 1. Hazard function for college enrollment by race, sex and year since the graduation from high school."}
+
+
+basedf = nlsy_get_base_df() |> 
+    select(id, sex, race, hisp, wt) |>
+    filter(!is.na(race) & !is.na(hisp) & race!='No information')
+
+
+colenryrdf = colstdf |>
+    group_by(id) |>
+    mutate(colenryr = case_when(
+        col1 == 1 ~ year,
+        TRUE ~ 0
+    )) |>
+    summarise(colenryr = max(colenryr))
+
+colenryrdf = left_join(
+        colstdf,
+        colenryrdf,
+        by="id"
+    ) |>
+    filter(colenryr==0 | colenryr>=year) |>
+    select(id, year=year_since_hs, col1) |>
+    inner_join(
+        basedf,
+        by='id'
+    )
+
+plotdf = colenryrdf |>
+    nlsy_recode_race_and_ethn() |> 
+    filter(race != 'Other') |>
+    group_by(year, race, sex) |>
+    summarise(enrollment=weighted.mean(col1, wt))
+
+ggplot(plotdf) +
+    geom_line(aes(x=year, y=enrollment, color=race)) +
+    facet_grid(~sex) +
+    xlab('Year since high-school graduation') +
+    ylab('Likelihood of college enrollment')
+
+```
+
+
+```{r fig.width=7, fig.height=10, fig.cap="Figure 2. College years completed in every year since the graduation from high school."}
+
+plotdf = colstdf |> 
+  ungroup() |>
+  select(id, year_since_hs, hcyc) |>
+  pivot_wider(id_cols=id, names_from=year_since_hs, values_from = hcyc, names_prefix="y") |>
+  arrange(y0,y1,y2,y3,y4,y5,y6,y7,y8,y9,y10,y11,y12,y13,y14,y15,y16,y17,y18,y19,y20,y21,y22) |>
+  mutate(id2=row_number()) |>
+  pivot_longer(
+    starts_with('y'),
+    names_prefix='y',
+    values_to = 'hcyc',
+    names_to='year_since_hs') |>
+  mutate(
+    year_since_hs=as.integer(year_since_hs)
+    ) 
+
+plotdf |>
+  ggplot() + 
+    geom_tile(aes(x=year_since_hs, y=id2, fill=hcyc)) +
+    theme() + 
+    scale_fill_gradientn() +
+    theme(legend.position = "right",
+          legend.direction = "vertical",
+          axis.line.x = element_blank(),
+          axis.title.y=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          panel.grid.major.y = element_blank()) +
+    remove_ticks() +
+    xlab("Years Since High School")
+
+```
+
+
+## Retention
+
+In the current model, all students who get enrolled in college are assumed to complete first year. In subsequent years, the retention model simulates their decision to return to school and continue their education. This model could also be implemented as a simple logistic regression, but that would assume the same conditional probability of returning to college in each year of college. A survival model would allow these conditional probabilities to differ.
+
+## Dropping out of College
+
+
+
+
+
+
+
+
+
+
