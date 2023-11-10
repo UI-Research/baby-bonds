@@ -171,7 +171,9 @@ nlsy_get_col_stat_fall_df = function()
       allna = all(is.na(college_status)),
       # Enrolled during any month
       enrolled=any(in_college, na.rm=TRUE)
-    )
+    ) |>
+    filter(!allna) |>
+    select(-allna)
 
   return(data)
 }
