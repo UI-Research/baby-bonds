@@ -13,7 +13,7 @@ library(Hmisc)
 library(tidyverse)
 library(scales)
 library(ggridges)
-library(mice)
+library(modelsummary)
 library(urbnthemes)
 
 set_urbn_defaults(style = "print")
@@ -171,28 +171,51 @@ The second model consists of six regressions, one for each combination of sex an
 
 $$ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t), j=1,...,6$$
 
-Figure 2 shows hazard rates by sex and race predicted by these two models, as well as the actual hazard rates from figure 1. As expected, model 2 performs much better because its time-varying term is estimated separately for each combination of sex and race.
 
 ```{r est-simple-models}
 
-df = colenryrdf |>
+estdf = colenryrdf |>
     nlsy_recode_race_and_ethn() |> 
     filter(race != 'Other') |>
     mutate(yearf=factor(year))
 
-m1 = glm(col1 ~ yearf + sex + race + sex*race, data=df, family=binomial)
-df$p1 = predict(m1, type='response')
+m1 = glm(col1 ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
+estdf$p1 = predict(m1, type='response')
 
 
-df = df |>
+estdf = estdf |>
     group_by(race, sex) |>
     nest() |>
     mutate(m2 = map(data, \(x) glm(col1 ~ yearf, data=x, family=binomial))) |>
     mutate(p2 = map(m2, \(x) predict(x, type='response')))
 ```
 
+```{r}
+
+m2names = (estdf |> arrange(desc(sex), race) |> mutate(sexrace = paste(sex, race, sep=",")))$sexrace
+m2names = gsub('Male,', 'M ', gsub('Female,', 'F ', m2names))
+m2models = estdf$m2
+names(m2models) = m2names
+models = c(
+    list('All' = m1),
+    m2models
+)
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_omit='yearf1[6-9]|yearf2[0-9]',
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
+             title="Estimated coefficients of models 1 and 2")
+
+```
+
+
+
+Figure 2 shows hazard rates by sex and race predicted by these two models, as well as the actual hazard rates from figure 1. As expected, model 2 performs much better because its time-varying term is estimated separately for each combination of sex and race.
+
 ```{r plot-simple-models, fig.cap='**Figure 2.** Hazard rates by sex and race, actual and predicted.'}
-df |>
+estdf |>
     select(sex, race, data, p2) |>
     unnest(data, p2) |>
     group_by(year, race, sex) |>
