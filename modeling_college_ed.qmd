@@ -396,6 +396,10 @@ spelldf |>
 
 ```
 
+
+## Graduating from College
+
+
 ```{r}
 #| label: fig-college-grad-time
 #| fig-cap: "Distribution of the time between enrollment into college and the graduation (unweighted)"
@@ -411,7 +415,6 @@ spelldf |>
 ```
 
 
-## Graduating from College
 
 
 
