@@ -26,25 +26,20 @@ set_urbn_defaults(style = "print")
 
 source(here::here("NLSY/nlsy_lib.R"))
 
-# Frame with college enrollment
-colstdf = nlsy_get_col_stat_fall_df()
-
-# Frame with highest grade completed
-hgcdf = nlsy_get_highest_grade_completed_df()
-
+# Make a frame with college enrollment and highest grade completed
 colstdf = left_join(
-  colstdf,
-  hgcdf,
+  nlsy_get_col_stat_fall_df(),
+  nlsy_get_highest_grade_completed_df(),
   by=c('id', 'year')
 )
 
-colstdf = colstdf |>
-  filter(year>=hs_comp_year) |>
-  mutate(
-    cumenr = cumsum(enrolled),
-    col1 = as.integer(enrolled==TRUE & cumenr==1),
-    year_since_hs = year-hs_comp_year
-    )
+# Create a base frame
+basedf = nlsy_get_base_df() |> 
+    select(id, sex, race, hisp, wt) |>
+    filter(!is.na(race) & !is.na(hisp) & race!='No information') |>
+    nlsy_recode_race_and_ethn() |> 
+    filter(race != 'Other')
+
 
 ```
 
@@ -71,7 +66,7 @@ The likelihood of these events, which is implemented as a transition-probability
 
 Parents’ education is the education of the head of a family. In two-parent households, in which parents are heterosexual couples, the father is assigned as the head.
 
-This is a simplified model, as it assumes that each year spent in college, before the senior year, is successfully completed.
+This is a simplified model, as it assumes that each year spent in college, before the senior year, is successfully completed. All students who get enrolled in college are assumed to complete first year. In subsequent years, the retention model simulates their decision to return to school and continue their education.
 
 # Logistic Hazard Model
 
@@ -129,24 +124,43 @@ Another interesting thing to note on @fig-enrol-hazard is that the college-enrol
 #| fig-cap: "Hazard function for college enrollment by race, sex and year since the graduation from high school."
 
 
-basedf = nlsy_get_base_df() |> 
-    select(id, sex, race, hisp, wt) |>
-    filter(!is.na(race) & !is.na(hisp) & race!='No information')
+make_first_enr_year_df = function()
+{
+    # Make a college enrollment frame with:
+    #   col1 (boolean):         enrolled first time
+    #   cumenr (int):           cumulative years of enrollment,
+    #   years_since_hs (int):   number of years since the high-school graduation
+    #
+    colenrdf = colstdf |>
+      filter(year>=hs_comp_year) |>
+      mutate(
+        cumenr = cumsum(enrolled),
+        col1 = as.integer(enrolled==TRUE & cumenr==1),
+        year_since_hs = year-hs_comp_year
+        )
+    
+    # Make a temp frame with the year of college enrollment
+    #   colenryr (int):         the year when first enrolled in college
+    #
+    tmpdf = colenrdf |>
+        group_by(id) |>
+        mutate(colenryr = case_when(
+            col1 == 1 ~ year,
+            TRUE ~ 0
+        )) |>
+        summarise(colenryr = max(colenryr))
+    
+    # Merge the college enrollment frame with the temp frame and base frame
+    colenrdf = left_join(
+            colenrdf,
+            tmpdf,
+            by="id"
+        )
+    return(colenrdf)    
+}
 
 
-colenryrdf = colstdf |>
-    group_by(id) |>
-    mutate(colenryr = case_when(
-        col1 == 1 ~ year,
-        TRUE ~ 0
-    )) |>
-    summarise(colenryr = max(colenryr))
-
-colenryrdf = left_join(
-        colstdf,
-        colenryrdf,
-        by="id"
-    ) |>
+colenrdf = make_first_enr_year_df() |>    
     filter(colenryr==0 | colenryr>=year) |>
     select(id, year=year_since_hs, col1) |>
     inner_join(
@@ -154,9 +168,7 @@ colenryrdf = left_join(
         by='id'
     )
 
-plotdf = colenryrdf |>
-    nlsy_recode_race_and_ethn() |> 
-    filter(race != 'Other') |>
+plotdf = colenrdf |>
     group_by(year, race, sex) |>
     summarise(enrollment=weighted.mean(col1, wt))
 
@@ -180,15 +192,15 @@ $$ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t), j=1,...,6$$
 ```{r}
 #| label: est-simple-models
 
-estdf = colenryrdf |>
-    nlsy_recode_race_and_ethn() |> 
-    filter(race != 'Other') |>
+# Create a factor year variable to use it as dummmies in regressions
+estdf = colenrdf |>
     mutate(yearf=factor(year))
 
+# Estimate model1 with dummies for sex and race
 m1 = glm(col1 ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
 estdf$p1 = predict(m1, type='response')
 
-
+# Estimate model2, one model for each sex-race combination
 estdf = estdf |>
     group_by(race, sex) |>
     nest() |>
@@ -200,6 +212,7 @@ estdf = estdf |>
 #| label: tbl-enrol-simple-mod-est
 #| tbl-cap: "Estimated coefficients of models 1 and 2"
 
+# Create a named list of models
 estdf = estdf |> arrange(desc(sex), race)
 m2names = (estdf |> mutate(sexrace = paste(sex, race, sep=",")))$sexrace
 m2names = gsub('Male,', 'M ', gsub('Female,', 'F ', m2names))
@@ -209,6 +222,8 @@ models = c(
     list('All' = m1),
     m2models
 )
+
+# Create a regression table
 modelsummary(models, 
              estimate="{estimate}{stars}", 
              statistic=NULL,
@@ -227,7 +242,7 @@ modelsummary(models,
 
 estdf |>
     select(sex, race, data, p2) |>
-    unnest(data, p2) |>
+    unnest(cols=c(data, p2)) |>
     group_by(year, race, sex) |>
     summarise(
         col1 = weighted.mean(col1, wt),
@@ -257,7 +272,7 @@ estdf |>
 #| fig-cap: "College years completed in every year since the graduation from high school."
 #| eval: false
 
-plotdf = colstdf |> 
+plotdf = make_first_enr_year_df() |> 
   ungroup() |>
   select(id, year_since_hs, hcyc) |>
   pivot_wider(id_cols=id, names_from=year_since_hs, values_from = hcyc, names_prefix="y") |>
@@ -290,11 +305,115 @@ plotdf |>
 ```
 
 
-## Retention
-
-In the current model, all students who get enrolled in college are assumed to complete first year. In subsequent years, the retention model simulates their decision to return to school and continue their education. This model could also be implemented as a simple logistic regression, but that would assume the same conditional probability of returning to college in each year of college. A survival model would allow these conditional probabilities to differ.
-
 ## Dropping out of College
+
+The drop-out model simulates the likelihood of dropping out of college for students who are enrolled in college. This is a survival model where the dependent variable is zero if a student is enrolled in college and one in the year the student drops out. For students who graduate from college, the variable is zero in all years.
+
+**Multiple Spells.** A problem with modeling dropping out of college as a terminal event is that some students who drop out of college return later. Some drop out and return multiple times, i.e., have multiple spells of college enrollment. @fig-college-spells-number shows the distribution of number of spells in the NLSY sample for all individuals who were enrolled in college and @fig-college-spells-shares shows this distribution by race and sex. It appears that about one-third of students have more than one spell, and some have as many as seven.
+
+One way to address this issue is to construct an alternative model that does not treat dropping out of college as a terminal event. Each year while enrolled, a student would be at risk of dropping out. If they drop out before graduation, they would be at risk of re-enrolling in subsequent years. 
+
+```{r}
+#| label: make-spells-df
+
+spelldf = make_first_enr_year_df() |>
+    group_by(id) |>
+    mutate(
+        colgrad = as.integer(!is.na(hcyc) & hcyc==4),
+        colgradcum = cumsum(colgrad),
+        colgradyr = case_when(
+            colgradcum==1 ~ year,
+            TRUE ~ 0
+        ),
+        colgradyr = max(colgradyr)
+        )
+
+spelldf = spelldf |>
+    group_by(id) |>
+    mutate(
+        spell = {
+            r = rle(enrolled)
+            r$values = cumsum(r$values) * r$values
+            inverse.rle(r)
+        },
+        nspells = max(spell)
+    )
+    
+
+spelldf = spelldf |>
+    group_by(id) |>
+    summarise(
+        nspells = max(nspells),
+        colenryr = max(colenryr),
+        colgradyr = max(colgradyr)
+    ) |>
+    inner_join(
+        basedf,
+        by='id'
+    )
+```
+
+
+```{r}
+#| label: fig-college-spells-number
+#| fig-cap: "Number of college enrollment spells"
+spelldf |>
+    filter(colenryr>0) |>
+    ggplot() +
+    geom_bar(aes(x=nspells)) +
+    xlab("Number of spells") +
+    ylab("Number of students")
+```
+
+```{r}
+#| label: fig-college-spells-shares
+#| fig-cap: "Shares of students by the number of college enrollment spells by race and sex"
+
+spelldf |>
+    filter(colenryr>0) |>
+    group_by(race, sex) |>
+    mutate(total=n()) |>
+    ungroup() |>
+    group_by(race, sex, nspells) |>
+    summarise(
+        spellrat = n()/max(total),
+        nspells = max(nspells)
+        ) |>
+    ggplot() +
+    geom_col(aes(x=nspells, y=spellrat)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab("Number of spells") +
+    ylab("Share of students")
+
+# spelldf |>
+#     filter(colgradyr>0 & colenryr>0) |>
+#     mutate(coltime = colgradyr-colenryr) |>
+#     group_by(nspells, coltime) |>
+#     tally() |>
+#     spread(nspells, n)
+#     
+
+
+```
+
+```{r}
+#| label: fig-college-grad-time
+#| fig-cap: "Distribution of the time between enrollment into college and the graduation (unweighted)"
+
+spelldf |>
+    filter(colgradyr>0 & colenryr>0) |>
+    mutate(coltime = colgradyr-colenryr) |>
+    ggplot() +
+    geom_bar(aes(x=coltime)) +
+    xlab("Years to graduate") +
+    ylab("Number of students")
+    
+```
+
+
+## Graduating from College
+
+
 
 
 
