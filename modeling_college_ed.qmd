@@ -175,7 +175,7 @@ The second model consists of six regressions, one for each combination of sex an
 
 $$ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t), j=1,...,6$$
 
-@tbl-enrol-simple-mod-est shows the estimated coefficients for the two models.
+@tbl-enrol-simple-mod-est shows the estimated coefficients for the two models. 
 
 ```{r}
 #| label: est-simple-models
@@ -200,7 +200,8 @@ estdf = estdf |>
 #| label: tbl-enrol-simple-mod-est
 #| tbl-cap: "Estimated coefficients of models 1 and 2"
 
-m2names = (estdf |> arrange(desc(sex), race) |> mutate(sexrace = paste(sex, race, sep=",")))$sexrace
+estdf = estdf |> arrange(desc(sex), race)
+m2names = (estdf |> mutate(sexrace = paste(sex, race, sep=",")))$sexrace
 m2names = gsub('Male,', 'M ', gsub('Female,', 'F ', m2names))
 m2models = estdf$m2
 names(m2models) = m2names
