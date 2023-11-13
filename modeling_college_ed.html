@@ -3327,15 +3327,15 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
 </section>
 <section id="current-model" class="level1">
 <h1>Current Model</h1>
-<p>The model of college education in the current version of DYNASIM consists of three models: models four separate college-related events each year:</p>
+<p>The model of college education in the current version of DYNASIM consists of four models that simulate four separate college-related events each year:</p>
 <ol type="1">
 <li>Enrollment, for those who graduated from high school,</li>
 <li>Returning to college, for those who are enrolled in college but not yet in their senior year,</li>
 <li>Failing the senior year and remaining enrolled, for those who reach senior year, and</li>
-<li>Dropping out of college, for thoe in senior year.</li>
+<li>Dropping out of college, for those in senior year.</li>
 </ol>
-<p>Those who reach the senior year, don’t fail it, and don’t drop out gradute from college.</p>
-<p>The likelihood of these events, which is implemented as a transition-probability look-up table, is modeled as a function of:</p>
+<p>Those who reach the senior year, don’t fail it, and don’t drop out graduate from college.</p>
+<p>Likelihoods of these events, which are implemented as a set of transition-probability look-up tables, are modeled as a function of:</p>
 <ul>
 <li>gender,</li>
 <li>parents’ education (less than high school, high-school diploma, some college, or college diploma or more), and</li>
@@ -3349,7 +3349,7 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
 <p>The new model of college education will use the logistic hazard model rather than tables of transitional probabilities. This section introduces some concepts and notation.</p>
 <section id="survival-and-hazard-functions" class="level2">
 <h2 class="anchored" data-anchor-id="survival-and-hazard-functions">Survival and Hazard Functions</h2>
-<p>Assuming discrete time <span class="math inline">\(t=1,2,...\)</span> and a random variable <span class="math inline">\(T\)</span> that indicates the timing of an event (e.g., college enrollment), we define a <em>survival function</em> <span class="math inline">\(S(.)\)</span> at the end of time <span class="math inline">\(t\)</span> as: <span class="math display">\[Pr(T&gt;t) = 1-F(t) = S(t) = S_t\]</span> Similarly, at the beginning of <span class="math inline">\(y\)</span>, the survival function is <span class="math inline">\(Pr(T&gt;t-1) = 1-F(t-1) = S(t-1)\)</span>. The (unconditional) probability of exit during the interval <span class="math inline">\(t\)</span> is <span class="math inline">\(Pr(t-1&lt;T&lt;t) = S_{t-1}-S_t\)</span>. The conditional probability of exit during time <span class="math inline">\(t\)</span> conditional on surviving until <span class="math inline">\(t-1\)</span> is <em>interval hazard rate</em>: <span class="math display">\[\begin{align}
+<p>Assuming discrete time <span class="math inline">\(t=1,2,...\)</span> and a random variable <span class="math inline">\(T\)</span> that indicates the timing of an event (e.g., college enrollment), we define a <em>survival function</em> <span class="math inline">\(S(.)\)</span> at the end of time <span class="math inline">\(t\)</span> as: <span class="math display">\[Pr(T&gt;t) = 1-F(t) = S(t) = S_t\]</span> Similarly, at the beginning of <span class="math inline">\(t\)</span>, the survival function is <span class="math inline">\(Pr(T&gt;t-1) = 1-F(t-1) = S(t-1)\)</span>. The (unconditional) probability of exit during the interval <span class="math inline">\(t\)</span> is <span class="math inline">\(Pr(t-1&lt;T&lt;t) = S_{t-1}-S_t\)</span>. The conditional probability of exit during time <span class="math inline">\(t\)</span> conditional on surviving until <span class="math inline">\(t-1\)</span> is <em>interval hazard rate</em>: <span class="math display">\[\begin{align}
 h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
      &amp;= \frac{Pr(t-1&lt;T&lt;t)}{Pr(T&gt;t-1)} \\
      &amp;= \frac{S_{t-1}-S_t}{S_{t-1}}
@@ -3368,7 +3368,7 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 </section>
 <section id="proposed-model" class="level1">
 <h1>Proposed Model</h1>
-<p>The proposed model of college education consists of three models, effectively merging models 2. and 3. into one:</p>
+<p>The proposed model of college education consists of three models, effectively merging models 2. and 3. from the current college-education model into one:</p>
 <ol type="1">
 <li>Enrollment, for those who graduated from high school,</li>
 <li>Dropping out of college, for those who are enrolled in college,</li>
@@ -3390,7 +3390,7 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 </div>
 </div>
 </div>
-<p>We first estimate two simple hazard models of college enrollment. The first one regresses the college-enrollment indicator on a set of indicators for years after the high school graduation and a set of indicaotrs for race and sex and their interactions, <span class="math inline">\(x_i\)</span>:</p>
+<p>We first estimate two simple hazard models of college enrollment. The first one regresses the college-enrollment indicator on a set of indicators for years after the high school graduation and a set of indicators for race and sex and their interactions, <span class="math inline">\(x_i\)</span>:</p>
 <p><span class="math display">\[ \text{logit}(y_{it}) = \sum_{k=0}^T \alpha_k I(k=t) + \beta&#39; x_i \]</span></p>
 <p>The second model consists of six regressions, one for each combination of sex and race:</p>
 <p><span class="math display">\[ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t), j=1,...,6\]</span></p>
@@ -3717,6 +3717,9 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 </div>
 </div>
 </div>
+</section>
+<section id="graduating-from-college" class="level2">
+<h2 class="anchored" data-anchor-id="graduating-from-college">Graduating from College</h2>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-college-grad-time" class="quarto-figure quarto-figure-center anchored">
@@ -3727,9 +3730,6 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 </div>
 </div>
 </div>
-</section>
-<section id="graduating-from-college" class="level2">
-<h2 class="anchored" data-anchor-id="graduating-from-college">Graduating from College</h2>
 </section>
 </section>
 

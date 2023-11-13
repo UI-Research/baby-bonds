@@ -49,16 +49,16 @@ The main purpose of this document is to define a new model of college education 
 
 # Current Model
 
-The model of college education in the current version of DYNASIM consists of three models: models four separate college-related events each year:
+The model of college education in the current version of DYNASIM consists of four models that simulate four separate college-related events each year:
 
 1. Enrollment, for those who graduated from high school,
 2. Returning to college, for those who are enrolled in college but not yet in their senior year,
 3. Failing the senior year and remaining enrolled, for those who reach senior year, and
-3. Dropping out of college, for thoe in senior year.
+3. Dropping out of college, for those in senior year.
 
-Those who reach the senior year, don't fail it, and don't drop out gradute from college. 
+Those who reach the senior year, don't fail it, and don't drop out graduate from college. 
 
-The likelihood of these events, which is implemented as a transition-probability look-up table, is modeled as a function of:
+Likelihoods of these events, which are implemented as a set of transition-probability look-up tables, are modeled as a function of:
 
 - gender,
 - parents’ education (less than high school, high-school diploma, some college, or college diploma or more), and
@@ -76,7 +76,7 @@ The new model of college education will use the logistic hazard model rather tha
 
 Assuming discrete time $t=1,2,...$ and a random variable $T$ that indicates the timing of an event (e.g., college enrollment), we define a *survival function* $S(.)$ at the end of time $t$ as:
 $$Pr(T>t) = 1-F(t) = S(t) = S_t$$
-Similarly, at the beginning of $y$, the survival function is $Pr(T>t-1) = 1-F(t-1) = S(t-1)$. The (unconditional) probability of exit during the interval $t$ is $Pr(t-1<T<t) = S_{t-1}-S_t$. The conditional probability of exit during time $t$ conditional on surviving until $t-1$ is *interval hazard rate*:
+Similarly, at the beginning of $t$, the survival function is $Pr(T>t-1) = 1-F(t-1) = S(t-1)$. The (unconditional) probability of exit during the interval $t$ is $Pr(t-1<T<t) = S_{t-1}-S_t$. The conditional probability of exit during time $t$ conditional on surviving until $t-1$ is *interval hazard rate*:
 \begin{align}
 h_t &= Pr(t-1<T<t|T>t-1) \\
      &= \frac{Pr(t-1<T<t)}{Pr(T>t-1)} \\
@@ -102,7 +102,7 @@ Note that the only time-variable term is $\alpha_t$. This term can be modeled as
 
 # Proposed Model
 
-The proposed model of college education consists of three models, effectively merging models 2. and 3. into one:
+The proposed model of college education consists of three models, effectively merging models 2. and 3. from the current college-education model into one:
 
 1. Enrollment, for those who graduated from high school,
 2. Dropping out of college, for those who are enrolled in college,
@@ -179,7 +179,7 @@ ggplot(plotdf) +
     ylab('Likelihood of college enrollment')
 
 ```
-We first estimate two simple hazard models of college enrollment. The first one regresses the college-enrollment indicator on a set of indicators for years after the high school graduation and a set of indicaotrs for race and sex and their interactions, $x_i$:
+We first estimate two simple hazard models of college enrollment. The first one regresses the college-enrollment indicator on a set of indicators for years after the high school graduation and a set of indicators for race and sex and their interactions, $x_i$:
 
 $$ \text{logit}(y_{it}) = \sum_{k=0}^T \alpha_k I(k=t) + \beta' x_i $$
 
