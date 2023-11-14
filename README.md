@@ -1,6 +1,10 @@
 # baby-bonds
 Data analysis for the Baby Bonds project and estimation of models for DYNASIM.
 
+## Root Folder
+* [`modeling_college_ed.html`](modeling_college_ed.html): Notebook for modeling college education.
+
+
 # NLSY Data
 It is assumed that an R project file is in the repo's root folder and that the Box drive is mounted in '~/..' (this is true on Windows but may not be on Mac, in which case modify `nlsy_data_dir` in common.R.
 

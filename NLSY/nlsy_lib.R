@@ -12,12 +12,14 @@ nlsydf = read_csv('NLSY/NLSY-college-finance_imp.csv') %>%
     select(-"...1")
 
 #' Returns the NLSY dataframe with basic demographic information
-nlsy_get_base_df = function(data)
+
+nlsy_get_base_df = function()
 {
   set.seed(8984)
 
-  basedf = data |>
-    rename(
+  basedf = nlsydf |>
+    select(
+      id =        "PUBID_1997",
       age0 =      "CV_AGE_12/31/96_1997",
       sex =       "KEY_SEX_1997",
       bdate_m =   "KEY_BDATE_M_1997",
@@ -109,8 +111,29 @@ nlsy_recode_race = function(data)
   return(data)
 }
 
-# Returns data with college enrollment status in survey years
-nlsy_get_col_stat_annual_df = function(data)
+#' Recodes race and ethnicity
+nlsy_recode_race_and_ethn = function(data)
+{
+    data = data |>
+        mutate(
+            race = case_when(
+                hisp == 'Hispanic'                          ~ 'Hispanic',
+                race == 'Black or African American'         ~ 'Black',
+                race == 'Asian or Pacific Islander'         ~ 'Other',
+                race == 'American Indian, Eskimo, or Aleut' ~ 'Other',
+                race == 'White'                             ~ 'White',
+                race == 'Something else? (SPECIFY)'         ~ 'Other',
+                TRUE                                        ~ race
+            )
+        )
+
+#    stopifnot(all(!is.na(data$race)))
+    return(data)
+}
+
+
+#' Returns data with college enrollment status in survey years
+nlsy_get_col_stat_annual_df = function()
 {
   data = data |>
     select(
@@ -127,9 +150,8 @@ nlsy_get_col_stat_annual_df = function(data)
     mutate(colenr = case_when(
       (value=="Enrolled in a 2-year college" |
          value=="Enrolled in a 4-year college") ~ 1,
-      TRUE ~ 0)
-      ) |> #Subtracting retirement savings from imputed net worth
-    mutate(pnw_no_retsav = ifelse(is.na(retsav), pnetworth_imp, ifelse(pnetworth_imp <0, pnetworth_imp + retsav, pnetworth_imp - retsav))
+      TRUE ~ 0
+      )
     )
   return(data)
 }
@@ -162,7 +184,16 @@ nlsy_get_col_stat_fall_df = function(data)
 
   data = data |>
     # We are interested in new academic year that starts in August
-    filter(month >= 8)
+    filter(month >= 8) |>
+    group_by(id, year) |>
+    summarise(
+      # All months are missing
+      allna = all(is.na(college_status)),
+      # Enrolled during any month
+      enrolled=any(in_college, na.rm=TRUE)
+    ) |>
+    filter(!allna) |>
+    select(-allna)
 
   return(data)
 }
@@ -264,13 +295,4 @@ nlsy_get_student_loans_df = function(data)
     mutate(hasdebt=ifelse(debt>0, 1, 0))
   return(sloandf)
 }
-
-# Calling functions
-basedf <- nlsy_get_base_df(nlsydf)
-basedf <- nlsy_recode_race(basedf)
-col_enroll <- nlsy_get_col_stat_annual_df(basedf)
-col_enroll_fall <- nlsy_get_col_stat_fall_df(basedf)
-high_grade <- nlsy_get_highest_grade_completed_df(basedf)
-withpar <- nlsy_get_famrel_df()
-sloan <- nlsy_get_student_loans_df()
 
