@@ -20,7 +20,6 @@ library(urbnthemes)
 set_urbn_defaults(style = "print")
 ```
 
-
 ```{r}
 #| label: make-colstdf
 
@@ -51,33 +50,30 @@ The main purpose of this document is to define a new model of college education 
 
 The model of college education in the current version of DYNASIM consists of four models that simulate four separate college-related events each year:
 
-1. Enrollment, for those who graduated from high school,
-2. Returning to college, for those who are enrolled in college but not yet in their senior year,
-3. Failing the senior year and remaining enrolled, for those who reach senior year, and
-3. Dropping out of college, for those in senior year.
+1.  Enrollment, for those who graduated from high school,
+2.  Returning to college, for those who are enrolled in college but not yet in their senior year,
+3.  Failing the senior year and remaining enrolled, for those who reach senior year, and
+4.  Dropping out of college, for those in senior year.
 
-Those who reach the senior year, don't fail it, and don't drop out graduate from college. 
+Those who reach the senior year, don't fail it, and don't drop out graduate from college.
 
 Likelihoods of these events, which are implemented as a set of transition-probability look-up tables, are modeled as a function of:
 
-- gender,
-- parents’ education (less than high school, high-school diploma, some college, or college diploma or more), and
-- race/ethnicity (Black Non-Hispanic, Hispanic, and White Non-Hispanic).
+-   gender,
+-   parents' education (less than high school, high-school diploma, some college, or college diploma or more), and
+-   race/ethnicity (Black Non-Hispanic, Hispanic, and White Non-Hispanic).
 
-Parents’ education is the education of the head of a family. In two-parent households, in which parents are heterosexual couples, the father is assigned as the head.
+Parents' education is the education of the head of a family. In two-parent households, in which parents are heterosexual couples, the father is assigned as the head.
 
 This is a simplified model, as it assumes that each year spent in college, before the senior year, is successfully completed. All students who get enrolled in college are assumed to complete first year. In subsequent years, the retention model simulates their decision to return to school and continue their education.
 
 # Logistic Hazard Model
 
-The new model of college education will use the logistic hazard model rather than tables of transitional probabilities. This section introduces some concepts and notation. 
+The new model of college education will use the logistic hazard model rather than tables of transitional probabilities. This section introduces some concepts and notation.
 
 ## Survival and Hazard Functions
 
-Assuming discrete time $t=1,2,...$ and a random variable $T$ that indicates the timing of an event (e.g., college enrollment), we define a *survival function* $S(.)$ at the end of time $t$ as:
-$$Pr(T>t) = 1-F(t) = S(t) = S_t$$
-Similarly, at the beginning of $t$, the survival function is $Pr(T>t-1) = 1-F(t-1) = S(t-1)$. The (unconditional) probability of exit during the interval $t$ is $Pr(t-1<T<t) = S_{t-1}-S_t$. The conditional probability of exit during time $t$ conditional on surviving until $t-1$ is *interval hazard rate*:
-\begin{align}
+Assuming discrete time $t=1,2,...$ and a random variable $T$ that indicates the timing of an event (e.g., college enrollment), we define a *survival function* $S(.)$ at the end of time $t$ as: $$Pr(T>t) = 1-F(t) = S(t) = S_t$$ Similarly, at the beginning of $t$, the survival function is $Pr(T>t-1) = 1-F(t-1) = S(t-1)$. The (unconditional) probability of exit during the interval $t$ is $Pr(t-1<T<t) = S_{t-1}-S_t$. The conditional probability of exit during time $t$ conditional on surviving until $t-1$ is *interval hazard rate*: \begin{align}
 h_t &= Pr(t-1<T<t|T>t-1) \\
      &= \frac{Pr(t-1<T<t)}{Pr(T>t-1)} \\
      &= \frac{S_{t-1}-S_t}{S_{t-1}}
@@ -95,8 +91,7 @@ $$\frac{h(t,X)}{1-h(t,X)} = \frac{h_0(t)}{1-h_0(t)} \exp (\beta' X)$$
 
 Taking into account the definition of the logit function $\text{logit}(x) = \log(x/(1-x))$ and denoting $\text{logit}(h_0(t))=\alpha_t$, yields the *logistic hazard model*:
 
-$$h(t,X) = \frac{1}{1+\exp(-\alpha_t -\beta' X)}$$
-This model can be estimated by the standard logistic regression. The data set has to have one observation per person per time period. The dependent variable is 0 for time periods without an event (i.e., survived periods) and 1 for the time period in which an event occurs. If an event occurs for a person, the period in which it occurs is the last period for that person.
+$$h(t,X) = \frac{1}{1+\exp(-\alpha_t -\beta' X)}$$ This model can be estimated by the standard logistic regression. The data set has to have one observation per person per time period. The dependent variable is 0 for time periods without an event (i.e., survived periods) and 1 for the time period in which an event occurs. If an event occurs for a person, the period in which it occurs is the last period for that person.
 
 Note that the only time-variable term is $\alpha_t$. This term can be modeled as a function of time (e.g., linear, logarithmic) or with time dummies.
 
@@ -104,10 +99,9 @@ Note that the only time-variable term is $\alpha_t$. This term can be modeled as
 
 The proposed model of college education consists of three models, effectively merging models 2. and 3. from the current college-education model into one:
 
-1. Enrollment, for those who graduated from high school,
-2. Dropping out of college, for those who are enrolled in college,
-3. Graduating from college, for those who reach their senior year.
-
+1.  Enrollment, for those who graduated from high school,
+2.  Dropping out of college, for those who are enrolled in college,
+3.  Graduating from college, for those who reach their senior year.
 
 ## Enrollment
 
@@ -179,6 +173,7 @@ ggplot(plotdf) +
     ylab('Likelihood of college enrollment')
 
 ```
+
 We first estimate two simple hazard models of college enrollment. The first one regresses the college-enrollment indicator on a set of indicators for years after the high school graduation and a set of indicators for race and sex and their interactions, $x_i$:
 
 $$ \text{logit}(y_{it}) = \sum_{k=0}^T \alpha_k I(k=t) + \beta' x_i $$
@@ -187,7 +182,7 @@ The second model consists of six regressions, one for each combination of sex an
 
 $$ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t), j=1,...,6$$
 
-@tbl-enrol-simple-mod-est shows the estimated coefficients for the two models. 
+@tbl-enrol-simple-mod-est shows the estimated coefficients for the two models.
 
 ```{r}
 #| label: est-simple-models
@@ -264,7 +259,6 @@ estdf |>
 
 ```
 
-
 ```{r}
 #| label: fig-college-completion-tiles
 #| fig-width: 7
@@ -304,29 +298,37 @@ plotdf |>
 
 ```
 
-
 ## Dropping out of College
+
+```{r}
+rm(m1, m2models, models, plotdf)
+```
 
 The drop-out model simulates the likelihood of dropping out of college for students who are enrolled in college. This is a survival model where the dependent variable is zero if a student is enrolled in college and one in the year the student drops out. For students who graduate from college, the variable is zero in all years.
 
 **Multiple Spells.** A problem with modeling dropping out of college as a terminal event is that some students who drop out of college return later. Some drop out and return multiple times, i.e., have multiple spells of college enrollment. @fig-college-spells-number shows the distribution of number of spells in the NLSY sample for all individuals who were enrolled in college and @fig-college-spells-shares shows this distribution by race and sex. It appears that about one-third of students have more than one spell, and some have as many as seven.
 
-One way to address this issue is to construct an alternative model that does not treat dropping out of college as a terminal event. Each year while enrolled, a student would be at risk of dropping out. If they drop out before graduation, they would be at risk of re-enrolling in subsequent years. 
+One way to address this issue is to construct an alternative model that does not treat dropping out of college as a terminal event. Each year while enrolled, a student would be at risk of dropping out. If they drop out before graduation, they would be at risk of re-enrolling in subsequent years.
 
 ```{r}
 #| label: make-spells-df
 
+
 spelldf = make_first_enr_year_df() |>
     group_by(id) |>
     mutate(
+        # Create college graduation year (4 years of college)
         colgrad = as.integer(!is.na(hcyc) & hcyc==4),
         colgradcum = cumsum(colgrad),
         colgradyr = case_when(
             colgradcum==1 ~ year,
             TRUE ~ 0
         ),
-        colgradyr = max(colgradyr)
-        )
+        # The calendar year in which a student enrolls in their final year
+        colgradyr = max(colgradyr),
+        colgradyr = if_else(colgradyr>0, colgradyr-1, 0),
+        enrolled = if_else(year==colgradyr, TRUE, enrolled)
+    )
 
 spelldf = spelldf |>
     group_by(id) |>
@@ -338,9 +340,13 @@ spelldf = spelldf |>
         },
         nspells = max(spell)
     )
-    
+```
 
-spelldf = spelldf |>
+
+```{r}
+#| label: make-nspellsdf
+
+nspellsdf = spelldf |>
     group_by(id) |>
     summarise(
         nspells = max(nspells),
@@ -353,11 +359,10 @@ spelldf = spelldf |>
     )
 ```
 
-
 ```{r}
 #| label: fig-college-spells-number
 #| fig-cap: "Number of college enrollment spells"
-spelldf |>
+nspellsdf |>
     filter(colenryr>0) |>
     ggplot() +
     geom_bar(aes(x=nspells)) +
@@ -369,7 +374,7 @@ spelldf |>
 #| label: fig-college-spells-shares
 #| fig-cap: "Shares of students by the number of college enrollment spells by race and sex"
 
-spelldf |>
+nspellsdf |>
     filter(colenryr>0) |>
     group_by(race, sex) |>
     mutate(total=n()) |>
@@ -385,7 +390,7 @@ spelldf |>
     xlab("Number of spells") +
     ylab("Share of students")
 
-# spelldf |>
+# nspellsdf |>
 #     filter(colgradyr>0 & colenryr>0) |>
 #     mutate(coltime = colgradyr-colenryr) |>
 #     group_by(nspells, coltime) |>
@@ -397,27 +402,110 @@ spelldf |>
 ```
 
 
-## Graduating from College
+```{r}
+#| label: make-dropdf
 
+dropdf = spelldf |> 
+  group_by(id) |>
+  mutate(dropped = as.integer(!enrolled)) |>
+  filter(colenryr>0 & year>=colenryr) |>
+  filter(colgradyr<=0 | (colgradyr>0 & year<=colgradyr)) |>
+  filter(dropped<=0 | (dropped==1 & lag(dropped)==0)) |>
+  mutate(spell = if_else(spell==0 & dropped==1, lag(spell), spell, spell)) |>
+  group_by(id, spell) |>
+  mutate(
+    spell_start_yr = if_else(row_number()==1, year, 0),
+    spell_start_yr = max(spell_start_yr),
+    spell_yr = year-spell_start_yr
+  )
+```
+
+@fig-dropout-hazard shows estimated hazard functions of dropping out of college in every year after the enrollment. Because some students drop out and re-enroll, these hazards are estimated for each enrollment spell separately (@fig-dropout-hazard-1). Hazard functions for spells two and three track each other closely over first seven years. Because higher numbered spells have few observations, we combine them and estimate a hazard function for spells 3-6 (@fig-dropout-hazard-3) and spells 2-6 (@fig-dropout-hazard-4). 
 
 ```{r}
-#| label: fig-college-grad-time
-#| fig-cap: "Distribution of the time between enrollment into college and the graduation (unweighted)"
+#| label: fig-dropout-hazard
+#| fig-cap: "Drop-out hazard functions"
+#| fig-subcap: 
+#|   - "All six spells"
+#|   - "First four spells"
+#|   - "Combine spells 3-6"
+#|   - "Combine spells 2-6"
+#| layout-nrow: 2
+#| layout-ncol: 2
 
-spelldf |>
-    filter(colgradyr>0 & colenryr>0) |>
-    mutate(coltime = colgradyr-colenryr) |>
-    ggplot() +
-    geom_bar(aes(x=coltime)) +
-    xlab("Years to graduate") +
-    ylab("Number of students")
-    
+plotdf = dropdf |>
+  filter(spell_yr>=1) |> 
+  inner_join(basedf, by='id') |>
+  group_by(spell_yr, spell) |>
+  summarise(dropped = weighted.mean(dropped, wt))
+
+
+# Plot all 6 spells
+plotdf |>
+  mutate(spell=factor(spell)) |>
+  ggplot(aes(x=spell_yr, y=dropped, color=spell)) +
+  geom_line() +
+  xlab("Year since the beginning of a spell") +
+  ylab("Share dropped")
+
+# Plot only first 4 spells
+plotdf |>
+  filter(spell %in% 1:4) |>
+  mutate(spell=factor(spell)) |>
+  ggplot(aes(x=spell_yr, y=dropped, color=spell)) +
+  geom_line() +
+  xlab("Year since the beginning of a spell") +
+  ylab("Share dropped")
+
+# Merge spells 3 and above
+plotdf = dropdf |>
+  filter(spell_yr>=1) |> 
+  mutate(spell = pmin(spell, 3)) |>
+  inner_join(basedf, by='id') |>
+  group_by(spell_yr, spell) |>
+  summarise(dropped = weighted.mean(dropped, wt))
+
+plotdf |>
+  mutate(spell=factor(spell)) |>
+  ggplot(aes(x=spell_yr, y=dropped, color=spell)) +
+  geom_line() +
+  xlab("Year since the beginning of a spell") +
+  ylab("Share dropped")
+
+
+# Merge spells 2 and above
+plotdf = dropdf |>
+  filter(spell_yr>=1) |> 
+  mutate(spell = pmin(spell, 2)) |>
+  inner_join(basedf, by='id') |>
+  group_by(spell_yr, spell) |>
+  summarise(dropped = weighted.mean(dropped, wt))
+
+plotdf |>
+  mutate(spell=factor(spell)) |>
+  ggplot(aes(x=spell_yr, y=dropped, color=spell)) +
+  geom_line() +
+  xlab("Year since the beginning of a spell") +
+  ylab("Share dropped")
+  
 ```
 
 
 
 
 
+## Graduating from College
 
+```{r}
+#| label: fig-college-grad-time
+#| fig-cap: "Distribution of the time between enrollment into college and the graduation (unweighted)"
 
-
+nspellsdf |>
+    filter(colgradyr>0 & colenryr>0) |>
+    mutate(coltime = colgradyr-colenryr+1) |>
+    ggplot() +
+    geom_bar(aes(x=coltime)) +
+    xlab("Years to graduate") +
+    ylab("Number of students")
+    
+```
