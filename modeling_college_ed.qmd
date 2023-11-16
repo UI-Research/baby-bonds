@@ -114,8 +114,7 @@ Note that a simpler way to implement this model would be as a one-shot logistic 
 Another interesting thing to note on @fig-enrol-hazard is that the college-enrollment hazard for Black women in years 2 to 7 remains significantly higher than the hazard for other groups.
 
 ```{r}
-#| label: fig-enrol-hazard
-#| fig-cap: "Hazard function for college enrollment by race, sex and year since the graduation from high school."
+#| label: make-colenrdf
 
 
 make_first_enr_year_df = function()
@@ -162,6 +161,15 @@ colenrdf = make_first_enr_year_df() |>
         by='id'
     )
 
+```
+
+
+
+```{r}
+#| label: fig-enrol-hazard
+#| fig-cap: "Hazard function for college enrollment by race, sex and year since the graduation from high school."
+
+
 plotdf = colenrdf |>
     group_by(year, race, sex) |>
     summarise(enrollment=weighted.mean(col1, wt))
@@ -173,6 +181,7 @@ ggplot(plotdf) +
     ylab('Likelihood of college enrollment')
 
 ```
+
 
 We first estimate two simple hazard models of college enrollment. The first one regresses the college-enrollment indicator on a set of indicators for years after the high school graduation and a set of indicators for race and sex and their interactions, $x_i$:
 
@@ -258,6 +267,39 @@ estdf |>
 
 
 ```
+
+### Limiting the Number of Gap Years
+
+Because the share of people who enroll in college 15 or more years after the high-school graduation is small (@fig-cum-share-gap-years), it might be good to limit the number of gap years (e.g., to 15).
+
+```{r}
+#| label: fig-cum-share-gap-years
+#| fig-cap: "Cummulative share of years between high-school graduation and college enrollment."
+
+plotdf = make_first_enr_year_df() |> 
+    filter(colenryr>0) |>
+    mutate(gap_years=colenryr-hs_comp_year) |> 
+    group_by(id) |> 
+    summarise(gap_years=min(gap_years)) |>
+    inner_join(basedf, by='id') |>
+    ungroup() |>
+    mutate(totwt=sum(wt)) |>
+    group_by(gap_years) |>
+    summarise(
+        totwt=max(totwt),
+        share=sum(wt)/totwt
+        ) |>
+    mutate(F=cumsum(share))
+
+plotdf |>
+    ggplot() +
+    geom_line(aes(x=gap_years, y=F)) +
+    xlab("Years between high-school graduation and college enrollment") +
+    ylab("Cumulative share")
+
+```
+
+
 
 ```{r}
 #| label: fig-college-completion-tiles
@@ -491,8 +533,20 @@ plotdf |>
 ```
 
 
+```{r}
 
+max_spell_len=7
 
+dropdf |>
+  group_by(id, spell) |>
+  mutate(
+    grad_spell = if_else(colgradyr %in% year, TRUE, FALSE),
+    dropped = if_else(!grad_spell & spell_yr==max_spell_len, 1, dropped)
+  ) |>
+  select(id, year, enrolled, colenryr, colgradyr, spell, nspells, spell_yr, dropped, grad_spell) |>
+  View()
+
+```
 
 ## Graduating from College
 
