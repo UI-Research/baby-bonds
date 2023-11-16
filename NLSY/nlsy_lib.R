@@ -217,10 +217,11 @@ nlsy_get_highest_grade_completed_df = function()
     mutate(
       completed_hs = cumsum(completed_hs),
       hs_comp_year = case_when(
-        completed_hs == 1 ~ year,
-        TRUE ~ NA
+          completed_hs == 1 ~ year,
+          TRUE ~ Inf
       ),
       hs_comp_year = min(hs_comp_year, na.rm=TRUE),
+      hs_comp_year = if_else(hs_comp_year==Inf, NA, hs_comp_year),
       hcyc = case_when(
         # Try to avoid increases by more than 1, but not in 2019 because lead() creates NA
         lead(hcyc)-hcyc>1 ~ hcyc+1,
