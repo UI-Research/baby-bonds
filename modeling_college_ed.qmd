@@ -125,30 +125,30 @@ make_first_enr_year_df = function()
     #   years_since_hs (int):   number of years since the high-school graduation
     #
     colenrdf = colstdf |>
-      filter(year>=hs_comp_year) |>
+      filter(year>=hs_grad_year) |>
       mutate(
         cumenr = cumsum(enrolled),
         col1 = as.integer(enrolled==TRUE & cumenr==1),
-        year_since_hs = year-hs_comp_year
+        year_since_hs = year-hs_grad_year
         )
-    
-    # Make a temp frame with the year of college enrollment
+
+    # Test that nobody has col1==1 in more than one year    
+    stopifnot(max((colenrdf |> group_by(id) |>
+        summarise(col1 = sum(col1)))$col1) == 1)
+
+    # Add the year of college enrollment
     #   colenryr (int):         the year when first enrolled in college
     #
-    tmpdf = colenrdf |>
+    colenrdf = colenrdf |>
         group_by(id) |>
-        mutate(colenryr = case_when(
-            col1 == 1 ~ year,
-            TRUE ~ 0
-        )) |>
-        summarise(colenryr = max(colenryr))
-    
-    # Merge the college enrollment frame with the temp frame and base frame
-    colenrdf = left_join(
-            colenrdf,
-            tmpdf,
-            by="id"
+        mutate(
+            colenryr = case_when(
+                col1 == 1 ~ year,
+                TRUE ~ 0
+                ),
+            colenryr = max(colenryr)
         )
+    
     return(colenrdf)    
 }
 
@@ -278,7 +278,7 @@ Because the share of people who enroll in college 15 or more years after the hig
 
 plotdf = make_first_enr_year_df() |> 
     filter(colenryr>0) |>
-    mutate(gap_years=colenryr-hs_comp_year) |> 
+    mutate(gap_years=colenryr-hs_grad_year) |> 
     group_by(id) |> 
     summarise(gap_years=min(gap_years)) |>
     inner_join(basedf, by='id') |>

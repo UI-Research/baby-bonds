@@ -216,12 +216,12 @@ nlsy_get_highest_grade_completed_df = function()
     fill(hcyc) |>
     mutate(
       completed_hs = cumsum(completed_hs),
-      hs_comp_year = case_when(
+      hs_grad_year = case_when(
           completed_hs == 1 ~ year,
           TRUE ~ Inf
       ),
-      hs_comp_year = min(hs_comp_year, na.rm=TRUE),
-      hs_comp_year = if_else(hs_comp_year==Inf, NA, hs_comp_year),
+      hs_grad_year = min(hs_grad_year, na.rm=TRUE),
+      hs_grad_year = if_else(hs_grad_year==Inf, NA, hs_grad_year),
       hcyc = case_when(
         # Try to avoid increases by more than 1, but not in 2019 because lead() creates NA
         lead(hcyc)-hcyc>1 ~ hcyc+1,
@@ -231,7 +231,7 @@ nlsy_get_highest_grade_completed_df = function()
         TRUE ~ hcyc
       )
     ) |>
-    filter(!is.na(hs_comp_year))
+    filter(!is.na(hs_grad_year))
 
   return(data)
 }
@@ -276,3 +276,79 @@ nlsy_get_student_loans_df = function()
     mutate(hasdebt=ifelse(debt>0, 1, 0))
   return(sloandf)
 }
+
+#' Makes a dataframe with spells of college non-enrollment and enrollment and transitions between them
+#'
+#'      'id' (integer)          : person ID
+#'      tEnroll (integer)       : 1 for transition from non-enrollment to enrollment, 0 when non-enrolled, NA otehrwise
+#'      tDrop (integer)         : 1 for transition from enrollment to non-enrollment, 0 when enrolled, NA otherwise
+#'      tGrad (integer)         : 1 in the graduation year, 0 when enrolled, NA otherwise
+#'      spEnroll (integer)      : number of non-enrollment spell when non-enrolled or in enrollment year, NA when enrolled
+#'      spDrop (integer)        : number of enrollment spell when enrolled or in year when dropped, NA otherwise
+#'      spGrad (integer)        : number of enrollment spell when enrolled or in graduation year, NA otherwise
+#'      timeEnroll (integer)    : number of years since HS graduation or dropping out of college
+#'      timeDrop (integer)      : number of years since enrolling into college (for dropping-out-of-college model)
+#'      timeGrad (integer)      : number of years since enrolling into college (for graduation model)
+#'
+#' @param spell_type string Type of spell: `'all'`, `'enroll'`, `'drop'`, or `'grad'`. Defaults to `'all'`
+#'
+nlsy_make_spell_df = function(spell_type='all')
+{
+    colstdf = left_join(
+        nlsy_get_col_stat_fall_df(),
+        nlsy_get_highest_grade_completed_df(),
+        by=c('id', 'year')
+    )
+
+    colenrdf = colstdf |>
+        filter(year>=hs_grad_year) |>
+        group_by(id) |>
+        add_colgradyr() |>
+        filter(colgradyr==0 | colgradyr>=year) |>
+        mutate(
+            enrolled = if_else(year==colgradyr, TRUE, enrolled),
+            tEnroll  = if_else(enrolled==TRUE  & (lag(enrolled)==FALSE | is.na(lag(enrolled))), 1, 0, missing=0),
+            tDrop    = if_else(enrolled==FALSE & (lag(enrolled)==TRUE), 1, 0, missing=0),
+            tGrad    = if_else(year==colgradyr, 1, 0, missing=0),
+            spEnroll = if_else(enrolled==FALSE | tEnroll==TRUE, cumsum(tEnroll) + 1 - tEnroll, NA),
+            spDrop   = if_else(enrolled==TRUE  | tDrop==TRUE,   cumsum(tEnroll), NA),
+            spGrad   = if_else(enrolled==TRUE, cumsum(tEnroll), NA)
+        ) |>
+        group_by(id, spEnroll) |>
+        mutate(
+            yrDrop      = if_else(tDrop==1, year, 0, missing=0),
+            yrDrop      = max(yrDrop),
+            timeEnroll  = if_else(spEnroll==1, year-hs_grad_year, year-yrDrop, missing=NA)
+        ) |>
+        group_by(id, spDrop) |>
+        mutate(
+            yrEnroll    = if_else(tEnroll==1, year, 0, missing=0),
+            yrEnroll    = max(yrEnroll),
+            timeDrop    = if_else(!is.na(spDrop), year-yrEnroll, NA)
+        ) |>
+        group_by(id, spGrad) |>
+        mutate(
+            timeGrad    = if_else(!is.na(spGrad), year-yrEnroll, NA)
+        ) |>
+        ungroup()
+
+    keep_vars = c('id')
+    if(spell_type=='enroll') {
+        colenrdf = colenrdf |>
+            select(all_of(keep_vars), matches('.+Enroll')) |>
+            filter(!is.na(spEnroll))
+    }
+    else if(spell_type=='drop') {
+        colenrdf = colenrdf |>
+            select(all_of(keep_vars), matches('.+Drop')) |>
+            filter(!is.na(spDrop))
+    }
+    else if(spell_type=='grad') {
+        colenrdf = colenrdf |>
+            select(all_of(keep_vars), matches('.+Grad')) |>
+            filter(!is.na(spGrad))
+    }
+
+    return(colenrdf)
+}
+
