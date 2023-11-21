@@ -124,7 +124,7 @@ make_first_enr_year_df = function()
     #   cumenr (int):           cumulative years of enrollment,
     #   years_since_hs (int):   number of years since the high-school graduation
     #
-    colenrdf = colstdf |>
+    data = colstdf |>
       filter(year>=hs_grad_year) |>
       mutate(
         cumenr = cumsum(enrolled),
@@ -133,13 +133,13 @@ make_first_enr_year_df = function()
         )
 
     # Test that nobody has col1==1 in more than one year    
-    stopifnot(max((colenrdf |> group_by(id) |>
+    stopifnot(max((data |> group_by(id) |>
         summarise(col1 = sum(col1)))$col1) == 1)
 
     # Add the year of college enrollment
     #   colenryr (int):         the year when first enrolled in college
     #
-    colenrdf = colenrdf |>
+    data = data |>
         group_by(id) |>
         mutate(
             colenryr = case_when(
@@ -149,13 +149,12 @@ make_first_enr_year_df = function()
             colenryr = max(colenryr)
         )
     
-    return(colenrdf)    
+    return(data)    
 }
 
-
-colenrdf = make_first_enr_year_df() |>    
-    filter(colenryr==0 | colenryr>=year) |>
-    select(id, year=year_since_hs, col1) |>
+colenrdf = nlsy_make_spell_df('enroll') |>
+    filter(!is.na(spEnroll)) |>
+    select(id, timeEnroll, tEnroll, spEnroll) |>
     inner_join(
         basedf,
         by='id'
@@ -171,17 +170,59 @@ colenrdf = make_first_enr_year_df() |>
 
 
 plotdf = colenrdf |>
-    group_by(year, race, sex) |>
-    summarise(enrollment=weighted.mean(col1, wt))
+    group_by(timeEnroll, spEnroll, race, sex) |>
+    summarise(tEnroll=weighted.mean(tEnroll, wt)) |>
+    filter(spEnroll==1)
 
 ggplot(plotdf) +
-    geom_line(aes(x=year, y=enrollment, color=race)) +
+    geom_line(aes(x=timeEnroll, y=tEnroll, color=race)) +
     facet_grid(~sex) +
-    xlab('Years since high-school graduation') +
+    xlab('Years') +
     ylab('Likelihood of college enrollment')
 
 ```
 
+
+```{r}
+#| label: fig-enrol-hazard-spells
+#| fig-cap: "Hazard function for college enrollment by enrollment spell. X-axes represents years since the graduation from high school, for the first spell of non-enrollment, and years, since dropping out of college for subsequent spells."
+
+
+plotdf = colenrdf |>
+    group_by(timeEnroll, spEnroll) |>
+    summarise(tEnroll=weighted.mean(tEnroll, wt)) |>
+    filter(spEnroll<=4) |>
+    mutate(spEnroll = factor(spEnroll))
+
+
+ggplot(plotdf) +
+    geom_line(aes(x=timeEnroll, y=tEnroll, color=spEnroll)) +
+    xlab('Years') +
+    ylab('Likelihood of college enrollment')
+
+```
+
+
+```{r}
+#| label: fig-enrol-hazard-spells-sex-race
+#| fig-cap: "Hazard function for college enrollment by enrollment spell, sex, and race. X-axes represents years since the graduation from high school, for the first spell of non-enrollment, and years, since dropping out of college for subsequent spells."
+
+plotdf = colenrdf |>
+    group_by(timeEnroll, spEnroll, race, sex) |>
+    summarise(tEnroll=weighted.mean(tEnroll, wt)) |>
+    filter(spEnroll<=3) |>
+    mutate(spEnroll = factor(spEnroll))
+
+
+ggplot(plotdf) +
+    geom_line(aes(x=timeEnroll, y=tEnroll, color=spEnroll)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab('Years') +
+    ylab('Likelihood of college enrollment')
+
+
+
+```
 
 We first estimate two simple hazard models of college enrollment. The first one regresses the college-enrollment indicator on a set of indicators for years after the high school graduation and a set of indicators for race and sex and their interactions, $x_i$:
 
@@ -198,19 +239,23 @@ $$ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t), j=1,...,6$$
 
 # Create a factor year variable to use it as dummmies in regressions
 estdf = colenrdf |>
-    mutate(yearf=factor(year))
+    filter(spEnroll==1) |>
+    mutate(yearf=factor(timeEnroll))
 
 # Estimate model1 with dummies for sex and race
-m1 = glm(col1 ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
+m1 = glm(tEnroll ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
 estdf$p1 = predict(m1, type='response')
 
 # Estimate model2, one model for each sex-race combination
 estdf = estdf |>
     group_by(race, sex) |>
     nest() |>
-    mutate(m2 = map(data, \(x) glm(col1 ~ yearf, data=x, family=binomial))) |>
+    mutate(m2 = map(data, \(x) glm(tEnroll ~ yearf, data=x, family=binomial))) |>
     mutate(p2 = map(m2, \(x) predict(x, type='response')))
 ```
+
+
+
 
 ```{r}
 #| label: tbl-enrol-simple-mod-est
@@ -247,20 +292,20 @@ modelsummary(models,
 estdf |>
     select(sex, race, data, p2) |>
     unnest(cols=c(data, p2)) |>
-    group_by(year, race, sex) |>
+    group_by(timeEnroll, race, sex) |>
     summarise(
-        col1 = weighted.mean(col1, wt),
+        tEnroll = weighted.mean(tEnroll, wt),
         p1 = weighted.mean(p1, wt),
         p2 = weighted.mean(p2, wt)
     ) |>
     rename(
-        `Actual` = col1,
+        `Actual` = tEnroll,
         `Model1` = p1,
         `Model2` = p2
         ) |>
     pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
     ggplot() +
-    geom_line(aes(x=year, y=value, color=name)) +
+    geom_line(aes(x=timeEnroll, y=value, color=name)) +
     facet_grid(rows=vars(sex), cols=vars(race)) +
     xlab('Years since high-school graduation') +
     ylab('Likelihood of college enrollment')
@@ -276,9 +321,9 @@ Because the share of people who enroll in college 15 or more years after the hig
 #| label: fig-cum-share-gap-years
 #| fig-cap: "Cummulative share of years between high-school graduation and college enrollment."
 
-plotdf = make_first_enr_year_df() |> 
-    filter(colenryr>0) |>
-    mutate(gap_years=colenryr-hs_grad_year) |> 
+plotdf = nlsy_make_spell_df() |> 
+    filter(yrEnroll>0) |>
+    mutate(gap_years=yrEnroll-hs_grad_year) |> 
     group_by(id) |> 
     summarise(gap_years=min(gap_years)) |>
     inner_join(basedf, by='id') |>
