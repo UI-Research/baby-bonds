@@ -277,6 +277,31 @@ nlsy_get_student_loans_df = function()
   return(sloandf)
 }
 
+#' Adds college graduation year to the input dataset
+#'
+#'  @param data: data frame with hcyc, year
+nlsy_add_colgradyr = function(data)
+{
+    data = data |>
+        group_by(id) |>
+        mutate(
+            # Create college graduation year (4 years of college)
+            colgrad = as.integer(!is.na(hcyc) & hcyc==4),
+            colgradcum = cumsum(colgrad),
+            colgradyr = case_when(
+                colgradcum==1 ~ year,
+                TRUE ~ 0
+            ),
+            # The calendar year in which a student enrolls in their final year
+            colgradyr = max(colgradyr),
+            colgradyr = if_else(colgradyr>0, colgradyr-1, 0)
+        ) |>
+        select(-colgrad, -colgradcum) |>
+        ungroup()
+    return(data)
+}
+
+
 #' Makes a dataframe with spells of college non-enrollment and enrollment and transitions between them
 #'
 #'      'id' (integer)          : person ID
@@ -302,8 +327,8 @@ nlsy_make_spell_df = function(spell_type='all')
 
     colenrdf = colstdf |>
         filter(year>=hs_grad_year) |>
+        nlsy_add_colgradyr() |>
         group_by(id) |>
-        add_colgradyr() |>
         filter(colgradyr==0 | colgradyr>=year) |>
         mutate(
             enrolled = if_else(year==colgradyr, TRUE, enrolled),
@@ -318,7 +343,11 @@ nlsy_make_spell_df = function(spell_type='all')
         mutate(
             yrDrop      = if_else(tDrop==1, year, 0, missing=0),
             yrDrop      = max(yrDrop),
-            timeEnroll  = if_else(spEnroll==1, year-hs_grad_year, year-yrDrop, missing=NA)
+            timeEnroll  = case_when(
+                spEnroll==1             ~ year-hs_grad_year,
+                spEnroll>1 & tDrop==0   ~ year-yrDrop,
+                TRUE                    ~ NA
+            )
         ) |>
         group_by(id, spDrop) |>
         mutate(
