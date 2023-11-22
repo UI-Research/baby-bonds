@@ -335,8 +335,8 @@ nlsy_make_spell_df = function(spell_type='all')
             tEnroll  = if_else(enrolled==TRUE  & (lag(enrolled)==FALSE | is.na(lag(enrolled))), 1, 0, missing=0),
             tDrop    = if_else(enrolled==FALSE & (lag(enrolled)==TRUE), 1, 0, missing=0),
             tGrad    = if_else(year==colgradyr, 1, 0, missing=0),
-            spEnroll = if_else(enrolled==FALSE | tEnroll==TRUE, cumsum(tEnroll) + 1 - tEnroll, NA),
-            spDrop   = if_else(enrolled==TRUE  | tDrop==TRUE,   cumsum(tEnroll), NA),
+            spEnroll = if_else((enrolled==FALSE | tEnroll==1), cumsum(tEnroll) + 1 - tEnroll, NA),
+            spDrop   = if_else(enrolled==TRUE   | tDrop==1,   cumsum(tEnroll), NA),
             spGrad   = if_else(enrolled==TRUE, cumsum(tEnroll), NA)
         ) |>
         group_by(id, spEnroll) |>
@@ -347,7 +347,8 @@ nlsy_make_spell_df = function(spell_type='all')
                 spEnroll==1             ~ year-hs_grad_year,
                 spEnroll>1 & tDrop==0   ~ year-yrDrop,
                 TRUE                    ~ NA
-            )
+            ),
+            spEnroll    = if_else(tDrop==1, NA, spEnroll, missing=spEnroll)
         ) |>
         group_by(id, spDrop) |>
         mutate(
