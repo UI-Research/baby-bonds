@@ -494,62 +494,30 @@ The drop-out model simulates the likelihood of dropping out of college for stude
 One way to address this issue is to construct an alternative model that does not treat dropping out of college as a terminal event. Each year while enrolled, a student would be at risk of dropping out. If they drop out before graduation, they would be at risk of re-enrolling in subsequent years.
 
 ```{r}
-#| label: make-spells-df
+#| label: make-drop-df
 
+dropdf = nlsy_make_spell_df() |>
+    filter(!is.na(spDrop))
 
-spelldf = make_first_enr_year_df() |>
-    group_by(id) |>
-    mutate(
-        # Create college graduation year (4 years of college)
-        colgrad = as.integer(!is.na(hcyc) & hcyc==4),
-        colgradcum = cumsum(colgrad),
-        colgradyr = case_when(
-            colgradcum==1 ~ year,
-            TRUE ~ 0
-        ),
-        # The calendar year in which a student enrolls in their final year
-        colgradyr = max(colgradyr),
-        colgradyr = if_else(colgradyr>0, colgradyr-1, 0),
-        enrolled = if_else(year==colgradyr, TRUE, enrolled)
-    )
-
-spelldf = spelldf |>
-    group_by(id) |>
-    mutate(
-        spell = {
-            r = rle(enrolled)
-            r$values = cumsum(r$values) * r$values
-            inverse.rle(r)
-        },
-        nspells = max(spell)
-    )
-```
-
-```{r}
-#| label: make-nspellsdf
-
-nspellsdf = spelldf |>
-    group_by(id) |>
-    summarise(
-        nspells = max(nspells),
-        colenryr = max(colenryr),
-        colgradyr = max(colgradyr)
-    ) |>
-    inner_join(
-        basedf,
-        by='id'
-    )
 ```
 
 ```{r}
 #| label: fig-college-spells-number
 #| fig-cap: "Number of college enrollment spells"
+
+nspellsdf = dropdf |>
+    group_by(id) |>
+    summarise(nspells = max(spDrop)) |>
+    inner_join(
+        basedf,
+        by='id'
+    )
+
 nspellsdf |>
-    filter(colenryr>0) |>
     ggplot() +
     geom_bar(aes(x=nspells)) +
     xlab("Number of spells") +
-    ylab("Number of students")
+    ylab("Number of students")    
 ```
 
 ```{r}
@@ -557,7 +525,6 @@ nspellsdf |>
 #| fig-cap: "Shares of students by the number of college enrollment spells by race and sex"
 
 nspellsdf |>
-    filter(colenryr>0) |>
     group_by(race, sex) |>
     mutate(total=n()) |>
     ungroup() |>
@@ -584,105 +551,174 @@ nspellsdf |>
 ```
 
 ```{r}
-#| label: make-dropdf
+plotdf = dropdf |>
+    filter(timeDrop>0) |>
+  inner_join(basedf, by='id') |>
+  group_by(spDrop, timeDrop) |>
+  summarise(tDrop = weighted.mean(tDrop, wt))
 
-dropdf = spelldf |> 
-  group_by(id) |>
-  mutate(dropped = as.integer(!enrolled)) |>
-  filter(colenryr>0 & year>=colenryr) |>
-  filter(colgradyr<=0 | (colgradyr>0 & year<=colgradyr)) |>
-  filter(dropped<=0 | (dropped==1 & lag(dropped)==0)) |>
-  mutate(spell = if_else(spell==0 & dropped==1, lag(spell), spell, spell)) |>
-  group_by(id, spell) |>
-  mutate(
-    spell_start_yr = if_else(row_number()==1, year, 0),
-    spell_start_yr = max(spell_start_yr),
-    spell_yr = year-spell_start_yr
-  )
+plotdf |>
+  mutate(spell=factor(spDrop)) |>
+  ggplot(aes(x=timeDrop, y=tDrop, color=spell)) +
+  geom_line() +
+  xlab("Year since the beginning of a spell") +
+  ylab("Share dropped")
+
 ```
 
-@fig-dropout-hazard shows estimated hazard functions of dropping out of college in every year after the enrollment. Because some students drop out and re-enroll, these hazards are estimated for each enrollment spell separately (@fig-dropout-hazard-1). Hazard functions for spells two and three track each other closely over first seven years. Because higher numbered spells have few observations, we combine them and estimate a hazard function for spells 3-6 (@fig-dropout-hazard-3) and spells 2-6 (@fig-dropout-hazard-4).
+
+@fig-dropout-hazard shows estimated hazard functions of dropping out of college in every year after the enrollment. Because some students drop out and re-enroll, these hazards are estimated for each enrollment spell separately (@fig-dropout-hazard-1). Hazard functions for spells two and three track each other closely over first seven years. Because higher numbered spells have few observations, we combine them and estimate a hazard function for spells 3-6 (@fig-dropout-hazard-2), spells 2-6 (@fig-dropout-hazard-3), and spells 1-6 (@fig-dropout-hazard-4).
 
 ```{r}
 #| label: fig-dropout-hazard
 #| fig-cap: "Drop-out hazard functions"
 #| fig-subcap: 
 #|   - "All six spells"
-#|   - "First four spells"
 #|   - "Combine spells 3-6"
 #|   - "Combine spells 2-6"
+#|   - "Combine all spells"
 #| layout-nrow: 2
 #| layout-ncol: 2
 
 plotdf = dropdf |>
-  filter(spell_yr>=1) |> 
+  filter(timeDrop>0) |>
   inner_join(basedf, by='id') |>
-  group_by(spell_yr, spell) |>
-  summarise(dropped = weighted.mean(dropped, wt))
-
+  group_by(spDrop, timeDrop) |>
+  summarise(tDrop = weighted.mean(tDrop, wt))
 
 # Plot all 6 spells
 plotdf |>
-  mutate(spell=factor(spell)) |>
-  ggplot(aes(x=spell_yr, y=dropped, color=spell)) +
-  geom_line() +
-  xlab("Year since the beginning of a spell") +
-  ylab("Share dropped")
-
-# Plot only first 4 spells
-plotdf |>
-  filter(spell %in% 1:4) |>
-  mutate(spell=factor(spell)) |>
-  ggplot(aes(x=spell_yr, y=dropped, color=spell)) +
+  mutate(spell=factor(spDrop)) |>
+  ggplot(aes(x=timeDrop, y=tDrop, color=spell)) +
   geom_line() +
   xlab("Year since the beginning of a spell") +
   ylab("Share dropped")
 
 # Merge spells 3 and above
 plotdf = dropdf |>
-  filter(spell_yr>=1) |> 
-  mutate(spell = pmin(spell, 3)) |>
+  filter(timeDrop>0) |>
   inner_join(basedf, by='id') |>
-  group_by(spell_yr, spell) |>
-  summarise(dropped = weighted.mean(dropped, wt))
+  mutate(spDrop = pmin(spDrop, 3)) |>
+  group_by(spDrop, timeDrop) |>
+  summarise(tDrop = weighted.mean(tDrop, wt))
 
 plotdf |>
-  mutate(spell=factor(spell)) |>
-  ggplot(aes(x=spell_yr, y=dropped, color=spell)) +
+  mutate(spell=factor(spDrop)) |>
+  ggplot(aes(x=timeDrop, y=tDrop, color=spell)) +
   geom_line() +
   xlab("Year since the beginning of a spell") +
   ylab("Share dropped")
-
 
 # Merge spells 2 and above
 plotdf = dropdf |>
-  filter(spell_yr>=1) |> 
-  mutate(spell = pmin(spell, 2)) |>
+  filter(timeDrop>0) |>
   inner_join(basedf, by='id') |>
-  group_by(spell_yr, spell) |>
-  summarise(dropped = weighted.mean(dropped, wt))
+  mutate(spDrop = pmin(spDrop, 2)) |>
+  group_by(spDrop, timeDrop) |>
+  summarise(tDrop = weighted.mean(tDrop, wt))
 
 plotdf |>
-  mutate(spell=factor(spell)) |>
-  ggplot(aes(x=spell_yr, y=dropped, color=spell)) +
+  mutate(spell=factor(spDrop)) |>
+  ggplot(aes(x=timeDrop, y=tDrop, color=spell)) +
   geom_line() +
   xlab("Year since the beginning of a spell") +
   ylab("Share dropped")
-  
+
+# Merge all spells
+plotdf = dropdf |>
+  filter(timeDrop>0) |>
+  inner_join(basedf, by='id') |>
+  group_by(timeDrop) |>
+  summarise(tDrop = weighted.mean(tDrop, wt))
+
+plotdf |>
+  ggplot(aes(x=timeDrop, y=tDrop)) +
+  geom_line() +
+  xlab("Year since the beginning of a spell") +
+  ylab("Share dropped")
+
+
+```
+### Model Estimation
+
+
+
+```{r}
+#| label: est-simple-drop-models
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = dropdf |>
+    inner_join(
+        basedf,
+        by='id'
+    ) |>
+    filter(spDrop==1) |>
+    mutate(yearf=factor(timeDrop))
+
+# Estimate model1 with dummies for sex and race
+m1 = glm(tDrop ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
+estdf$p1 = predict(m1, type='response')
+
+# Estimate model2, one model for each sex-race combination
+estdf = estdf |>
+    group_by(race, sex) |>
+    nest() |>
+    mutate(m2 = map(data, \(x) glm(tDrop ~ yearf, data=x, family=binomial))) |>
+    mutate(p2 = map(m2, \(x) predict(x, type='response')))
 ```
 
 ```{r}
+#| label: tbl-drop-simple-mod-est
+#| tbl-cap: "Estimated coefficients of models 1 and 2"
 
-max_spell_len=7
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+m2names = (estdf |> mutate(sexrace = paste(sex, race, sep=",")))$sexrace
+m2names = gsub('Male,', 'M ', gsub('Female,', 'F ', m2names))
+m2models = estdf$m2
+names(m2models) = m2names
+models = c(
+    list('All' = m1),
+    m2models
+)
 
-dropdf |>
-  group_by(id, spell) |>
-  mutate(
-    grad_spell = if_else(colgradyr %in% year, TRUE, FALSE),
-    dropped = if_else(!grad_spell & spell_yr==max_spell_len, 1, dropped)
-  ) |>
-  select(id, year, enrolled, colenryr, colgradyr, spell, nspells, spell_yr, dropped, grad_spell) |>
-  View()
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_omit='yearf1[6-9]|yearf2[0-9]',
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
+             title="Estimated coefficients of models 1 and 2")
+
+```
+
+
+```{r}
+#| label: fig-drop-simple-mod-pred
+#| fig-cap: 'Hazard rates for dropping out of college by sex and race, actual and predicted.'
+
+estdf |>
+    select(sex, race, data, p2) |>
+    unnest(cols=c(data, p2)) |>
+    group_by(timeDrop, race, sex) |>
+    summarise(
+        tDrop = weighted.mean(tDrop, wt),
+        p1 = weighted.mean(p1, wt),
+        p2 = weighted.mean(p2, wt)
+    ) |>
+    rename(
+        `Actual` = tDrop,
+        `Model1` = p1,
+        `Model2` = p2
+        ) |>
+    pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
+    ggplot() +
+    geom_line(aes(x=timeDrop, y=value, color=name)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab('Years since college enrollment') +
+    ylab('Likelihood of dropping out of college')
+
 
 ```
 
@@ -691,6 +727,7 @@ dropdf |>
 ```{r}
 #| label: fig-college-grad-time
 #| fig-cap: "Distribution of the time between enrollment into college and the graduation (unweighted)"
+#| eval: false
 
 nspellsdf |>
     filter(colgradyr>0 & colenryr>0) |>
