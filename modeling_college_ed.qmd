@@ -648,11 +648,12 @@ plotdf |>
 
 # Create a factor year variable to use it as dummmies in regressions
 estdf = dropdf |>
+    filter(timeDrop>0) |>
     inner_join(
         basedf,
         by='id'
     ) |>
-    filter(spDrop==1) |>
+#    filter(spDrop==1) |>
     mutate(yearf=factor(timeDrop))
 
 # Estimate model1 with dummies for sex and race
@@ -713,8 +714,10 @@ estdf |>
         `Model2` = p2
         ) |>
     pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
+    filter(timeDrop<=10) |>
     ggplot() +
     geom_line(aes(x=timeDrop, y=value, color=name)) +
+    scale_x_continuous(breaks=seq(2,10,2)) +
     facet_grid(rows=vars(sex), cols=vars(race)) +
     xlab('Years since college enrollment') +
     ylab('Likelihood of dropping out of college')
@@ -724,12 +727,26 @@ estdf |>
 
 ## Graduating from College
 
+
+```{r}
+#| label: make-grad-df
+
+graddf = nlsy_make_spell_df() |>
+    filter(!is.na(spGrad))
+
+```
+
+
 ```{r}
 #| label: fig-college-grad-time
 #| fig-cap: "Distribution of the time between enrollment into college and the graduation (unweighted)"
-#| eval: false
 
-nspellsdf |>
+graddf |>
+    group_by(id) |>
+    mutate(
+        colenryr = if_else(tEnroll==1 & spEnroll==1, year, 0, missing=0),
+        colenryr = pmax(colenryr)
+    ) |>
     filter(colgradyr>0 & colenryr>0) |>
     mutate(coltime = colgradyr-colenryr+1) |>
     ggplot() +
