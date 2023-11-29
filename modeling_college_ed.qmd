@@ -475,7 +475,7 @@ estdf |>
     ggplot() +
     geom_line(aes(x=timeEnroll, y=value, color=name)) +
     facet_grid(rows=vars(sex), cols=vars(race)) +
-    xlab('Years since high-school graduation') +
+    xlab('Years') +
     ylab('Likelihood of college enrollment')
 
 
@@ -745,10 +745,10 @@ graddf |>
     group_by(id) |>
     mutate(
         colenryr = if_else(tEnroll==1 & spEnroll==1, year, 0, missing=0),
-        colenryr = pmax(colenryr)
+        colenryr = max(colenryr)
     ) |>
-    filter(colgradyr>0 & colenryr>0) |>
-    mutate(coltime = colgradyr-colenryr+1) |>
+    filter(tGrad==1) |>
+    mutate(coltime = colgradyr-colenryr) |>
     ggplot() +
     geom_bar(aes(x=coltime)) +
     xlab("Years to graduate") +
