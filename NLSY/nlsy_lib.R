@@ -196,7 +196,7 @@ nlsy_get_highest_grade_completed_df = function()
     ) |>
     mutate(
       year=as.integer(year),
-      completed_hs = as.integer(hgc=='12TH GRADE'),
+      completed_hs = if_else(hgc=='12TH GRADE', 1, 0, missing=0),
       # Highest college year completed
       hcyc=case_when(
         hgc=='1ST YEAR COLLEGE'         ~ 1,
@@ -214,6 +214,7 @@ nlsy_get_highest_grade_completed_df = function()
     complete(year=1997:2019) |>
     # Fill missing values with the previous year
     fill(hcyc) |>
+    fill(completed_hs) |>
     mutate(
       completed_hs = cumsum(completed_hs),
       hs_grad_year = case_when(
@@ -294,7 +295,7 @@ nlsy_add_colgradyr = function(data)
             ),
             # The calendar year in which a student enrolls in their final year
             colgradyr = max(colgradyr),
-            colgradyr = if_else(colgradyr>0, colgradyr-1, 0)
+            colgradyr = if_else(colgradyr>0, colgradyr, 0)
         ) |>
         select(-colgrad, -colgradcum) |>
         ungroup()
@@ -325,13 +326,62 @@ nlsy_make_spell_df = function(spell_type='all')
         by=c('id', 'year')
     )
 
+    # Drop people whose information about college education is inconsistent
+    # We also don't allow people who graduated in less than 4 years
+    drop_ids = c(
+         174, 188, 300, 380, 400, 598, 741, 763, 994, 999,
+         1902,2848,2926,3131,3615,3737,3782,5796,6486,8006)
+
+    # Fix some observations
+    colstdf = colstdf |>
+        filter(!(id %in% drop_ids)) |>
+        mutate(
+            enrolled = case_when(
+                id== 706 & year==2013   ~ TRUE,
+                id==1294 & year==2004   ~ TRUE,
+                id==2107 & year==2000   ~ TRUE,
+                id==2107 & year==2001   ~ TRUE,
+                id==2716 & year==2005   ~ TRUE,
+                id==2716 & year==2006   ~ TRUE,
+                id==2888 & year==2002   ~ TRUE,
+                id==2888 & year==2003   ~ TRUE,
+                id==4719 & year==1998   ~ TRUE,
+                id==4719 & year==1999   ~ TRUE,
+                id==4844 & year==2002   ~ TRUE,
+                id==4844 & year==2003   ~ TRUE,
+                id==4844 & year==2005   ~ TRUE,
+                id==9005 & year==2003   ~ TRUE,
+                id==9005 & year==2004   ~ TRUE,
+                TRUE                    ~ enrolled
+                ),
+            hcyc = case_when(
+                id== 301 & year==2001   ~ 1,
+                id== 301 & year==2002   ~ 2,
+                id== 301 & year==2003   ~ 3,
+                id== 301 & year==2004   ~ 3,
+                id== 706 & year==2014   ~ 1,
+                id==1294 & year==2004   ~ 1,
+                id==2107 & year==2001   ~ 1,
+                id==2716 & year==2006   ~ 1,
+                id==2888 & year==2004   ~ 2,
+                id==2888 & year==2005   ~ 3,
+                id==4719 & year==1999   ~ 1,
+                id==4844 & year==2003   ~ 1,
+                id==4844 & year==2004   ~ 2,
+                id==4844 & year==2005   ~ 3,
+                id==9005 & year==2004   ~ 1,
+                TRUE                    ~ hcyc
+            )
+        )
+
     colenrdf = colstdf |>
         filter(year>=hs_grad_year) |>
         nlsy_add_colgradyr() |>
         group_by(id) |>
         filter(colgradyr==0 | colgradyr>=year) |>
         mutate(
-            enrolled = if_else(year==colgradyr, TRUE, enrolled),
+            enrolled = if_else(year==colgradyr, TRUE, enrolled, missing=enrolled),
+            enrolled = if_else(hgc=="12TH GRADE" & lead(hgc)=="1ST YEAR COLLEGE", TRUE, enrolled, missing=enrolled),
             tEnroll  = if_else(enrolled==TRUE  & (lag(enrolled)==FALSE | is.na(lag(enrolled))), 1, 0, missing=0),
             tDrop    = if_else(enrolled==FALSE & (lag(enrolled)==TRUE), 1, 0, missing=0),
             tGrad    = if_else(year==colgradyr, 1, 0, missing=0),
