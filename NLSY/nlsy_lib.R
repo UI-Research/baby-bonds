@@ -225,7 +225,7 @@ nlsy_get_highest_grade_completed_df = function()
       hs_grad_year = if_else(hs_grad_year==Inf, NA, hs_grad_year),
       hcyc = case_when(
         # Try to avoid increases by more than 1, but not in 2019 because lead() creates NA
-        lead(hcyc)-hcyc>1 ~ hcyc+1,
+        #lead(hcyc)-hcyc>1 ~ hcyc+1,
         # Some people jump from 12th grade to 2nd year of college. Try to avoid it.
         lead(hcyc)==2 & hgc=='12TH GRADE' & lag(hgc)=='12TH GRADE' ~ 1,
         lead(hcyc)==2 & hcyc==2 & lag(hgc)=='12TH GRADE' ~ 1,
@@ -289,16 +289,24 @@ nlsy_add_colgradyr = function(data)
             # Create college graduation year (4 years of college)
             colgrad = as.integer(!is.na(hcyc) & hcyc==4),
             colgradcum = cumsum(colgrad),
-            colgradyr = case_when(
-                colgradcum==1 ~ year,
-                TRUE ~ 0
-            ),
+            colgradyr = if_else(colgradcum==1, year, Inf, NA),
             # The calendar year in which a student enrolls in their final year
-            colgradyr = max(colgradyr),
-            colgradyr = if_else(colgradyr>0, colgradyr, 0)
-        ) |>
-        select(-colgrad, -colgradcum) |>
+            colgradyr = min(colgradyr, na.rm=NA),
+            colgradyr = if_else(colgradyr==Inf, NA, colgradyr, NA),
+            maxhcyc = max(hcyc, na.rm=TRUE)
+        )
+
+    # Test
+    testdf = data |>
+        filter(maxhcyc>=4 & is.na(colgradyr))
+    if(dim(testdf)[1] > 0) {
+        warning("No colgradyr for graduates ", paste(unique(testdf$id), collapse=", "))
+    }
+
+    data = data |>
+        select(-colgrad, -colgradcum, -maxhcyc) |>
         ungroup()
+
     return(data)
 }
 
@@ -378,17 +386,22 @@ nlsy_make_spell_df = function(spell_type='all')
         filter(year>=hs_grad_year) |>
         nlsy_add_colgradyr() |>
         group_by(id) |>
-        filter(colgradyr==0 | colgradyr>=year) |>
+        filter(is.na(colgradyr) | colgradyr>=year) |>
         mutate(
             enrolled = if_else(year==colgradyr, TRUE, enrolled, missing=enrolled),
             enrolled = if_else(hgc=="12TH GRADE" & lead(hgc)=="1ST YEAR COLLEGE", TRUE, enrolled, missing=enrolled),
+            cumenr   = cumsum(enrolled),
             tEnroll  = if_else(enrolled==TRUE  & (lag(enrolled)==FALSE | is.na(lag(enrolled))), 1, 0, missing=0),
             tDrop    = if_else(enrolled==FALSE & (lag(enrolled)==TRUE), 1, 0, missing=0),
             tGrad    = if_else(year==colgradyr, 1, 0, missing=0),
             spEnroll = if_else((enrolled==FALSE | tEnroll==1), cumsum(tEnroll) + 1 - tEnroll, NA),
             spDrop   = if_else(enrolled==TRUE   | tDrop==1,   cumsum(tEnroll), NA),
-            spGrad   = if_else(enrolled==TRUE, cumsum(tEnroll), NA)
+            spGrad   = if_else(cumenr>=4 & enrolled==TRUE, cumsum(tEnroll), NA),
+            timeGrad = if_else(cumenr>=4 & enrolled==TRUE, cumenr-4, NA, NA),
+            colenryr = if_else(tEnroll==1 & spEnroll==1, year, 0, missing=0),
+            colenryr = max(colenryr)
         ) |>
+        select(-cumenr) |>
         group_by(id, spEnroll) |>
         mutate(
             yrDrop      = if_else(tDrop==1, year, 0, missing=0),
@@ -405,10 +418,6 @@ nlsy_make_spell_df = function(spell_type='all')
             yrEnroll    = if_else(tEnroll==1, year, 0, missing=0),
             yrEnroll    = max(yrEnroll),
             timeDrop    = if_else(!is.na(spDrop), year-yrEnroll, NA)
-        ) |>
-        group_by(id, spGrad) |>
-        mutate(
-            timeGrad    = if_else(!is.na(spGrad), year-yrEnroll, NA)
         ) |>
         ungroup()
 

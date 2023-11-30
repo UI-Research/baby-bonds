@@ -642,7 +642,6 @@ plotdf |>
 ### Model Estimation
 
 
-
 ```{r}
 #| label: est-simple-drop-models
 
@@ -743,10 +742,6 @@ graddf = nlsy_make_spell_df() |>
 
 graddf |>
     group_by(id) |>
-    mutate(
-        colenryr = if_else(tEnroll==1 & spEnroll==1, year, 0, missing=0),
-        colenryr = max(colenryr)
-    ) |>
     filter(tGrad==1) |>
     mutate(coltime = colgradyr-colenryr) |>
     ggplot() +
