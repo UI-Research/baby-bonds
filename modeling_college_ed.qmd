@@ -750,3 +750,98 @@ graddf |>
     ylab("Number of students")
     
 ```
+
+
+```{r}
+#| label: fig-college-grad-hazard
+#| fig-cap: "Hazard function for college graduation by sex and race"
+
+graddf = graddf |>
+    inner_join(
+        basedf,
+        by='id'
+    ) 
+
+graddf |>
+    group_by(timeGrad,sex,race) |>
+    summarise(tGrad = weighted.mean(tGrad,wt)) |>
+    ggplot(aes(x=timeGrad, y=tGrad, color=race)) +
+    geom_line() +
+    facet_wrap(~sex) +
+    xlab("Years since the senior year") +
+    ylab("Likelihood of graduating")
+    
+
+```
+```{r}
+#| label: est-grad-simple-models
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = graddf |>
+    mutate(yearf=factor(timeGrad))
+
+# Estimate model1 with dummies for sex and race
+m1 = glm(tGrad ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
+estdf$p1 = predict(m1, type='response')
+
+# Estimate model2, one model for each sex-race combination
+estdf = estdf |>
+    group_by(race, sex) |>
+    nest() |>
+    mutate(m2 = map(data, \(x) glm(tGrad ~ yearf, data=x, family=binomial))) |>
+    mutate(p2 = map(m2, \(x) predict(x, type='response')))
+```
+
+```{r}
+#| label: tbl-grad-simple-mod-est
+#| tbl-cap: "Estimated coefficients of models 1 and 2 of college graduation"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+m2names = (estdf |> mutate(sexrace = paste(sex, race, sep=",")))$sexrace
+m2names = gsub('Male,', 'M ', gsub('Female,', 'F ', m2names))
+m2models = estdf$m2
+names(m2models) = m2names
+models = c(
+    list('All' = m1),
+    m2models
+)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_omit='yearf1[6-9]|yearf2[0-9]',
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
+             title="Estimated coefficients of models 1 and 2")
+
+```
+
+```{r}
+#| label: fig-grad-simple-mod-pred
+#| fig-cap: 'Hazard rates for college graduation after the senior year by sex and race, actual and predicted.'
+
+estdf |>
+    select(sex, race, data, p2) |>
+    unnest(cols=c(data, p2)) |>
+    group_by(timeGrad, race, sex) |>
+    summarise(
+        tGrad = weighted.mean(tGrad, wt),
+        p1 = weighted.mean(p1, wt),
+        p2 = weighted.mean(p2, wt)
+    ) |>
+    rename(
+        `Actual` = tGrad,
+        `Model1` = p1,
+        `Model2` = p2
+        ) |>
+    pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
+    ggplot() +
+    geom_line(aes(x=timeGrad, y=value, color=name)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab('Years since senior year') +
+    ylab('Likelihood of college graduation')
+
+
+```
