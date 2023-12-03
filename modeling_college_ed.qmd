@@ -26,6 +26,7 @@ set_urbn_defaults(style = "print")
 #| label: make-colstdf
 
 source(here::here("NLSY/nlsy_lib.R"))
+source(here::here("dynasim_lib.R"))
 
 # Make a frame with college enrollment and highest grade completed
 colstdf = left_join(
@@ -778,7 +779,9 @@ graddf |>
 
 # Create a factor year variable to use it as dummmies in regressions
 estdf = graddf |>
-    mutate(yearf=factor(timeGrad))
+    mutate(
+        timeGrad=pmin(timeGrad,4),
+        yearf=factor(timeGrad))
 
 # Estimate model1 with dummies for sex and race
 m1 = glm(tGrad ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
@@ -815,6 +818,29 @@ modelsummary(models,
              coef_omit='yearf1[6-9]|yearf2[0-9]',
              coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
              title="Estimated coefficients of models 1 and 2")
+
+
+dyn_write_coef_file(
+    m2models, 
+    "coefs/coef_col_grad.csv",
+    c(
+        'INTERCPT',
+        'YEAR1',
+        'YEAR2',
+        'YEAR3',
+        'GTYEAR4'
+    ),
+    c(
+        'FBLACK',
+        'FHISP',
+        'FWHITE',
+        'MBLACK',
+        'MHISP',
+        'MWHITE'
+    ),
+    'Coefficients for college graduation model.'
+)
+
 
 ```
 
