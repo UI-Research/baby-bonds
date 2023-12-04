@@ -17,9 +17,12 @@ dyn_write_coef_file = function(models, filename, varnames, modnames, description
     df = as_tibble(map(models, coef)) |>
         mutate(
             N=row_number(),
+            # Pad variable names to 8 characters and enclose them in
+            # single, not fancy, quotation marks
             varname=str_pad(varnames, width=8, side='right'),
             varname=sQuote(varname, q=FALSE),
-            across(-c(N,varname), ~format(.x, width=10, digits=6))
+            across(-c(N,varname), ~round(.x, digits=6)),
+            across(-c(N,varname), ~format(.x, width=10, digits=6, zero.print = "0."))
         ) |>
         relocate(N, varname)
 
