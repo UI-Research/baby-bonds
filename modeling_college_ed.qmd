@@ -271,7 +271,7 @@ $$ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t), j=1,...,6$$
 # Create a factor year variable to use it as dummmies in regressions
 estdf = colenrdf |>
     filter(spEnroll==1) |>
-    mutate(yearf=factor(timeEnroll))
+    mutate(yearf=factor(pmin(timeEnroll,8)))
 
 # Estimate model1 with dummies for sex and race
 m1 = glm(tEnroll ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
@@ -308,6 +308,32 @@ modelsummary(models,
              coef_omit='yearf1[6-9]|yearf2[0-9]',
              coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
              title="Estimated coefficients of models 1 and 2")
+
+# Write regression coefficients to a file
+dyn_write_coef_file(
+    m2models, 
+    "coefs/coef_col_enr.csv",
+    c(
+        'INTERCPT',
+        'YEAR1',
+        'YEAR2',
+        'YEAR3',
+        'YEAR4',
+        'YEAR5',
+        'YEAR6',
+        'YEAR7',
+        'GEYEAR8'
+    ),
+    c(
+        'FBLACK',
+        'FHISP',
+        'FWHITE',
+        'MBLACK',
+        'MHISP',
+        'MWHITE'
+    ),
+    'Coefficients for college enrollment model.'
+)
 
 ```
 
@@ -414,7 +440,7 @@ ggplot(plotdf) +
 # Create a factor year variable to use it as dummmies in regressions
 estdf = colenrdf |>
     filter(spEnroll==2) |>
-    mutate(yearf=factor(timeEnroll))
+    mutate(yearf=factor(pmin(timeEnroll,5)))
 
 # Estimate model1 with dummies for sex and race
 m1 = glm(tEnroll ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
@@ -451,6 +477,27 @@ modelsummary(models,
              coef_omit='yearf1[6-9]|yearf2[0-9]',
              coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
              title="Estimated coefficients of models 1 and 2")
+
+dyn_write_coef_file(
+    m2models, 
+    "coefs/coef_col_reenr.csv",
+    c(
+        'INTERCPT',
+        'YEAR2',
+        'YEAR3',
+        'YEAR4',
+        'GEYEAR5'
+    ),
+    c(
+        'FBLACK',
+        'FHISP',
+        'FWHITE',
+        'MBLACK',
+        'MHISP',
+        'MWHITE'
+    ),
+    'Coefficients for the model of re-enrolling into college after dropping out.'
+)
 
 ```
 
@@ -654,7 +701,7 @@ estdf = dropdf |>
         by='id'
     ) |>
 #    filter(spDrop==1) |>
-    mutate(yearf=factor(timeDrop))
+    mutate(yearf=factor(pmin(timeDrop,5)))
 
 # Estimate model1 with dummies for sex and race
 m1 = glm(tDrop ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
@@ -691,6 +738,27 @@ modelsummary(models,
              coef_omit='yearf1[6-9]|yearf2[0-9]',
              coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
              title="Estimated coefficients of models 1 and 2")
+
+dyn_write_coef_file(
+    m2models, 
+    "coefs/coef_col_drop.csv",
+    c(
+        'INTERCPT',
+        'YEAR2',
+        'YEAR3',
+        'YEAR4',
+        'GEYEAR5'
+    ),
+    c(
+        'FBLACK',
+        'FHISP',
+        'FWHITE',
+        'MBLACK',
+        'MHISP',
+        'MWHITE'
+    ),
+    'Coefficients for the model of dropping out of college.'
+)
 
 ```
 
@@ -778,10 +846,7 @@ graddf |>
 #| label: est-grad-simple-models
 
 # Create a factor year variable to use it as dummmies in regressions
-estdf = graddf |>
-    mutate(
-        timeGrad=pmin(timeGrad,4),
-        yearf=factor(timeGrad))
+estdf = mutate(graddf, yearf=factor(pmin(timeGrad,4)))
 
 # Estimate model1 with dummies for sex and race
 m1 = glm(tGrad ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
