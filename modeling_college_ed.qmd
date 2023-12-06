@@ -291,10 +291,8 @@ estdf = estdf |>
 
 # Create a named list of models
 estdf = estdf |> arrange(desc(sex), race)
-m2names = (estdf |> mutate(sexrace = paste(sex, race, sep=",")))$sexrace
-m2names = gsub('Male,', 'M ', gsub('Female,', 'F ', m2names))
 m2models = estdf$m2
-names(m2models) = m2names
+names(m2models) = dyn_get_sexrace_names(estdf)
 models = c(
     list('All' = m1),
     m2models
@@ -308,6 +306,9 @@ modelsummary(models,
              coef_omit='yearf1[6-9]|yearf2[0-9]',
              coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
              title="Estimated coefficients of models 1 and 2")
+
+# Dataframe with coefficients
+res_colenr = dyn_coef_to_df(m2models)
 
 # Write regression coefficients to a file
 dyn_write_coef_file(
@@ -460,10 +461,8 @@ estdf = estdf |>
 
 # Create a named list of models
 estdf = estdf |> arrange(desc(sex), race)
-m2names = (estdf |> mutate(sexrace = paste(sex, race, sep=",")))$sexrace
-m2names = gsub('Male,', 'M ', gsub('Female,', 'F ', m2names))
 m2models = estdf$m2
-names(m2models) = m2names
+names(m2models) = dyn_get_sexrace_names(estdf)
 models = c(
     list('All' = m1),
     m2models
@@ -477,6 +476,9 @@ modelsummary(models,
              coef_omit='yearf1[6-9]|yearf2[0-9]',
              coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
              title="Estimated coefficients of models 1 and 2")
+
+# Dataframe with coefficients
+res_colreenr = dyn_coef_to_df(m2models)
 
 dyn_write_coef_file(
     m2models, 
@@ -721,10 +723,8 @@ estdf = estdf |>
 
 # Create a named list of models
 estdf = estdf |> arrange(desc(sex), race)
-m2names = (estdf |> mutate(sexrace = paste(sex, race, sep=",")))$sexrace
-m2names = gsub('Male,', 'M ', gsub('Female,', 'F ', m2names))
 m2models = estdf$m2
-names(m2models) = m2names
+names(m2models) = dyn_get_sexrace_names(estdf)
 models = c(
     list('All' = m1),
     m2models
@@ -738,6 +738,9 @@ modelsummary(models,
              coef_omit='yearf1[6-9]|yearf2[0-9]',
              coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
              title="Estimated coefficients of models 1 and 2")
+
+# Dataframe with coefficients
+res_coldrop = dyn_coef_to_df(m2models)
 
 dyn_write_coef_file(
     m2models, 
@@ -866,10 +869,8 @@ estdf = estdf |>
 
 # Create a named list of models
 estdf = estdf |> arrange(desc(sex), race)
-m2names = (estdf |> mutate(sexrace = paste(sex, race, sep=",")))$sexrace
-m2names = gsub('Male,', 'M ', gsub('Female,', 'F ', m2names))
 m2models = estdf$m2
-names(m2models) = m2names
+names(m2models) = dyn_get_sexrace_names(estdf)
 models = c(
     list('All' = m1),
     m2models
@@ -884,6 +885,8 @@ modelsummary(models,
              coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
              title="Estimated coefficients of models 1 and 2")
 
+# Dataframe with coefficients
+res_colgrad = dyn_coef_to_df(m2models)
 
 dyn_write_coef_file(
     m2models, 
