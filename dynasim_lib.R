@@ -9,9 +9,6 @@
 #' @param description - a short description
 dyn_write_coef_file = function(models, filename, varnames, modnames, description)
 {
-    # Number of variables and models
-    nv = dim(df)[1]
-    ng = length(models)
 
     # Create a dataframe with models' coefficients
     df = as_tibble(map(models, coef)) |>
@@ -26,6 +23,10 @@ dyn_write_coef_file = function(models, filename, varnames, modnames, description
         ) |>
         relocate(N, varname)
 
+    # Number of variables and models
+    nv = dim(df)[1]
+    ng = length(models)
+
     # File header
     #   - lines starting with ';' are comments
     #   - lines between $COEFINFO and $END are paramaters
@@ -37,7 +38,7 @@ dyn_write_coef_file = function(models, filename, varnames, modnames, description
         ';\n',
         ';', paste(rep(" ", 11), collapse=""),
         paste(format(modnames, width=11, justify='right'), collapse=""), '\n',
-        paste0(';', paste(rep(rep('=',11), ng+1), collapse=""),'\n'),
+        paste0('+', paste(rep(rep('=',11), ng+1), collapse=""),'\n'),
         '$COEFINFO\n',
         ' NV = ', format(nv, width=4), ',\n',
         ' NG = ', format(ng, width=4), '\n',
