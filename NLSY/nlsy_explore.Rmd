@@ -219,19 +219,19 @@ colstdf = left_join(
 #     ged = "CVC_GED_XRND"
 #   ) |>
 #   mutate(
-#     hs_comp_date = case_when(
+#     hs_grad_date = case_when(
 #       !is.na(hs)  ~ hs,
 #       !is.na(ged) ~ ged,
 #       TRUE ~ NA
 #     )
 #   ) |>
 #   mutate(
-#     hs_comp_year = 1980 + hs_comp_date %/% 12,
-#     hs_comp_month = hs_comp_date %% 12,
-#     hs_comp_year = ifelse(hs_comp_month >= 8, hs_comp_year+1, hs_comp_year)
+#     hs_grad_year = 1980 + hs_grad_date %/% 12,
+#     hs_grad_month = hs_grad_date %% 12,
+#     hs_grad_year = ifelse(hs_grad_month >= 8, hs_grad_year+1, hs_grad_year)
 #     ) |>
-#   select(id, hs_comp_year) |>
-#   filter(!is.na(hs_comp_year))
+#   select(id, hs_grad_year) |>
+#   filter(!is.na(hs_grad_year))
 # 
 # colstdf = left_join(
 #   colstdf,
@@ -240,11 +240,11 @@ colstdf = left_join(
 # )
 
 colstdf = colstdf |>
-  filter(year>=hs_comp_year) |>
+  filter(year>=hs_grad_year) |>
   mutate(
     cumenr = cumsum(enrolled),
     col1 = as.integer(enrolled==TRUE & cumenr==1),
-    year_since_hs = year-hs_comp_year
+    year_since_hs = year-hs_grad_year
     )
 
 
