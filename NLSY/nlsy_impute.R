@@ -1,5 +1,6 @@
 #Packages
-librarian::shelf(dplyr, mice, car, corrplot, caret)
+librarian::shelf(dplyr, mice, car, corrplot, caret, tidyr)
+source(here::here("NLSY/nlsy_lib.R"))
 
 # Read data
 nlsydf = readRDS(paste0(here::here(), "/NLSY/NLSY-college-finance.rds"))
@@ -24,28 +25,40 @@ test <- nlsydf %>% #Add additional variables that should be considered during mu
     ) %>%
     mutate(mom_age = mom_age_birth + age_resp)
 
-# Making dummy variables
-test$hisp <- ifelse(test$hispanic == "Yes", 1, 0)
+# Making dummy or factor variables
+test <- test |>
+    mutate(
+        mom_educ_hs = factor(nlsy_encode_educ4(mom_education)),
+        dad_educ_hs = factor(nlsy_encode_educ4(dad_education)),
+        race = factor(race),
+        hisp = factor(hispanic),
+        race_eth = ifelse(hisp == "Yes" & race == "White", "White Hispanic",  NA), # Race and ethnicity interaction
+        race_eth = ifelse(hisp == "No" & race == "White", "White NonHispanic", race_eth),
+        race_eth = ifelse(hisp == "Yes" & race == "Black or African American", "Black Hispanic", race_eth),
+        race_eth = ifelse(hisp == "No" & race == "Black or African American", "Black NonHispanic", race_eth),
+        race_eth = ifelse(hisp == "Yes" & race == "American Indian, Eskimo, or Aleut", "NonBW Hispanic", race_eth),
+        race_eth = ifelse(hisp == "Yes" & race == "Asian or Pacific Islander", "NonBW Hispanic", race_eth),
+        race_eth = ifelse(hisp == "Yes" & race == "Something else? (SPECIFY)", "NonBW Hispanic", race_eth),
+        race_eth = ifelse(hisp == "No" & race == "American Indian, Eskimo, or Aleut", "NonBW NonHispanic", race_eth),
+        race_eth = ifelse(hisp == "No" & race == "Asian or Pacific Islander", "NonBW NonHispanic", race_eth),
+        race_eth = ifelse(hisp == "No" & race == "Something else? (SPECIFY)", "NonBW NonHispanic", race_eth))
+
 test$ret_sav <- ifelse(test$savings == "YES", 1, 0)
 test$hown <- ifelse(test$home == "OWNS OR IS BUYING; LAND CONTRACT", 1, 0)
 test$both_pars <- ifelse(test$both_parents == "Yes", 1, 0)
 test$par_dec <- ifelse(test$par1_deceased == "Yes" | test$par2_deceased == "Yes", 1, 0) # Either parent deceased
-test$mom_educ_hs <- ifelse(test$mom_education == "12TH GRADE" | test$mom_education == "1ST YEAR COLLEGE" | test$mom_education == "2ND YEAR COLLEGE" |  test$mom_education == "3RD YEAR COLLEGE" |  test$mom_education == "4TH YEAR COLLEGE" |  test$mom_education == "5TH YEAR COLLEGE" |  test$mom_education == "6TH YEAR COLLEGE" |  test$mom_education == "7TH YEAR COLLEGE" |  test$mom_education == "8TH YEAR COLLEGE", 1, 0)
-test$dad_educ_hs <- ifelse(test$dad_education == "12TH GRADE" | test$dad_education == "1ST YEAR COLLEGE" | test$dad_education == "2ND YEAR COLLEGE" |  test$dad_education == "3RD YEAR COLLEGE" |  test$mom_education == "4TH YEAR COLLEGE" |  test$mom_education == "5TH YEAR COLLEGE" |  test$mom_education == "6TH YEAR COLLEGE" |  test$mom_education == "7TH YEAR COLLEGE" |  test$mom_education == "8TH YEAR COLLEGE", 1, 0)
-test$race_w <- ifelse(test$race == "White", 1, 0)
-test$race_b <- ifelse(test$race == "Black or African American", 1, 0)
 
 # Looking for significance with non-missing income and wealth
 non_missing <- test %>%
     filter(!is.na(pincome),
            !is.na(pnetworth))
 
-summary(model <- lm(pincome ~ mom_age + hisp + race_w + race_b + mom_educ_hs + dad_educ_hs + ret_sav + hown + both_pars + par_dec, data = non_missing))
+summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + ret_sav + hown + both_pars + par_dec, data = non_missing))
 #Non-significant: race_w and par_dec - dropping for now
 
 # Checking for multi-collinearity
 testing_cor <- test %>%
-    select(-id, -hispanic, -race, -mom_education, -dad_education, -savings, -home, -both_parents, -par1_deceased, -par2_deceased, - mom_age_birth, -pincome, -pnetworth, -race_w, -par_dec) %>%
+    select(-id, -hispanic, -race, -mom_education, -dad_education, -savings, -home, -both_parents, -par1_deceased, -par2_deceased, - mom_age_birth, -pincome, -pnetworth, -par_dec, -mom_educ_hs,-dad_educ_hs) %>%
     drop_na()
 
 M <- cor(testing_cor)
@@ -54,31 +67,39 @@ corrplot(M, type = "upper")
 summary(model <- lm(pincome ~ mom_age, data = test)) #Adj R2 = 0.057
 summary(model <- lm(pincome ~ mom_age + hisp, data = test)) #Adj R2 = 0.09
 car::vif(model)
-summary(model <- lm(pincome ~ mom_age + hisp + race_b, data = test)) # #Adj R2 = 0.154
+summary(model <- lm(pincome ~ mom_age + hisp + race, data = test)) # #Adj R2 = 0.157
 car::vif(model)
 
-summary(model <- lm(pincome ~ mom_age + hisp + race_b + mom_educ_hs, data = test)) #Adj R2 = 0.1767
+summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs, data = test)) #Adj R2 = 0.1899
 car::vif(model)
 
-summary(model <- lm(pincome ~ mom_age + hisp + race_b + mom_educ_hs + dad_educ_hs, data = test)) #Adj R2 = 0.1336
+summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs, data = test)) #Adj R2 = 0.1616
 car::vif(model)
 
-summary(model <- lm(pincome ~ mom_age + hisp + race_b + mom_educ_hs + dad_educ_hs + ret_sav, data = test)) #Adj R2 = 0.2047 - biggest R2 jump
+summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + ret_sav, data = test)) #Adj R2 = 0.199
 car::vif(model)
 
-summary(model <- lm(pincome ~ mom_age + hisp + race_b + mom_educ_hs + dad_educ_hs + ret_sav + hown, data = test)) #Adj R2 = 0.2165
+summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + ret_sav + hown, data = test)) #Adj R2 = 0.2107
 car::vif(model)
 
-summary(model <- lm(pincome ~ mom_age + hisp + race_b + mom_educ_hs + dad_educ_hs + ret_sav + hown + both_pars, data = test)) #Adj R2 = 0.2178
+summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + ret_sav + hown + both_pars, data = test)) #Adj R2 = 0.2108
 car::vif(model)
 
 # Making df for imputation
 impute <- test %>%
-    select(-hispanic, -race, -mom_education, -dad_education, -savings, -home, -both_parents, -par1_deceased, -par2_deceased, - mom_age_birth, -race_w, -par_dec, -age_resp)
+    select(-hispanic, -mom_education, -dad_education, -savings, -home, -both_parents, -par1_deceased, -par2_deceased, - mom_age_birth, -par_dec, -age_resp)
 t <- nearZeroVar(impute) # no variables are found to have near zero variance
 
 # Checking for missings in the predictor variables
-sapply(impute, function(x) sum(is.na(x)))
+sapply(impute, function(x) sum(is.na(x))) # dad_educ_hs has 4598 missings
+
+# Calculating percent of usable cases
+m <- md.pairs(impute)
+round(m$mr/(m$mr + m$mm), 3) #looking for low proportions: where both target and predictor are missing on the same cases
+#Note: For row target pincome and pnetworth respectively, predictors dad_educ_hs, ret_sav, and hown have lowest proportions
+
+impute <- impute %>%
+    select(-dad_educ_hs)
 
 # Paper that uses multiple imputation: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6049093/
 # Multiple imputation in R reference: https://library.virginia.edu/data/articles/getting-started-with-multiple-imputation-in-r
@@ -88,17 +109,15 @@ predM = init$predictorMatrix
 
 # Set distributions
 num <- c("mom_age") # numerical variables
-log <- c("hisp", "race_b", "mom_educ_hs", "dad_educ_hs", "ret_sav", "hown", "both_pars") # binary variables
-
-meth[num] = "norm" # numerical variables
-meth[log] = "logreg" # binary variables
+log <- c("hisp", "ret_sav", "hown", "both_pars") # binary variables
+poly <- c("mom_educ_hs") # ordered categorical variables
+poly2 <- c("race", "race_eth")# Unordered categorical variable
 
 # Assign Variables to be imputed
 predM[,c("id")] <- 0 # not using as a predictor variable
 predM[c("id"),] <- 0 # not using as a predictor variable
-predM[,c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "dad_educ_hs", "race_b", "both_pars")] <- 0 # not imputing
-
-meth[c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "dad_educ_hs", "race_b", "both_pars")]= "" #not imputing missing values, just using as a predictor
+predM[,c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "race", "both_pars", "race_eth")] <- 0 # not imputing
+meth[c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "race", "both_pars", "race_eth")]= "" #not imputing missing values, just using as a predictor
 
 # Income and Wealth imputation
 set.seed(25)
@@ -112,11 +131,11 @@ final <- imputed %>%
            ret_sav = ret_sav.1,
            hown = hown.1,
            mom_educ_hs = mom_educ_hs.1,
-           dad_educ_hs = dad_educ_hs.1,
-           race_b = race_b.1,
+           race = race.1,
            hisp = hisp.1,
-           both_pars = both_pars.1) %>%
-    select(-starts_with("id."), -starts_with("mom_age."), -starts_with("ret_sav."), -starts_with("hown."), -starts_with("mom_educ_hs."), -starts_with("dad_educ_hs."), -starts_with("race_b."), -starts_with("both_pars."), -starts_with("hisp."))
+           both_pars = both_pars.1,
+           race_eth = race_eth.1) %>%
+    select(-starts_with("id."), -starts_with("mom_age."), -starts_with("ret_sav."), -starts_with("hown."), -starts_with("mom_educ_hs."), -starts_with("dad_educ_hs."), -starts_with("race."), -starts_with("both_pars."), -starts_with("hisp."),  -starts_with("race_eth."))
 
 # Join back with original income and wealth
 og_values <- impute %>%
