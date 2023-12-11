@@ -8,6 +8,8 @@ execute:
   echo: false
   warning: false
 fig-cap-location: top
+toc: true
+toc-expand: true
 ---
 
 ```{r}
@@ -20,11 +22,11 @@ library(urbnthemes)
 set_urbn_defaults(style = "print")
 ```
 
-
 ```{r}
 #| label: make-colstdf
 
 source(here::here("NLSY/nlsy_lib.R"))
+source(here::here("dynasim_lib.R"))
 
 # Make a frame with college enrollment and highest grade completed
 colstdf = left_join(
@@ -51,33 +53,30 @@ The main purpose of this document is to define a new model of college education 
 
 The model of college education in the current version of DYNASIM consists of four models that simulate four separate college-related events each year:
 
-1. Enrollment, for those who graduated from high school,
-2. Returning to college, for those who are enrolled in college but not yet in their senior year,
-3. Failing the senior year and remaining enrolled, for those who reach senior year, and
-3. Dropping out of college, for those in senior year.
+1.  Enrollment, for those who graduated from high school,
+2.  Returning to college, for those who are enrolled in college but not yet in their senior year,
+3.  Failing the senior year and remaining enrolled, for those who reach senior year, and
+4.  Dropping out of college, for those in senior year.
 
-Those who reach the senior year, don't fail it, and don't drop out graduate from college. 
+Those who reach the senior year, don't fail it, and don't drop out graduate from college.
 
 Likelihoods of these events, which are implemented as a set of transition-probability look-up tables, are modeled as a function of:
 
-- gender,
-- parents’ education (less than high school, high-school diploma, some college, or college diploma or more), and
-- race/ethnicity (Black Non-Hispanic, Hispanic, and White Non-Hispanic).
+-   gender,
+-   parents' education (less than high school, high-school diploma, some college, or college diploma or more), and
+-   race/ethnicity (Black Non-Hispanic, Hispanic, and White Non-Hispanic).
 
-Parents’ education is the education of the head of a family. In two-parent households, in which parents are heterosexual couples, the father is assigned as the head.
+Parents' education is the education of the head of a family. In two-parent households, in which parents are heterosexual couples, the father is assigned as the head.
 
 This is a simplified model, as it assumes that each year spent in college, before the senior year, is successfully completed. All students who get enrolled in college are assumed to complete first year. In subsequent years, the retention model simulates their decision to return to school and continue their education.
 
 # Logistic Hazard Model
 
-The new model of college education will use the logistic hazard model rather than tables of transitional probabilities. This section introduces some concepts and notation. 
+The new model of college education will use the logistic hazard model rather than tables of transitional probabilities. This section introduces some concepts and notation.
 
 ## Survival and Hazard Functions
 
-Assuming discrete time $t=1,2,...$ and a random variable $T$ that indicates the timing of an event (e.g., college enrollment), we define a *survival function* $S(.)$ at the end of time $t$ as:
-$$Pr(T>t) = 1-F(t) = S(t) = S_t$$
-Similarly, at the beginning of $t$, the survival function is $Pr(T>t-1) = 1-F(t-1) = S(t-1)$. The (unconditional) probability of exit during the interval $t$ is $Pr(t-1<T<t) = S_{t-1}-S_t$. The conditional probability of exit during time $t$ conditional on surviving until $t-1$ is *interval hazard rate*:
-\begin{align}
+Assuming discrete time $t=1,2,...$ and a random variable $T$ that indicates the timing of an event (e.g., college enrollment), we define a *survival function* $S(.)$ at the end of time $t$ as: $$Pr(T>t) = 1-F(t) = S(t) = S_t$$ Similarly, at the beginning of $t$, the survival function is $Pr(T>t-1) = 1-F(t-1) = S(t-1)$. The (unconditional) probability of exit during the interval $t$ is $Pr(t-1<T<t) = S_{t-1}-S_t$. The conditional probability of exit during time $t$ conditional on surviving until $t-1$ is *interval hazard rate*: \begin{align}
 h_t &= Pr(t-1<T<t|T>t-1) \\
      &= \frac{Pr(t-1<T<t)}{Pr(T>t-1)} \\
      &= \frac{S_{t-1}-S_t}{S_{t-1}}
@@ -95,8 +94,7 @@ $$\frac{h(t,X)}{1-h(t,X)} = \frac{h_0(t)}{1-h_0(t)} \exp (\beta' X)$$
 
 Taking into account the definition of the logit function $\text{logit}(x) = \log(x/(1-x))$ and denoting $\text{logit}(h_0(t))=\alpha_t$, yields the *logistic hazard model*:
 
-$$h(t,X) = \frac{1}{1+\exp(-\alpha_t -\beta' X)}$$
-This model can be estimated by the standard logistic regression. The data set has to have one observation per person per time period. The dependent variable is 0 for time periods without an event (i.e., survived periods) and 1 for the time period in which an event occurs. If an event occurs for a person, the period in which it occurs is the last period for that person.
+$$h(t,X) = \frac{1}{1+\exp(-\alpha_t -\beta' X)}$$ This model can be estimated by the standard logistic regression. The data set has to have one observation per person per time period. The dependent variable is 0 for time periods without an event (i.e., survived periods) and 1 for the time period in which an event occurs. If an event occurs for a person, the period in which it occurs is the last period for that person.
 
 Note that the only time-variable term is $\alpha_t$. This term can be modeled as a function of time (e.g., linear, logarithmic) or with time dummies.
 
@@ -104,12 +102,13 @@ Note that the only time-variable term is $\alpha_t$. This term can be modeled as
 
 The proposed model of college education consists of three models, effectively merging models 2. and 3. from the current college-education model into one:
 
-1. Enrollment, for those who graduated from high school,
-2. Dropping out of college, for those who are enrolled in college,
-3. Graduating from college, for those who reach their senior year.
-
+1.  Enrollment, for those who graduated from high school,
+2.  Dropping out of college, for those who are enrolled in college,
+3.  Graduating from college, for those who reach their senior year.
 
 ## Enrollment
+
+### Enrollment After Graduating from High School
 
 The college enrollment model simulates enrollment into college for high-school graduates. To allow high-school graduates to take a break before enrolling into college, we need to model enrollment as a *survival model*, in which all high-school graduate who have not enrolled in college are at risk of enrolling in each year after graduating from high school for some number of years that we call *enrollment window*. The enrollment window in the current model is seven years.
 
@@ -120,8 +119,7 @@ Note that a simpler way to implement this model would be as a one-shot logistic 
 Another interesting thing to note on @fig-enrol-hazard is that the college-enrollment hazard for Black women in years 2 to 7 remains significantly higher than the hazard for other groups.
 
 ```{r}
-#| label: fig-enrol-hazard
-#| fig-cap: "Hazard function for college enrollment by race, sex and year since the graduation from high school."
+#| label: make-colenrdf
 
 
 make_first_enr_year_df = function()
@@ -131,139 +129,90 @@ make_first_enr_year_df = function()
     #   cumenr (int):           cumulative years of enrollment,
     #   years_since_hs (int):   number of years since the high-school graduation
     #
-    colenrdf = colstdf |>
-      filter(year>=hs_comp_year) |>
+    data = colstdf |>
+      filter(year>=hs_grad_year) |>
       mutate(
         cumenr = cumsum(enrolled),
         col1 = as.integer(enrolled==TRUE & cumenr==1),
-        year_since_hs = year-hs_comp_year
+        year_since_hs = year-hs_grad_year
         )
-    
-    # Make a temp frame with the year of college enrollment
+
+    # Test that nobody has col1==1 in more than one year    
+    stopifnot(max((data |> group_by(id) |>
+        summarise(col1 = sum(col1)))$col1) == 1)
+
+    # Add the year of college enrollment
     #   colenryr (int):         the year when first enrolled in college
     #
-    tmpdf = colenrdf |>
+    data = data |>
         group_by(id) |>
-        mutate(colenryr = case_when(
-            col1 == 1 ~ year,
-            TRUE ~ 0
-        )) |>
-        summarise(colenryr = max(colenryr))
-    
-    # Merge the college enrollment frame with the temp frame and base frame
-    colenrdf = left_join(
-            colenrdf,
-            tmpdf,
-            by="id"
+        mutate(
+            colenryr = case_when(
+                col1 == 1 ~ year,
+                TRUE ~ 0
+                ),
+            colenryr = max(colenryr)
         )
-    return(colenrdf)    
+    
+    return(data)    
 }
 
-
-colenrdf = make_first_enr_year_df() |>    
-    filter(colenryr==0 | colenryr>=year) |>
-    select(id, year=year_since_hs, col1) |>
+colenrdf = nlsy_make_spell_df('enroll') |>
+    filter(!is.na(spEnroll)) |>
+    select(id, timeEnroll, tEnroll, spEnroll) |>
     inner_join(
         basedf,
         by='id'
     )
 
+```
+
+```{r}
+#| label: fig-enrol-hazard
+#| fig-cap: "Hazard function for college enrollment by race, sex and year since the graduation from high school."
+
+
 plotdf = colenrdf |>
-    group_by(year, race, sex) |>
-    summarise(enrollment=weighted.mean(col1, wt))
+    group_by(timeEnroll, spEnroll, race, sex) |>
+    summarise(tEnroll=weighted.mean(tEnroll, wt)) |>
+    filter(spEnroll==1)
 
 ggplot(plotdf) +
-    geom_line(aes(x=year, y=enrollment, color=race)) +
+    geom_line(aes(x=timeEnroll, y=tEnroll, color=race)) +
     facet_grid(~sex) +
-    xlab('Years since high-school graduation') +
+    xlab('Years') +
     ylab('Likelihood of college enrollment')
 
 ```
-We first estimate two simple hazard models of college enrollment. The first one regresses the college-enrollment indicator on a set of indicators for years after the high school graduation and a set of indicators for race and sex and their interactions, $x_i$:
 
-$$ \text{logit}(y_{it}) = \sum_{k=0}^T \alpha_k I(k=t) + \beta' x_i $$
-
-The second model consists of six regressions, one for each combination of sex and race:
-
-$$ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t), j=1,...,6$$
-
-@tbl-enrol-simple-mod-est shows the estimated coefficients for the two models. 
+Even though some people make long breaks between high school and college, majority enrolls soon after high school: 90 percent enrolls within four years, 95 percent enrolls within 7 years, and 99 percent enrolls within 13 years (@fig-cum-share-gap-years).
 
 ```{r}
-#| label: est-simple-models
+#| label: fig-cum-share-gap-years
+#| fig-cap: "Cummulative share of years between high-school graduation and college enrollment."
 
-# Create a factor year variable to use it as dummmies in regressions
-estdf = colenrdf |>
-    mutate(yearf=factor(year))
-
-# Estimate model1 with dummies for sex and race
-m1 = glm(col1 ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
-estdf$p1 = predict(m1, type='response')
-
-# Estimate model2, one model for each sex-race combination
-estdf = estdf |>
-    group_by(race, sex) |>
-    nest() |>
-    mutate(m2 = map(data, \(x) glm(col1 ~ yearf, data=x, family=binomial))) |>
-    mutate(p2 = map(m2, \(x) predict(x, type='response')))
-```
-
-```{r}
-#| label: tbl-enrol-simple-mod-est
-#| tbl-cap: "Estimated coefficients of models 1 and 2"
-
-# Create a named list of models
-estdf = estdf |> arrange(desc(sex), race)
-m2names = (estdf |> mutate(sexrace = paste(sex, race, sep=",")))$sexrace
-m2names = gsub('Male,', 'M ', gsub('Female,', 'F ', m2names))
-m2models = estdf$m2
-names(m2models) = m2names
-models = c(
-    list('All' = m1),
-    m2models
-)
-
-# Create a regression table
-modelsummary(models, 
-             estimate="{estimate}{stars}", 
-             statistic=NULL,
-             stars=c('*'=.1, '**'=.05, '***'=.01),
-             coef_omit='yearf1[6-9]|yearf2[0-9]',
-             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
-             title="Estimated coefficients of models 1 and 2")
-
-```
-
-@fig-enr-simple-mod-pred shows hazard rates by sex and race predicted by these two models, as well as the actual hazard rates from @fig-enrol-hazard. As expected, model 2 performs much better because its time-varying term is estimated separately for each combination of sex and race.
-
-```{r}
-#| label: fig-enr-simple-mod-pred
-#| fig-cap: 'Hazard rates by sex and race, actual and predicted.'
-
-estdf |>
-    select(sex, race, data, p2) |>
-    unnest(cols=c(data, p2)) |>
-    group_by(year, race, sex) |>
+plotdf = nlsy_make_spell_df() |> 
+    filter(yrEnroll>0) |>
+    mutate(gap_years=yrEnroll-hs_grad_year) |> 
+    group_by(id) |> 
+    summarise(gap_years=min(gap_years)) |>
+    inner_join(basedf, by='id') |>
+    ungroup() |>
+    mutate(totwt=sum(wt)) |>
+    group_by(gap_years) |>
     summarise(
-        col1 = weighted.mean(col1, wt),
-        p1 = weighted.mean(p1, wt),
-        p2 = weighted.mean(p2, wt)
-    ) |>
-    rename(
-        `Actual` = col1,
-        `Model1` = p1,
-        `Model2` = p2
+        totwt=max(totwt),
+        share=sum(wt)/totwt
         ) |>
-    pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
-    ggplot() +
-    geom_line(aes(x=year, y=value, color=name)) +
-    facet_grid(rows=vars(sex), cols=vars(race)) +
-    xlab('Years since high-school graduation') +
-    ylab('Likelihood of college enrollment')
+    mutate(F=cumsum(share))
 
+plotdf |>
+    ggplot() +
+    geom_line(aes(x=gap_years, y=F)) +
+    xlab("Years between high-school graduation and college enrollment") +
+    ylab("Cumulative share")
 
 ```
-
 
 ```{r}
 #| label: fig-college-completion-tiles
@@ -304,73 +253,328 @@ plotdf |>
 
 ```
 
+## 
+
+We first estimate two simple hazard models of college enrollment. The first one regresses the college-enrollment indicator on a set of indicators for years after the high school graduation and a set of indicators for race and sex and their interactions, $x_i$:
+
+$$ \text{logit}(y_{it}) = \sum_{k=0}^T \alpha_k I(k=t) + \beta' x_i $$
+
+The second model consists of six regressions, one for each combination of sex and race:
+
+$$ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t), j=1,...,6$$
+
+@tbl-enrol-simple-mod-est shows the estimated coefficients for the two models.
+
+```{r}
+#| label: est-simple-models
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = colenrdf |>
+    filter(spEnroll==1) |>
+    mutate(yearf=factor(pmin(timeEnroll,8)))
+
+# Estimate model1 with dummies for sex and race
+m1 = glm(tEnroll ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
+estdf$p1 = predict(m1, type='response')
+
+# Estimate model2, one model for each sex-race combination
+estdf = estdf |>
+    group_by(race, sex) |>
+    nest() |>
+    mutate(m2 = map(data, \(x) glm(tEnroll ~ yearf, data=x, family=binomial))) |>
+    mutate(p2 = map(m2, \(x) predict(x, type='response')))
+```
+
+```{r}
+#| label: tbl-enrol-simple-mod-est
+#| tbl-cap: "Estimated coefficients of models 1 and 2"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+m2models = estdf$m2
+names(m2models) = dyn_get_sexrace_names(estdf)
+models = c(
+    list('All' = m1),
+    m2models
+)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_omit='yearf1[6-9]|yearf2[0-9]',
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
+             title="Estimated coefficients of models 1 and 2")
+
+# Dataframe with coefficients
+res_colenr = dyn_coef_to_df(m2models)
+
+# Write regression coefficients to a file
+dyn_write_coef_file(
+    m2models, 
+    "coefs/coef_col_enr.csv",
+    c(
+        'INTERCPT',
+        'YEAR1',
+        'YEAR2',
+        'YEAR3',
+        'YEAR4',
+        'YEAR5',
+        'YEAR6',
+        'YEAR7',
+        'GEYEAR8'
+    ),
+    c(
+        'FBLACK',
+        'FHISP',
+        'FWHITE',
+        'MBLACK',
+        'MHISP',
+        'MWHITE'
+    ),
+    'Coefficients for college enrollment model.'
+)
+
+```
+
+@fig-enr-simple-mod-pred shows hazard rates by sex and race predicted by these two models, as well as the actual hazard rates from @fig-enrol-hazard. As expected, model 2 performs much better because its time-varying term is estimated separately for each combination of sex and race.
+
+```{r}
+#| label: fig-enr-simple-mod-pred
+#| fig-cap: 'Hazard rates for college enrollment after graduating from high school by sex and race, actual and predicted.'
+
+estdf |>
+    select(sex, race, data, p2) |>
+    unnest(cols=c(data, p2)) |>
+    group_by(timeEnroll, race, sex) |>
+    summarise(
+        tEnroll = weighted.mean(tEnroll, wt),
+        p1 = weighted.mean(p1, wt),
+        p2 = weighted.mean(p2, wt)
+    ) |>
+    rename(
+        `Actual` = tEnroll,
+        `Model1` = p1,
+        `Model2` = p2
+        ) |>
+    pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
+    ggplot() +
+    geom_line(aes(x=timeEnroll, y=value, color=name)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab('Years since high-school graduation') +
+    ylab('Likelihood of college enrollment')
+
+
+```
+
+### Enrollment After Dropping out of College
+
+Many students who drop out of college return and re-enroll. Some do this multiple times. @fig-enrol-hazard-spells shows shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college for all students who drop out of college. @fig-enrol-hazard-two-spells-sex-race shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college by sex and race. The higher-order spells have few observations, which makes their hazard rates very noisy.
+
+The hazard rates for the first two spells are remarkably close to each other. Surprisingly, the hazard rates for all spells have another peak at or after year 10.
+
+```{r}
+#| label: fig-enrol-hazard-spells
+#| fig-cap: "Hazard function for college enrollment by enrollment spell. X-axes represents years since the graduation from high school, for the first spell of non-enrollment, and years, since dropping out of college for subsequent spells."
+
+
+plotdf = colenrdf |>
+    group_by(timeEnroll, spEnroll) |>
+    summarise(tEnroll=weighted.mean(tEnroll, wt)) |>
+    filter(spEnroll %in% 2:4) |>
+    mutate(spEnroll = factor(spEnroll))
+
+
+ggplot(plotdf) +
+    geom_line(aes(x=timeEnroll, y=tEnroll, color=spEnroll)) +
+    xlab('Years') +
+    ylab('Likelihood of college enrollment')
+
+```
+
+```{r}
+#| label: fig-enrol-hazard-two-spells-sex-race
+#| fig-cap: "Hazard function for college enrollment by enrollment spell, sex, and race. X-axes represents years since dropping out of college."
+
+plotdf = colenrdf |>
+    group_by(timeEnroll, spEnroll, race, sex) |>
+    summarise(tEnroll=weighted.mean(tEnroll, wt)) |>
+    filter(spEnroll %in% 2:3) |>
+    filter(tEnroll < .5) |>
+    mutate(spEnroll = factor(spEnroll))
+
+
+ggplot(plotdf) +
+    geom_line(aes(x=timeEnroll, y=tEnroll, color=spEnroll)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab('Years') +
+    ylab('Likelihood of college enrollment')
+
+
+```
+
+Because hazard rates for the first two spells are so close to each other and higher-order spells have few observations, we can merge all the spells together and estimate a single hazard rate for returning to college after dropping out.
+
+```{r}
+#| label: fig-enrol-hazard-all-spells-sex-race
+#| fig-cap: "Hazard function for college enrollment, sex, and race. X-axes represents years since dropping out of college."
+
+plotdf = colenrdf |>
+    filter(spEnroll %in% 2:7) |>
+    group_by(timeEnroll, race, sex) |>
+    summarise(tEnroll=weighted.mean(tEnroll, wt)) |>
+    filter(tEnroll < .5)
+
+
+ggplot(plotdf) +
+    geom_line(aes(x=timeEnroll, y=tEnroll)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab('Years') +
+    ylab('Likelihood of college enrollment')
+
+```
+
+```{r}
+#| label: est-reenrol-models
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = colenrdf |>
+    filter(spEnroll==2) |>
+    mutate(yearf=factor(pmin(timeEnroll,5)))
+
+# Estimate model1 with dummies for sex and race
+m1 = glm(tEnroll ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
+estdf$p1 = predict(m1, type='response')
+
+# Estimate model2, one model for each sex-race combination
+estdf = estdf |>
+    group_by(race, sex) |>
+    nest() |>
+    mutate(m2 = map(data, \(x) glm(tEnroll ~ yearf, data=x, family=binomial))) |>
+    mutate(p2 = map(m2, \(x) predict(x, type='response')))
+```
+
+```{r}
+#| label: tbl-reenrol-mod-est
+#| tbl-cap: "Estimated coefficients of re-enrollment models 1 and 2"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+m2models = estdf$m2
+names(m2models) = dyn_get_sexrace_names(estdf)
+models = c(
+    list('All' = m1),
+    m2models
+)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_omit='yearf1[6-9]|yearf2[0-9]',
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
+             title="Estimated coefficients of models 1 and 2")
+
+# Dataframe with coefficients
+res_colreenr = dyn_coef_to_df(m2models)
+
+dyn_write_coef_file(
+    m2models, 
+    "coefs/coef_col_reenr.csv",
+    c(
+        'INTERCPT',
+        'YEAR2',
+        'YEAR3',
+        'YEAR4',
+        'GEYEAR5'
+    ),
+    c(
+        'FBLACK',
+        'FHISP',
+        'FWHITE',
+        'MBLACK',
+        'MHISP',
+        'MWHITE'
+    ),
+    'Coefficients for the model of re-enrolling into college after dropping out.'
+)
+
+```
+
+```{r}
+#| label: fig-enr-return-simple-mod-pred
+#| fig-cap: 'Hazard rates for college enrollment after dropping out of college by sex and race, actual and predicted.'
+
+estdf |>
+    select(sex, race, data, p2) |>
+    unnest(cols=c(data, p2)) |>
+    group_by(timeEnroll, race, sex) |>
+    summarise(
+        tEnroll = weighted.mean(tEnroll, wt),
+        p1 = weighted.mean(p1, wt),
+        p2 = weighted.mean(p2, wt)
+    ) |>
+    rename(
+        `Actual` = tEnroll,
+        `Model1` = p1,
+        `Model2` = p2
+        ) |>
+    pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
+    ggplot() +
+    geom_line(aes(x=timeEnroll, y=value, color=name)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab('Years') +
+    ylab('Likelihood of college enrollment')
+
+
+```
 
 ## Dropping out of College
+
+```{r}
+rm(m1, m2models, models, plotdf)
+```
 
 The drop-out model simulates the likelihood of dropping out of college for students who are enrolled in college. This is a survival model where the dependent variable is zero if a student is enrolled in college and one in the year the student drops out. For students who graduate from college, the variable is zero in all years.
 
 **Multiple Spells.** A problem with modeling dropping out of college as a terminal event is that some students who drop out of college return later. Some drop out and return multiple times, i.e., have multiple spells of college enrollment. @fig-college-spells-number shows the distribution of number of spells in the NLSY sample for all individuals who were enrolled in college and @fig-college-spells-shares shows this distribution by race and sex. It appears that about one-third of students have more than one spell, and some have as many as seven.
 
-One way to address this issue is to construct an alternative model that does not treat dropping out of college as a terminal event. Each year while enrolled, a student would be at risk of dropping out. If they drop out before graduation, they would be at risk of re-enrolling in subsequent years. 
+One way to address this issue is to construct an alternative model that does not treat dropping out of college as a terminal event. Each year while enrolled, a student would be at risk of dropping out. If they drop out before graduation, they would be at risk of re-enrolling in subsequent years.
 
 ```{r}
-#| label: make-spells-df
+#| label: make-drop-df
 
-spelldf = make_first_enr_year_df() |>
-    group_by(id) |>
-    mutate(
-        colgrad = as.integer(!is.na(hcyc) & hcyc==4),
-        colgradcum = cumsum(colgrad),
-        colgradyr = case_when(
-            colgradcum==1 ~ year,
-            TRUE ~ 0
-        ),
-        colgradyr = max(colgradyr)
-        )
+dropdf = nlsy_make_spell_df() |>
+    filter(!is.na(spDrop))
 
-spelldf = spelldf |>
-    group_by(id) |>
-    mutate(
-        spell = {
-            r = rle(enrolled)
-            r$values = cumsum(r$values) * r$values
-            inverse.rle(r)
-        },
-        nspells = max(spell)
-    )
-    
-
-spelldf = spelldf |>
-    group_by(id) |>
-    summarise(
-        nspells = max(nspells),
-        colenryr = max(colenryr),
-        colgradyr = max(colgradyr)
-    ) |>
-    inner_join(
-        basedf,
-        by='id'
-    )
 ```
-
 
 ```{r}
 #| label: fig-college-spells-number
 #| fig-cap: "Number of college enrollment spells"
-spelldf |>
-    filter(colenryr>0) |>
+
+nspellsdf = dropdf |>
+    group_by(id) |>
+    summarise(nspells = max(spDrop)) |>
+    inner_join(
+        basedf,
+        by='id'
+    )
+
+nspellsdf |>
     ggplot() +
     geom_bar(aes(x=nspells)) +
     xlab("Number of spells") +
-    ylab("Number of students")
+    ylab("Number of students")    
 ```
 
 ```{r}
 #| label: fig-college-spells-shares
 #| fig-cap: "Shares of students by the number of college enrollment spells by race and sex"
 
-spelldf |>
-    filter(colenryr>0) |>
+nspellsdf |>
     group_by(race, sex) |>
     mutate(total=n()) |>
     ungroup() |>
@@ -385,7 +589,7 @@ spelldf |>
     xlab("Number of spells") +
     ylab("Share of students")
 
-# spelldf |>
+# nspellsdf |>
 #     filter(colgradyr>0 & colenryr>0) |>
 #     mutate(coltime = colgradyr-colenryr) |>
 #     group_by(nspells, coltime) |>
@@ -396,16 +600,221 @@ spelldf |>
 
 ```
 
+```{r}
+plotdf = dropdf |>
+    filter(timeDrop>0) |>
+  inner_join(basedf, by='id') |>
+  group_by(spDrop, timeDrop) |>
+  summarise(tDrop = weighted.mean(tDrop, wt))
+
+plotdf |>
+  mutate(spell=factor(spDrop)) |>
+  ggplot(aes(x=timeDrop, y=tDrop, color=spell)) +
+  geom_line() +
+  xlab("Year since the beginning of a spell") +
+  ylab("Share dropped")
+
+```
+
+
+@fig-dropout-hazard shows estimated hazard functions of dropping out of college in every year after the enrollment. Because some students drop out and re-enroll, these hazards are estimated for each enrollment spell separately (@fig-dropout-hazard-1). Hazard functions for spells two and three track each other closely over first seven years. Because higher numbered spells have few observations, we combine them and estimate a hazard function for spells 3-6 (@fig-dropout-hazard-2), spells 2-6 (@fig-dropout-hazard-3), and spells 1-6 (@fig-dropout-hazard-4).
+
+```{r}
+#| label: fig-dropout-hazard
+#| fig-cap: "Drop-out hazard functions"
+#| fig-subcap: 
+#|   - "All six spells"
+#|   - "Combine spells 3-6"
+#|   - "Combine spells 2-6"
+#|   - "Combine all spells"
+#| layout-nrow: 2
+#| layout-ncol: 2
+
+plotdf = dropdf |>
+  filter(timeDrop>0) |>
+  inner_join(basedf, by='id') |>
+  group_by(spDrop, timeDrop) |>
+  summarise(tDrop = weighted.mean(tDrop, wt))
+
+# Plot all 6 spells
+plotdf |>
+  mutate(spell=factor(spDrop)) |>
+  ggplot(aes(x=timeDrop, y=tDrop, color=spell)) +
+  geom_line() +
+  xlab("Year since the beginning of a spell") +
+  ylab("Share dropped")
+
+# Merge spells 3 and above
+plotdf = dropdf |>
+  filter(timeDrop>0) |>
+  inner_join(basedf, by='id') |>
+  mutate(spDrop = pmin(spDrop, 3)) |>
+  group_by(spDrop, timeDrop) |>
+  summarise(tDrop = weighted.mean(tDrop, wt))
+
+plotdf |>
+  mutate(spell=factor(spDrop)) |>
+  ggplot(aes(x=timeDrop, y=tDrop, color=spell)) +
+  geom_line() +
+  xlab("Year since the beginning of a spell") +
+  ylab("Share dropped")
+
+# Merge spells 2 and above
+plotdf = dropdf |>
+  filter(timeDrop>0) |>
+  inner_join(basedf, by='id') |>
+  mutate(spDrop = pmin(spDrop, 2)) |>
+  group_by(spDrop, timeDrop) |>
+  summarise(tDrop = weighted.mean(tDrop, wt))
+
+plotdf |>
+  mutate(spell=factor(spDrop)) |>
+  ggplot(aes(x=timeDrop, y=tDrop, color=spell)) +
+  geom_line() +
+  xlab("Year since the beginning of a spell") +
+  ylab("Share dropped")
+
+# Merge all spells
+plotdf = dropdf |>
+  filter(timeDrop>0) |>
+  inner_join(basedf, by='id') |>
+  group_by(timeDrop) |>
+  summarise(tDrop = weighted.mean(tDrop, wt))
+
+plotdf |>
+  ggplot(aes(x=timeDrop, y=tDrop)) +
+  geom_line() +
+  xlab("Year since the beginning of a spell") +
+  ylab("Share dropped")
+
+
+```
+### Model Estimation
+
+
+```{r}
+#| label: est-simple-drop-models
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = dropdf |>
+    filter(timeDrop>0) |>
+    inner_join(
+        basedf,
+        by='id'
+    ) |>
+#    filter(spDrop==1) |>
+    mutate(yearf=factor(pmin(timeDrop,5)))
+
+# Estimate model1 with dummies for sex and race
+m1 = glm(tDrop ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
+estdf$p1 = predict(m1, type='response')
+
+# Estimate model2, one model for each sex-race combination
+estdf = estdf |>
+    group_by(race, sex) |>
+    nest() |>
+    mutate(m2 = map(data, \(x) glm(tDrop ~ yearf, data=x, family=binomial))) |>
+    mutate(p2 = map(m2, \(x) predict(x, type='response')))
+```
+
+```{r}
+#| label: tbl-drop-simple-mod-est
+#| tbl-cap: "Estimated coefficients of models 1 and 2"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+m2models = estdf$m2
+names(m2models) = dyn_get_sexrace_names(estdf)
+models = c(
+    list('All' = m1),
+    m2models
+)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_omit='yearf1[6-9]|yearf2[0-9]',
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
+             title="Estimated coefficients of models 1 and 2")
+
+# Dataframe with coefficients
+res_coldrop = dyn_coef_to_df(m2models)
+
+dyn_write_coef_file(
+    m2models, 
+    "coefs/coef_col_drop.csv",
+    c(
+        'INTERCPT',
+        'YEAR2',
+        'YEAR3',
+        'YEAR4',
+        'GEYEAR5'
+    ),
+    c(
+        'FBLACK',
+        'FHISP',
+        'FWHITE',
+        'MBLACK',
+        'MHISP',
+        'MWHITE'
+    ),
+    'Coefficients for the model of dropping out of college.'
+)
+
+```
+
+
+```{r}
+#| label: fig-drop-simple-mod-pred
+#| fig-cap: 'Hazard rates for dropping out of college by sex and race, actual and predicted.'
+
+estdf |>
+    select(sex, race, data, p2) |>
+    unnest(cols=c(data, p2)) |>
+    group_by(timeDrop, race, sex) |>
+    summarise(
+        tDrop = weighted.mean(tDrop, wt),
+        p1 = weighted.mean(p1, wt),
+        p2 = weighted.mean(p2, wt)
+    ) |>
+    rename(
+        `Actual` = tDrop,
+        `Model1` = p1,
+        `Model2` = p2
+        ) |>
+    pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
+    filter(timeDrop<=10) |>
+    ggplot() +
+    geom_line(aes(x=timeDrop, y=value, color=name)) +
+    scale_x_continuous(breaks=seq(2,10,2)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab('Years since college enrollment') +
+    ylab('Likelihood of dropping out of college')
+
+
+```
 
 ## Graduating from College
+
+
+```{r}
+#| label: make-grad-df
+
+graddf = nlsy_make_spell_df() |>
+    filter(!is.na(spGrad))
+
+```
 
 
 ```{r}
 #| label: fig-college-grad-time
 #| fig-cap: "Distribution of the time between enrollment into college and the graduation (unweighted)"
 
-spelldf |>
-    filter(colgradyr>0 & colenryr>0) |>
+graddf |>
+    group_by(id) |>
+    filter(tGrad==1) |>
     mutate(coltime = colgradyr-colenryr) |>
     ggplot() +
     geom_bar(aes(x=coltime)) +
@@ -415,9 +824,118 @@ spelldf |>
 ```
 
 
+```{r}
+#| label: fig-college-grad-hazard
+#| fig-cap: "Hazard function for college graduation by sex and race"
+
+graddf = graddf |>
+    inner_join(
+        basedf,
+        by='id'
+    ) 
+
+graddf |>
+    group_by(timeGrad,sex,race) |>
+    summarise(tGrad = weighted.mean(tGrad,wt)) |>
+    ggplot(aes(x=timeGrad, y=tGrad, color=race)) +
+    geom_line() +
+    facet_wrap(~sex) +
+    xlab("Years since the senior year") +
+    ylab("Likelihood of graduating")
+    
+
+```
+```{r}
+#| label: est-grad-simple-models
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = mutate(graddf, yearf=factor(pmin(timeGrad,4)))
+
+# Estimate model1 with dummies for sex and race
+m1 = glm(tGrad ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
+estdf$p1 = predict(m1, type='response')
+
+# Estimate model2, one model for each sex-race combination
+estdf = estdf |>
+    group_by(race, sex) |>
+    nest() |>
+    mutate(m2 = map(data, \(x) glm(tGrad ~ yearf, data=x, family=binomial))) |>
+    mutate(p2 = map(m2, \(x) predict(x, type='response')))
+```
+
+```{r}
+#| label: tbl-grad-simple-mod-est
+#| tbl-cap: "Estimated coefficients of models 1 and 2 of college graduation"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+m2models = estdf$m2
+names(m2models) = dyn_get_sexrace_names(estdf)
+models = c(
+    list('All' = m1),
+    m2models
+)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_omit='yearf1[6-9]|yearf2[0-9]',
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
+             title="Estimated coefficients of models 1 and 2")
+
+# Dataframe with coefficients
+res_colgrad = dyn_coef_to_df(m2models)
+
+dyn_write_coef_file(
+    m2models, 
+    "coefs/coef_col_grad.csv",
+    c(
+        'INTERCPT',
+        'YEAR1',
+        'YEAR2',
+        'YEAR3',
+        'GTYEAR4'
+    ),
+    c(
+        'FBLACK',
+        'FHISP',
+        'FWHITE',
+        'MBLACK',
+        'MHISP',
+        'MWHITE'
+    ),
+    'Coefficients for college graduation model.'
+)
 
 
+```
+
+```{r}
+#| label: fig-grad-simple-mod-pred
+#| fig-cap: 'Hazard rates for college graduation after the senior year by sex and race, actual and predicted.'
+
+estdf |>
+    select(sex, race, data, p2) |>
+    unnest(cols=c(data, p2)) |>
+    group_by(timeGrad, race, sex) |>
+    summarise(
+        tGrad = weighted.mean(tGrad, wt),
+        p1 = weighted.mean(p1, wt),
+        p2 = weighted.mean(p2, wt)
+    ) |>
+    rename(
+        `Actual` = tGrad,
+        `Model1` = p1,
+        `Model2` = p2
+        ) |>
+    pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
+    ggplot() +
+    geom_line(aes(x=timeGrad, y=value, color=name)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab('Years since senior year') +
+    ylab('Likelihood of college graduation')
 
 
-
-
+```
