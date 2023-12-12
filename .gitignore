@@ -17,3 +17,4 @@
 !*renv.lock
 !*.Rprofile
 !*renv.activate.R
+.Rproj.user
