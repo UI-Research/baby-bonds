@@ -54,12 +54,12 @@ test <- test |>
         race_eth = ifelse(hisp == "No" & race == "White", "White NonHispanic", race_eth),
         race_eth = ifelse(hisp == "Yes" & race == "Black or African American", "Black Hispanic", race_eth),
         race_eth = ifelse(hisp == "No" & race == "Black or African American", "Black NonHispanic", race_eth),
-        race_eth = ifelse(hisp == "Yes" & race == "American Indian, Eskimo, or Aleut", "NonBW Hispanic", race_eth),
-        race_eth = ifelse(hisp == "Yes" & race == "Asian or Pacific Islander", "NonBW Hispanic", race_eth),
-        race_eth = ifelse(hisp == "Yes" & race == "Something else? (SPECIFY)", "NonBW Hispanic", race_eth),
-        race_eth = ifelse(hisp == "No" & race == "American Indian, Eskimo, or Aleut", "NonBW NonHispanic", race_eth),
-        race_eth = ifelse(hisp == "No" & race == "Asian or Pacific Islander", "NonBW NonHispanic", race_eth),
-        race_eth = ifelse(hisp == "No" & race == "Something else? (SPECIFY)", "NonBW NonHispanic", race_eth),
+        race_eth = ifelse(hisp == "Yes" & race == "American Indian, Eskimo, or Aleut", "AIAN Hispanic", race_eth),
+        race_eth = ifelse(hisp == "Yes" & race == "Asian or Pacific Islander", "AAPI Hispanic", race_eth),
+        race_eth = ifelse(hisp == "Yes" & race == "Something else? (SPECIFY)", "Other Race Hispanic", race_eth),
+        race_eth = ifelse(hisp == "No" & race == "American Indian, Eskimo, or Aleut", "AIAN NonHispanic", race_eth),
+        race_eth = ifelse(hisp == "No" & race == "Asian or Pacific Islander", "AAPI NonHispanic", race_eth),
+        race_eth = ifelse(hisp == "No" & race == "Something else? (SPECIFY)", "Other Race NonHispanic", race_eth),
         race_eth = factor(race_eth))
 
 test$ret_sav <- ifelse(test$savings == "YES", 1, 0)
@@ -88,6 +88,7 @@ testing_cor <- test %>%
     drop_na()
 
 M <- cor(testing_cor)
+cor(testing_cor)
 corrplot(M, type = "upper")
 ```
 
@@ -140,7 +141,7 @@ impute <- impute %>%
 ```{r}
 # Paper that uses multiple imputation: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6049093/
 # Multiple imputation in R reference: https://library.virginia.edu/data/articles/getting-started-with-multiple-imputation-in-r
-init = mice(impute, maxit=10)
+init = mice(impute, maxit=5)
 meth = init$method
 predM = init$predictorMatrix
 
@@ -159,7 +160,7 @@ meth[c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "both_pars", "race_e
 
 # Income and Wealth imputation
 set.seed(25)
-imputed = mice(impute, method=meth, predictorMatrix=predM, m=10)
+imputed = mice(impute, method=meth, predictorMatrix=predM, m=5)
 
 imputed <- complete(imputed, action = "repeated", include = FALSE)
 
@@ -210,6 +211,13 @@ ggplot(pnetworth, aes(x=pnetworth, fill= imputation)) +
     facet_wrap(~imputation, scales="free")
 ```
 
+## Whisker Plots
+```{r}
+boxplot(pincome$pincome ~ pincome$imputation)
+boxplot(pnetworth$pnetworth ~ pnetworth$imputation)
+```
+
+
 ## Scatter Plots for both parent income and wealth (non-imputed is zero)
 
 ```{r}
@@ -225,3 +233,4 @@ ggplot(merge, aes(x=pincome, y=pnetworth, color = imputation)) +
     geom_point(alpha = 0.5) +
     facet_wrap(~imputation, scales="free")
 ```
+
