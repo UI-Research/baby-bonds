@@ -1,7 +1,8 @@
-# This file reads in longitudinal data from CPS ASEC
+# This file reads in longitudinal data from CPS ASEC and appends into a single dataframe.
 library(tidyverse)
 library(ipumsr)
-# Run this once to save key to .Renviron file
+
+# Run this once to save key to .Renviron file:
 # set_ipums_api_key('Enter your key here')
 
 
@@ -35,5 +36,7 @@ purrr::map(years, get_cps_asec)
 asec_files <- fs::dir_ls('data', regexp = '\\.xml$')
 asec_df_long <- purrr::map_dfr(asec_files, read_ipums_micro)
 
+
+# Write out stacked R dataset (and upload to Box)
 write_rds(asec_df_long, 'data/asec_longitudinal.Rds')
 
