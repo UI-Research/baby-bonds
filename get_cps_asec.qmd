@@ -1,0 +1,99 @@
+---
+title: "CPS ASEC Data Pull and Diagnostics"
+format: 
+    html:
+        df-print: paged
+        embed-resources: TRUE
+
+---
+
+# This file reads in longitudinal data from CPS ASEC and appends into a single dataframe.
+```{r}
+library(tidyverse)
+library(ipumsr)
+# Run this once to save key to .Renviron file:
+# set_ipums_api_key('Enter your key here')
+```
+
+
+
+## Pull Extracts from IPUMS
+Note: ethnicity not available pre-1971; school or college attendance (SCHLCOLL) not available pre-1986
+```{r eval=FALSE}
+years <- 1971:2023
+
+get_cps_asec <- function(year, import=TRUE){
+    cps_extract_request <- define_extract_cps(
+        description = 'Longitudinal CPS ASEC Data',
+        sample = paste0('cps', year, '_03s'),
+        variables = c('SEX', 'AGE', 'RACE', 'HISPAN', 'EDUC')
+    )
+
+    submitted_extract <- submit_extract(cps_extract_request)
+    collection <- submitted_extract$collection
+    number <- submitted_extract$number
+    downloadable_extract <- wait_for_extract(submitted_extract)
+    path_to_asec_files <- download_extract(c(collection, number), download_dir = "data")
+
+}
+
+purrr::map(years, get_cps_asec)
+```
+
+## Read in and clean extracts
+```{r}
+# Get all files ending in .xml
+asec_files <- fs::dir_ls('data', regexp = '\\.xml$')
+asec_df_long <- purrr::map_dfr(asec_files, read_ipums_micro)
+
+educ_labels <- ipums_val_labels(asec_df_long$EDUC)
+
+asec_df_long2 <- asec_df_long |>
+    mutate(race_eth = as.factor(
+              case_when(
+                  HISPAN != 0 & RACE == 100 ~ "White Hispanic",
+                  HISPAN == 0 & RACE == 100 ~ "White NonHispanic",
+                  HISPAN != 0 & RACE == 200 ~ "Black Hispanic",
+                  HISPAN == 0 & RACE == 200 ~ "Black NonHispanic",
+                  HISPAN != 0 & RACE == 300 ~ "AIAN Hispanic",
+                  HISPAN == 0 & RACE == 300 ~ "AIAN NonHispanic",
+                  HISPAN != 0 & RACE %in% 650:652 ~ "AAPI Hispanic",
+                  HISPAN == 0 & RACE %in% 650:652 ~ "AAPI NonHispanic",
+                  HISPAN != 0 ~ "Other Race Hispanic", # Includes folks who have 2+ race groups or fall into Other (single) race
+                  HISPAN == 0 ~ "Other Race NonHispanic",
+TRUE ~ "Other")
+        )
+    ) |>
+    tidylog::left_join(educ_labels, by=c('EDUC'='val')) |>
+    mutate(EDUC_LABEL = as.factor(lbl)) |> 
+    select(-lbl)
+
+asec_df_long2$EDUC_LABEL <- reorder(asec_df_long2$EDUC_LABEL,
+                                      asec_df_long2$EDUC)
+# Write out stacked R dataset (and upload to Box)
+write_rds(asec_df_long, 'data/asec_longitudinal.Rds')
+```
+
+
+
+## Descriptive statistics
+```{r}
+# Remove individuals not in universe and non-missing CPS IDs
+asec_df_filtered <- asec_df_long2 |> filter(EDUC != 1 & !is.na(CPSID))
+
+# Totals by year
+asec_df_filtered |> 
+    count(YEAR)
+
+# Totals of education by year
+asec_df_filtered |>
+    count(YEAR, EDUC_LABEL) |> 
+    pivot_wider(names_from = EDUC_LABEL, values_from = n, names_sort = TRUE)
+
+
+# Totals of race, ethnicity, and sex by year
+asec_df_filtered |> 
+    count(YEAR, race_eth, SEX) |> 
+    pivot_wider(names_from = race_eth, values_from = n)
+
+```
