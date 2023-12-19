@@ -51,24 +51,36 @@ educ_labels <- ipums_val_labels(asec_df_long$EDUC)
 asec_df_long2 <- asec_df_long |>
     mutate(race_eth = as.factor(
               case_when(
-                  HISPAN != 0 & RACE == 100 ~ "White Hispanic",
-                  HISPAN == 0 & RACE == 100 ~ "White NonHispanic",
-                  HISPAN != 0 & RACE == 200 ~ "Black Hispanic",
-                  HISPAN == 0 & RACE == 200 ~ "Black NonHispanic",
-                  HISPAN != 0 & RACE == 300 ~ "AIAN Hispanic",
-                  HISPAN == 0 & RACE == 300 ~ "AIAN NonHispanic",
-                  HISPAN != 0 & RACE %in% 650:652 ~ "AAPI Hispanic",
-                  HISPAN == 0 & RACE %in% 650:652 ~ "AAPI NonHispanic",
-                  HISPAN != 0 ~ "Other Race Hispanic", # Includes folks who have 2+ race groups or fall into Other (single) race
-                  HISPAN == 0 ~ "Other Race NonHispanic",
-TRUE ~ "Other")
-        )
+                  HISPAN != 0 ~ "Hispanic",
+                  RACE == 100 ~ "White",
+                  RACE == 200 ~ "Black",
+                  RACE %in% 650:652 ~ "AAPI",
+                  TRUE ~ "Other")),
+           educ_bucket = as.factor(
+               case_when(
+                  EDUC %in% c(1, 999) ~ "Not in Universe/Missing",
+                  EDUC < 70 ~ "Less than high school completed",
+                  EDUC < 80 ~ "High school completed",
+                  EDUC < 110 ~ "Some college completed", # This may include Associate's degree or other vocational training
+                  TRUE ~ "Bachelor's or higher completed"
+               )),
+           age_bucket = as.factor(
+               case_when(
+                   AGE < 16 ~ "Under 16",
+                   AGE < 26 ~ "16-25",
+                   AGE < 36 ~ "26-35",
+                   AGE < 46 ~ "36-45",
+                   AGE < 56 ~ "46-55",
+                   TRUE ~ "56+"
+               )
+           ),
+          SEX = as.factor(ifelse(SEX == 1, "Male", "Female"))
     ) |>
     tidylog::left_join(educ_labels, by=c('EDUC'='val')) |>
-    mutate(EDUC_LABEL = as.factor(lbl)) |> 
+    mutate(EDUC_LABEL_FULL = as.factor(lbl)) |> 
     select(-lbl)
 
-asec_df_long2$EDUC_LABEL <- reorder(asec_df_long2$EDUC_LABEL,
+asec_df_long2$EDUC_LABEL_FULL <- reorder(asec_df_long2$EDUC_LABEL_FULL,
                                       asec_df_long2$EDUC)
 # Write out stacked R dataset (and upload to Box)
 write_rds(asec_df_long, 'data/asec_longitudinal.Rds')
@@ -76,24 +88,30 @@ write_rds(asec_df_long, 'data/asec_longitudinal.Rds')
 
 
 
-## Descriptive statistics
+## Time series plots
 ```{r}
-# Remove individuals not in universe and non-missing CPS IDs
-asec_df_filtered <- asec_df_long2 |> filter(EDUC != 1 & !is.na(CPSID))
-
-# Totals by year
-asec_df_filtered |> 
-    count(YEAR)
-
-# Totals of education by year
-asec_df_filtered |>
-    count(YEAR, EDUC_LABEL) |> 
-    pivot_wider(names_from = EDUC_LABEL, values_from = n, names_sort = TRUE)
+# Remove individuals not in universe
+asec_df_filtered <- asec_df_long2 |> 
+    filter(educ_bucket != "Not in Universe/Missing") |> 
+    filter(AGE %in% 16:55) #Keeping only age buckets of interest
 
 
-# Totals of race, ethnicity, and sex by year
-asec_df_filtered |> 
-    count(YEAR, race_eth, SEX) |> 
-    pivot_wider(names_from = race_eth, values_from = n)
+# Plots of educational attainment over time by (1) age, (2) sex, (3) race/ethnicity
+make_facet_plot <- function(facet_var){
+    plot <- asec_df_filtered |>
+        count(YEAR, {{facet_var}}, educ_bucket) |>
+        group_by(YEAR, {{facet_var}}) |> 
+        mutate(freq = n/sum(n)) |> 
+        ggplot(aes(x=YEAR, y=freq, color=educ_bucket)) + geom_line() +
+        facet_wrap(as.formula(paste0('~', deparse(substitute(facet_var))))) +
+        theme(legend.position = 'bottom') +
+        guides(color = guide_legend(nrow=2))
 
+    
+    return(plot)
+}
+
+make_facet_plot(age_bucket)
+make_facet_plot(SEX)
+make_facet_plot(race_eth)
 ```
