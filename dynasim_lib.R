@@ -20,25 +20,30 @@ dyn_get_sexrace_names = function(data)
     )
 }
 
+
 dyn_coef_to_df = function(models)
 {
 
     # Pad variable names to 8 characters and enclose them in
     # single, not fancy, quotation marks
     varnames = toupper(names(coef(models[[1]])))
-    varnames = gsub('YEARF','YEAR',varnames)
-    varnames[1] = 'INTERCPT'
-    varnames = str_trunc(varnames,8,ellipsis = '')
-    varnames = str_pad(varnames,8,side='right')
-    varnames = sQuote(varnames, q=FALSE)
 
     # Create a dataframe with models' coefficients
     df = as_tibble(map(models, coef)) |>
         mutate(
-            N=row_number(),
-            varname=varnames,
+            N=format(row_number(), width=2, justify="right"),
+            varname=varnames
+        ) |>
+        filter(!grepl('.*_NA', varname)) |>
+        mutate(
+            varname =gsub('YEARF','YEAR',varname),
+            varname =if_else(varname=="(INTERCEPT)","INTERCPT",varname),
+            varname = str_trunc(varname,8,ellipsis = ''),
+            varname = str_pad(varname,8,side='right'),
+            varname = sQuote(varname, q=FALSE),
             across(-c(N,varname), ~round(.x, digits=6)),
-            across(-c(N,varname), ~format(.x, width=10, digits=6, zero.print="0."))
+            across(-c(N,varname), ~format(.x, width=10, digits=6, zero.print="0.")),
+            across(-c(N,varname), ~gsub('NA','  ',.x))
         ) |>
         relocate(N, varname)
     return(df)
@@ -59,28 +64,17 @@ dyn_merge_results = function(dfs)
 #'
 #' @param models - list of models
 #' @param filename - path of output file
-#' @param varnames - a list of variable names, up to 8 characters long
 #' @param modnames - model names, up to 10 characters long
 #' @param description - a short description
-dyn_write_coef_file = function(models, filename, varnames, modnames, description)
+dyn_write_coef_file = function(models, filename, modnames, description)
 {
 
     # Create a dataframe with models' coefficients
-    df = as_tibble(map(models, coef)) |>
-        mutate(
-            N=row_number(),
-            # Pad variable names to 8 characters and enclose them in
-            # single, not fancy, quotation marks
-            varname=str_pad(varnames, width=8, side='right'),
-            varname=sQuote(varname, q=FALSE),
-            across(-c(N,varname), ~round(.x, digits=6)),
-            across(-c(N,varname), ~format(.x, width=10, digits=6, zero.print = "0."))
-        ) |>
-        relocate(N, varname)
+    df = dyn_coef_to_df(models)
 
     # Number of variables and models
     nv = dim(df)[1]
-    ng = length(models)
+    ng = dim(df)[2]
 
     # File header
     #   - lines starting with ';' are comments

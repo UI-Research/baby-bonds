@@ -102,7 +102,7 @@ nlsy_recode_race_and_ethn = function(data)
             race = case_when(
                 hisp == 'Hispanic'                          ~ 'Hispanic',
                 race == 'Black or African American'         ~ 'Black',
-                race == 'Asian or Pacific Islander'         ~ 'Other',
+                race == 'Asian or Pacific Islander'         ~ 'Asian',
                 race == 'American Indian, Eskimo, or Aleut' ~ 'Other',
                 race == 'White'                             ~ 'White',
                 race == 'Something else? (SPECIFY)'         ~ 'Other',
