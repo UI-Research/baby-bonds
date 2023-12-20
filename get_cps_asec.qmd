@@ -4,6 +4,8 @@ format:
     html:
         df-print: paged
         embed-resources: TRUE
+        fig-width: 8
+        fig-height: 6
 
 ---
 
@@ -41,7 +43,7 @@ purrr::map(years, get_cps_asec)
 ```
 
 ## Read in and clean extracts
-```{r}
+```{r message = FALSE, eval=FALSE}
 # Get all files ending in .xml
 asec_files <- fs::dir_ls('data', regexp = '\\.xml$')
 asec_df_long <- purrr::map_dfr(asec_files, read_ipums_micro)
@@ -83,7 +85,7 @@ asec_df_long2 <- asec_df_long |>
 asec_df_long2$EDUC_LABEL_FULL <- reorder(asec_df_long2$EDUC_LABEL_FULL,
                                       asec_df_long2$EDUC)
 # Write out stacked R dataset (and upload to Box)
-write_rds(asec_df_long, 'data/asec_longitudinal.Rds')
+write_rds(asec_df_long2, 'data/asec_longitudinal.Rds')
 ```
 
 
@@ -91,15 +93,17 @@ write_rds(asec_df_long, 'data/asec_longitudinal.Rds')
 ## Time series plots
 ```{r}
 # Remove individuals not in universe
-asec_df_filtered <- asec_df_long2 |> 
+asec_df_long2 <- read_rds('data/asec_longitudinal.Rds')
+asec_df_filtered <- asec_df_long2 |>
     filter(educ_bucket != "Not in Universe/Missing") |> 
-    filter(AGE %in% 16:55) #Keeping only age buckets of interest
+    filter(AGE %in% 16:55) |>  #Keeping only age buckets of interest 
+    filter(race_eth != 'Other')
 
 
 # Plots of educational attainment over time by (1) age, (2) sex, (3) race/ethnicity
 make_facet_plot <- function(facet_var){
     plot <- asec_df_filtered |>
-        count(YEAR, {{facet_var}}, educ_bucket) |>
+        count(YEAR, {{facet_var}}, educ_bucket, wt = ASECWT) |>
         group_by(YEAR, {{facet_var}}) |> 
         mutate(freq = n/sum(n)) |> 
         ggplot(aes(x=YEAR, y=freq, color=educ_bucket)) + geom_line() +
@@ -114,4 +118,34 @@ make_facet_plot <- function(facet_var){
 make_facet_plot(age_bucket)
 make_facet_plot(SEX)
 make_facet_plot(race_eth)
+
+
+# Plots of sex by race by age for Bachelor's degree recipients
+asec_df_filtered |> 
+    filter(educ_bucket == "Bachelor's or higher completed") |> 
+    count(YEAR, age_bucket, SEX, race_eth, wt = ASECWT) |>
+    mutate(`Relative Freq` = n/sum(n), .by = c('YEAR', 'age_bucket', 'SEX')) |> 
+    ggplot(aes(x=YEAR, y=`Relative Freq`, color=race_eth)) + geom_line() + geom_smooth(se=FALSE) +
+    facet_grid(age_bucket~SEX) +
+    theme(legend.position = 'bottom')
+
+
+
+# Separate plot removing White to see other races more clearly
+asec_df_filtered |> 
+    filter(educ_bucket == "Bachelor's or higher completed" & race_eth != 'White') |> 
+    count(YEAR, age_bucket, SEX, race_eth, wt = ASECWT) |>
+    mutate(`Relative Freq` = n/sum(n), .by = c('YEAR', 'age_bucket', 'SEX')) |> 
+    ggplot(aes(x=YEAR, y=`Relative Freq`, color=race_eth)) + geom_line() + geom_smooth(se=FALSE) +
+    facet_grid(age_bucket~SEX) +
+    theme(legend.position = 'bottom')
+
+
+# Regression of relative frequency on age, SEX, race, and quadratic time trend
+asec_df_filtered |> 
+    filter(educ_bucket == "Bachelor's or higher completed") |> 
+    count(YEAR, age_bucket, SEX, race_eth, wt = ASECWT) |>
+    mutate(freq = n/sum(n), .by = c('YEAR', 'age_bucket', 'SEX')) %>% 
+    lm(data = ., freq ~  age_bucket + SEX + race_eth + YEAR + I(YEAR^2)) |> 
+    summary()
 ```
