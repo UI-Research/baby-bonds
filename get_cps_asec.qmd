@@ -13,6 +13,7 @@ format:
 ```{r}
 library(tidyverse)
 library(ipumsr)
+library(purrr)
 # Run this once to save key to .Renviron file:
 # set_ipums_api_key('Enter your key here')
 ```
@@ -122,30 +123,37 @@ make_facet_plot(race_eth)
 
 # Plots of sex by race by age for Bachelor's degree recipients
 asec_df_filtered |> 
-    filter(educ_bucket == "Bachelor's or higher completed") |> 
-    count(YEAR, age_bucket, SEX, race_eth, wt = ASECWT) |>
-    mutate(`Relative Freq` = n/sum(n), .by = c('YEAR', 'age_bucket', 'SEX')) |> 
-    ggplot(aes(x=YEAR, y=`Relative Freq`, color=race_eth)) + geom_line() + geom_smooth(se=FALSE) +
-    facet_grid(age_bucket~SEX) +
-    theme(legend.position = 'bottom')
+    count(YEAR, age_bucket, SEX, race_eth, educ_bucket == "Bachelor's or higher completed", wt = ASECWT) |>
+    mutate(`Relative Freq` = n/sum(n), .by = c('YEAR', 'age_bucket', 'SEX', 'race_eth')) |> 
+    filter(`educ_bucket == "Bachelor's or higher completed"`) |> 
+    ggplot(aes(x=YEAR, y=`Relative Freq`, color=race_eth)) + geom_line() + geom_smooth(method='lm', se=FALSE) +
+    facet_grid(age_bucket~SEX, scales='free') +
+    theme(legend.position = 'bottom') +
+    ylab("Share with Bachelor's degree or higher")
 
-
-
-# Separate plot removing White to see other races more clearly
-asec_df_filtered |> 
-    filter(educ_bucket == "Bachelor's or higher completed" & race_eth != 'White') |> 
-    count(YEAR, age_bucket, SEX, race_eth, wt = ASECWT) |>
-    mutate(`Relative Freq` = n/sum(n), .by = c('YEAR', 'age_bucket', 'SEX')) |> 
-    ggplot(aes(x=YEAR, y=`Relative Freq`, color=race_eth)) + geom_line() + geom_smooth(se=FALSE) +
-    facet_grid(age_bucket~SEX) +
-    theme(legend.position = 'bottom')
 
 
 # Regression of relative frequency on age, SEX, race, and quadratic time trend
-asec_df_filtered |> 
-    filter(educ_bucket == "Bachelor's or higher completed") |> 
-    count(YEAR, age_bucket, SEX, race_eth, wt = ASECWT) |>
-    mutate(freq = n/sum(n), .by = c('YEAR', 'age_bucket', 'SEX')) %>% 
-    lm(data = ., freq ~  age_bucket + SEX + race_eth + YEAR + I(YEAR^2)) |> 
-    summary()
+lm_data <- asec_df_filtered |> 
+    count(YEAR, age_bucket, SEX, race_eth, educ_bucket == "Bachelor's or higher completed", wt = ASECWT) |>
+    mutate(`Relative Freq` = n/sum(n), .by = c('YEAR', 'age_bucket', 'SEX', 'race_eth')) |> 
+    filter(`educ_bucket == "Bachelor's or higher completed"`)
+    # lme4::lmList(`Relative Freq` ~ YEAR | (age_bucket, SEX), .)
+
+
+fit_time_trend <- function(df){
+    lm_fit <- lm(`Relative Freq` ~ YEAR, data=df)
+    coef(lm_fit)
+}
+
+models_list <- lm_data |> 
+  group_by(SEX, age_bucket, race_eth) |> 
+  nest() 
+models_list <- cbind(
+    models_list,
+    map_dfr(models_list$data, fit_time_trend)
+) 
+
+models_list |> select(-data)
+
 ```
