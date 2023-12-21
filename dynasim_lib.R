@@ -1,5 +1,10 @@
 
 
+# Get the wage index for the survey year
+widx = read.csv(paste0(here::here(), "/windex.csv"))
+widx1997 = (widx |> filter(year==1997) |> select(windex) |> pull()) * 1000
+
+
 #' Returns DYNASIM-compatible model names based on sex and
 #'
 #' @param data - dataframe with columns sex and race
@@ -64,13 +69,14 @@ dyn_merge_results = function(dfs)
 #'
 #' @param models - list of models
 #' @param filename - path of output file
-#' @param modnames - model names, up to 10 characters long
 #' @param description - a short description
-dyn_write_coef_file = function(models, filename, modnames, description)
+dyn_write_coef_file = function(models, filename, description)
 {
 
     # Create a dataframe with models' coefficients
     df = dyn_coef_to_df(models)
+
+    modnames = names(models)
 
     # Number of variables and models
     nv = dim(df)[1]
@@ -98,3 +104,24 @@ dyn_write_coef_file = function(models, filename, modnames, description)
     cat(header, file=filename)
     write_csv(df, filename, append=TRUE)
 }
+
+
+dyn_wealth_xform = function(var, type="log")
+{
+    # Logarithmic transformation
+    if(type == "log") {
+        # Divide by the 1997 wage index
+        # Cap negative values and shift them to be positive
+        # Calculate log
+        return(log(pmax({{var}}/widx1997,-2.9) + 3))
+    }
+    # Inverse hyperbolic sine transformation
+    else if(type == "ihs") {
+        x = pmax({{var}}/widx1997,-3)
+        return(log(sqrt(x^2+1)+x))
+    }
+    else {
+        stop(paste0(type, " not implemented"))
+    }
+}
+

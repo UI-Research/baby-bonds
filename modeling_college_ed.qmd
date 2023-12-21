@@ -15,6 +15,7 @@ toc-expand: true
 ```{r}
 library(Hmisc)
 library(tidyverse)
+library(margins)
 library(scales)
 library(ggridges)
 library(modelsummary)
@@ -35,16 +36,12 @@ colstdf = left_join(
   by=c('id', 'year')
 )
 
-# Get the wage index for the survey year
-widx = read.csv(paste0(here::here(), "/windex.csv"))
-widx1997 = (widx |> filter(year==1997) |> select(windex) |> pull()) * 1000
-
 # Create a base frame
 basedf = nlsy_get_base_df() |> 
     select(id, sex, race, hisp, pnetworth, wt) |>
     mutate(
         pnetworth_na = as.integer(is.na(pnetworth)),
-        pnetworth = if_else(is.na(pnetworth), 0, pnetworth/widx1997)
+        pnetworth = if_else(is.na(pnetworth), 0, pnetworth)
         ) |>
     filter(!is.na(race) & !is.na(hisp) & race!='No information') |>
     nlsy_recode_race_and_ethn() |> 
@@ -266,27 +263,26 @@ plotdf |>
 
 ```
 
-## 
+We estimate a hazard model of college enrollment that regresses the college-enrollment indicator on a set of indicators for years after the high school graduation and a set of variables representing individual characteristics for race and sex and their interactions, $x_i$, one for each combination of sex and race:
 
-We first estimate two simple hazard models of college enrollment. The first one regresses the college-enrollment indicator on a set of indicators for years after the high school graduation and a set of indicators for race and sex and their interactions, $x_i$:
+$$ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t) + \beta' x_i, j=1,...,6$$
 
-$$ \text{logit}(y_{it}) = \sum_{k=0}^T \alpha_k I(k=t) + \beta' x_i $$
-
-The second model consists of six regressions, one for each combination of sex and race:
-
-$$ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t), j=1,...,6$$
-
-@tbl-enrol-simple-mod-est shows the estimated coefficients for the two models.
+@tbl-enrol-simple-mod-est shows the estimated coefficients.
 
 ```{r}
 #| label: est-simple-models
+
+marginal_effects = function(model, data, variables)
+{
+    return((summary(margins(model, data=data, variables=variables)))$AME)
+}
 
 # Create a factor year variable to use it as dummmies in regressions
 estdf = colenrdf |>
     filter(spEnroll==1) |>
     mutate(
         yearf=factor(pmin(timeEnroll,8)),
-        pnetworth=log(pmax(pnetworth,-2.9) + 3)
+        pnetworth=dyn_wealth_xform(pnetworth, type='ihs')
     )
 
 # Estimate one model for each sex-race combination
@@ -300,12 +296,15 @@ estdf = estdf |>
             family=binomial)
         )
     ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
+    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
+    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
+
+
 ```
 
 ```{r}
 #| label: tbl-enrol-simple-mod-est
-#| tbl-cap: "Estimated coefficients of models 1 and 2"
+#| tbl-cap: "Estimated coefficients for the model of college enrollment"
 
 # Create a named list of models
 estdf = estdf |> arrange(desc(sex), race)
@@ -317,28 +316,29 @@ modelsummary(models,
              estimate="{estimate}{stars}", 
              statistic=NULL,
              stars=c('*'=.1, '**'=.05, '***'=.01),
-             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
-             title="Estimated coefficients of models 1 and 2")
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x)
+             )
 
 # Dataframe with coefficients
 res_colenr = dyn_coef_to_df(models)
 
 # Write regression coefficients to a file
-if ( TRUE ) {
 dyn_write_coef_file(
     models, 
     "coefs/coef_col_enr.csv",
-    c(
-        'FBLACK',
-        'FHISP',
-        'FWHITE',
-        'MBLACK',
-        'MHISP',
-        'MWHITE'
-    ),
     'Coefficients for college enrollment model.'
 )
-}
+```
+
+@tbl-enroll-marginal shows average marginal effects of parental networth on the likelihood of enrollment. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of enrollment in college.
+
+```{r}
+#| label: tbl-enroll-marginal
+#| tbl-cap: "Marginal effects of parental networth"
+
+df = data.frame(estdf$marg)
+colnames(df) = dyn_get_sexrace_names(estdf)
+knitr::kable(df, digits=5)
 ```
 
 @fig-enr-simple-mod-pred shows hazard rates by sex and race predicted by these two models, as well as the actual hazard rates from @fig-enrol-hazard. As expected, model 2 performs much better because its time-varying term is estimated separately for each combination of sex and race.
@@ -442,80 +442,84 @@ ggplot(plotdf) +
 # Create a factor year variable to use it as dummmies in regressions
 estdf = colenrdf |>
     filter(spEnroll==2) |>
-    mutate(yearf=factor(pmin(timeEnroll,5)))
+    mutate(
+        yearf=factor(pmin(timeEnroll,5)),
+        pnetworth=dyn_wealth_xform(pnetworth, type='ihs')
+    )
 
-# Estimate model1 with dummies for sex and race
-m1 = glm(tEnroll ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
-estdf$p1 = predict(m1, type='response')
-
-# Estimate model2, one model for each sex-race combination
+# Estimate one model for each sex-race combination
 estdf = estdf |>
     group_by(race, sex) |>
     nest() |>
-    mutate(m2 = map(data, \(x) glm(tEnroll ~ yearf, data=x, family=binomial))) |>
-    mutate(p2 = map(m2, \(x) predict(x, type='response')))
+    mutate(
+        mods = map(data, \(x) glm(
+            tEnroll ~ yearf + asian + pnetworth + pnetworth_na, 
+            data=x,
+            family=binomial)
+        )
+    ) |>
+    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
+    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
 ```
 
 ```{r}
 #| label: tbl-reenrol-mod-est
-#| tbl-cap: "Estimated coefficients of re-enrollment models 1 and 2"
+#| tbl-cap: "Estimated coefficients of the re-enrollment model"
 
 # Create a named list of models
 estdf = estdf |> arrange(desc(sex), race)
-m2models = estdf$m2
-names(m2models) = dyn_get_sexrace_names(estdf)
-models = c(
-    list('All' = m1),
-    m2models
-)
+models = estdf$mods
+names(models) = dyn_get_sexrace_names(estdf)
 
 # Create a regression table
 modelsummary(models, 
              estimate="{estimate}{stars}", 
              statistic=NULL,
              stars=c('*'=.1, '**'=.05, '***'=.01),
-             coef_omit='yearf1[6-9]|yearf2[0-9]',
-             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
-             title="Estimated coefficients of models 1 and 2")
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x)
+             )
 
 # Dataframe with coefficients
-res_colreenr = dyn_coef_to_df(m2models)
+res_colreenr = dyn_coef_to_df(models)
 
 dyn_write_coef_file(
-    m2models, 
+    models, 
     "coefs/coef_col_reenr.csv",
-    c(
-        'FBLACK',
-        'FHISP',
-        'FWHITE',
-        'MBLACK',
-        'MHISP',
-        'MWHITE'
-    ),
     'Coefficients for the model of re-enrolling into college after dropping out.'
 )
 
 ```
+
+
+@tbl-reenroll-marginal shows average marginal effects of parental networth on the likelihood of enrollment in college after having dropped out. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of re-enrollment.
+
+```{r}
+#| label: tbl-reenroll-marginal
+#| tbl-cap: "Marginal effects of parental networth on re-enrollment in college"
+
+df = data.frame(estdf$marg)
+colnames(df) = dyn_get_sexrace_names(estdf)
+knitr::kable(df, digits=5)
+```
+
 
 ```{r}
 #| label: fig-enr-return-simple-mod-pred
 #| fig-cap: 'Hazard rates for college enrollment after dropping out of college by sex and race, actual and predicted.'
 
 estdf |>
-    select(sex, race, data, p2) |>
-    unnest(cols=c(data, p2)) |>
+    select(sex, race, data, pred) |>
+    unnest(cols=c(data, pred)) |>
     group_by(timeEnroll, race, sex) |>
     summarise(
         tEnroll = weighted.mean(tEnroll, wt),
-        p1 = weighted.mean(p1, wt),
-        p2 = weighted.mean(p2, wt)
+        pred = weighted.mean(pred, wt)
     ) |>
     rename(
         `Actual` = tEnroll,
-        `Model1` = p1,
-        `Model2` = p2
+        `Predicted` = pred
         ) |>
-    pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
+    pivot_longer(cols=c('Actual', 'Predicted')) |>
     ggplot() +
     geom_line(aes(x=timeEnroll, y=value, color=name)) +
     facet_grid(rows=vars(sex), cols=vars(race)) +
@@ -697,81 +701,81 @@ estdf = dropdf |>
         by='id'
     ) |>
 #    filter(spDrop==1) |>
-    mutate(yearf=factor(pmin(timeDrop,5)))
+    mutate(
+        yearf=factor(pmin(timeDrop,5)),
+        pnetworth=dyn_wealth_xform(pnetworth, type='ihs')
+        )
 
-# Estimate model1 with dummies for sex and race
-m1 = glm(tDrop ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
-estdf$p1 = predict(m1, type='response')
-
-# Estimate model2, one model for each sex-race combination
+# Estimate one model for each sex-race combination
 estdf = estdf |>
     group_by(race, sex) |>
     nest() |>
-    mutate(m2 = map(data, \(x) glm(tDrop ~ yearf, data=x, family=binomial))) |>
-    mutate(p2 = map(m2, \(x) predict(x, type='response')))
+    mutate(
+        mods = map(data, \(x) glm(
+            tDrop ~ yearf + asian + pnetworth + pnetworth_na, 
+            data=x, 
+            family=binomial)
+        )
+    ) |>
+    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
+    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
 ```
 
 ```{r}
 #| label: tbl-drop-simple-mod-est
-#| tbl-cap: "Estimated coefficients of models 1 and 2"
+#| tbl-cap: "Estimated coefficients of the model of dropping out of college"
 
 # Create a named list of models
 estdf = estdf |> arrange(desc(sex), race)
-m2models = estdf$m2
-names(m2models) = dyn_get_sexrace_names(estdf)
-models = c(
-    list('All' = m1),
-    m2models
-)
+models = estdf$mods
+names(models) = dyn_get_sexrace_names(estdf)
 
 # Create a regression table
 modelsummary(models, 
              estimate="{estimate}{stars}", 
              statistic=NULL,
              stars=c('*'=.1, '**'=.05, '***'=.01),
-             coef_omit='yearf1[6-9]|yearf2[0-9]',
-             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
-             title="Estimated coefficients of models 1 and 2")
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x))
 
 # Dataframe with coefficients
-res_coldrop = dyn_coef_to_df(m2models)
+res_coldrop = dyn_coef_to_df(models)
 
 dyn_write_coef_file(
-    m2models, 
+    models, 
     "coefs/coef_col_drop.csv",
-    c(
-        'FBLACK',
-        'FHISP',
-        'FWHITE',
-        'MBLACK',
-        'MHISP',
-        'MWHITE'
-    ),
     'Coefficients for the model of dropping out of college.'
 )
 
 ```
 
+@tbl-drop-marginal shows average marginal effects of parental networth on the likelihood of dropping out of college. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of dropping out.
+
+```{r}
+#| label: tbl-drop-marginal
+#| tbl-cap: "Marginal effects of parental networth on dropping out of college"
+
+df = data.frame(estdf$marg)
+colnames(df) = dyn_get_sexrace_names(estdf)
+knitr::kable(df, digits=5)
+```
 
 ```{r}
 #| label: fig-drop-simple-mod-pred
 #| fig-cap: 'Hazard rates for dropping out of college by sex and race, actual and predicted.'
 
 estdf |>
-    select(sex, race, data, p2) |>
-    unnest(cols=c(data, p2)) |>
+    select(sex, race, data, pred) |>
+    unnest(cols=c(data, pred)) |>
     group_by(timeDrop, race, sex) |>
     summarise(
         tDrop = weighted.mean(tDrop, wt),
-        p1 = weighted.mean(p1, wt),
-        p2 = weighted.mean(p2, wt)
+        pred = weighted.mean(pred, wt)
     ) |>
     rename(
-        `Actual` = tDrop,
-        `Model1` = p1,
-        `Model2` = p2
+        `Actual`    = tDrop,
+        `Predicted` = pred
         ) |>
-    pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
+    pivot_longer(cols=c('Actual', 'Predicted')) |>
     filter(timeDrop<=10) |>
     ggplot() +
     geom_line(aes(x=timeDrop, y=value, color=name)) +
@@ -836,60 +840,64 @@ graddf |>
 #| label: est-grad-simple-models
 
 # Create a factor year variable to use it as dummmies in regressions
-estdf = mutate(graddf, yearf=factor(pmin(timeGrad,4)))
+estdf = graddf |>
+    mutate(
+        yearf=factor(pmin(timeGrad,4)),
+        pnetworth=dyn_wealth_xform(pnetworth, type='ihs')
+    )
 
-# Estimate model1 with dummies for sex and race
-m1 = glm(tGrad ~ yearf + sex + race + sex*race, data=estdf, family=binomial)
-estdf$p1 = predict(m1, type='response')
-
-# Estimate model2, one model for each sex-race combination
+# Estimate one model for each sex-race combination
 estdf = estdf |>
     group_by(race, sex) |>
     nest() |>
-    mutate(m2 = map(data, \(x) glm(tGrad ~ yearf, data=x, family=binomial))) |>
-    mutate(p2 = map(m2, \(x) predict(x, type='response')))
+    mutate(mods = map(
+        data, \(x) glm(
+            tGrad ~ yearf + asian + pnetworth + pnetworth_na, 
+            data=x, 
+            family=binomial)
+        )
+    ) |>
+    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
+    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
 ```
 
 ```{r}
 #| label: tbl-grad-simple-mod-est
-#| tbl-cap: "Estimated coefficients of models 1 and 2 of college graduation"
+#| tbl-cap: "Estimated coefficients of the college graduation model"
 
 # Create a named list of models
 estdf = estdf |> arrange(desc(sex), race)
-m2models = estdf$m2
-names(m2models) = dyn_get_sexrace_names(estdf)
-models = c(
-    list('All' = m1),
-    m2models
-)
+models = estdf$mods
+names(models) = dyn_get_sexrace_names(estdf)
 
 # Create a regression table
 modelsummary(models, 
              estimate="{estimate}{stars}", 
              statistic=NULL,
              stars=c('*'=.1, '**'=.05, '***'=.01),
-             coef_omit='yearf1[6-9]|yearf2[0-9]',
-             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x),
-             title="Estimated coefficients of models 1 and 2")
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x))
 
 # Dataframe with coefficients
-res_colgrad = dyn_coef_to_df(m2models)
+res_colgrad = dyn_coef_to_df(models)
 
 dyn_write_coef_file(
-    m2models, 
+    models, 
     "coefs/coef_col_grad.csv",
-    c(
-        'FBLACK',
-        'FHISP',
-        'FWHITE',
-        'MBLACK',
-        'MHISP',
-        'MWHITE'
-    ),
     'Coefficients for college graduation model.'
 )
 
 
+```
+
+@tbl-grad-marginal shows average marginal effects of parental networth on the likelihood of graduating from college. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of graduation.
+
+```{r}
+#| label: tbl-grad-marginal
+#| tbl-cap: "Marginal effects of parental networth on graduation from college"
+
+df = data.frame(estdf$marg)
+colnames(df) = dyn_get_sexrace_names(estdf)
+knitr::kable(df, digits=5)
 ```
 
 ```{r}
@@ -897,20 +905,18 @@ dyn_write_coef_file(
 #| fig-cap: 'Hazard rates for college graduation after the senior year by sex and race, actual and predicted.'
 
 estdf |>
-    select(sex, race, data, p2) |>
-    unnest(cols=c(data, p2)) |>
+    select(sex, race, data, pred) |>
+    unnest(cols=c(data, pred)) |>
     group_by(timeGrad, race, sex) |>
     summarise(
         tGrad = weighted.mean(tGrad, wt),
-        p1 = weighted.mean(p1, wt),
-        p2 = weighted.mean(p2, wt)
+        pred = weighted.mean(pred, wt),
     ) |>
     rename(
-        `Actual` = tGrad,
-        `Model1` = p1,
-        `Model2` = p2
+        `Actual`    = tGrad,
+        `Predicted` = pred
         ) |>
-    pivot_longer(cols=c('Actual', 'Model1', 'Model2')) |>
+    pivot_longer(cols=c('Actual', 'Predicted')) |>
     ggplot() +
     geom_line(aes(x=timeGrad, y=value, color=name)) +
     facet_grid(rows=vars(sex), cols=vars(race)) +
