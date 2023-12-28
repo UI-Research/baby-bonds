@@ -18,3 +18,4 @@
 !*.Rprofile
 !*renv.activate.R
 .Rproj.user
+!*.csv
