@@ -23,6 +23,10 @@ nlsy_get_base_df = function()
             has_retsav= "P5-130_1997",
             retsav1 =   "P5-131_1997",
             retsav2 =   "P5-132_1997",
+            dad_bio_ed ="CV_HGC_BIO_DAD_1997",
+            dad_res_ed ="CV_HGC_BIO_MOM_1997",
+            mom_bio_ed ="CV_HGC_RES_DAD_1997",
+            mom_res_ed ="CV_HGC_RES_MOM_1997",
             wt
         )
 
@@ -302,6 +306,57 @@ nlsy_encode_educ4 = function(var)
     )
     )
 }
+
+#' Encodes education into 5 levels
+nlsy_encode_educ5 = function(var, factorize=FALSE)
+{
+    edlevels = c(
+        "Less than high school",
+        "High-school graduate",
+        "Some college",
+        "College degree",
+        "Graduate degree"
+    )
+
+    x = case_when(
+        {{var}} %in% c(
+            "1ST GRADE",
+            "2ND GRADE",
+            "3RD GRADE",
+            "4TH GRADE",
+            "5TH GRADE",
+            "6TH GRADE",
+            "7TH GRADE",
+            "8TH GRADE",
+            "9TH GRADE",
+            "10TH GRADE",
+            "11TH GRADE"
+        ) ~ edlevels[1],
+        {{var}} %in% c(
+            "12TH GRADE"
+        ) ~ edlevels[2],
+        {{var}} %in% c(
+            "1ST YEAR COLLEGE",
+            "2ND YEAR COLLEGE",
+            "3RD YEAR COLLEGE"
+        ) ~ edlevels[3],
+        {{var}} %in% c(
+            "4TH YEAR COLLEGE",
+            "5TH YEAR COLLEGE"
+        ) ~ edlevels[4],
+        {{var}} %in% c(
+            "6TH YEAR COLLEGE",
+            "7TH YEAR COLLEGE",
+            "8TH YEAR COLLEGE"
+        ) ~ edlevels[5]
+    )
+
+    if(factorize) {
+        x = factor(x, levels=edlevels, ordered=TRUE)
+    }
+    return(x)
+}
+
 
 #' Adds college graduation year to the input dataset
 #'
