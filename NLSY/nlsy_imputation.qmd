@@ -133,7 +133,7 @@ round(m$mr/(m$mr + m$mm), 3) #looking for low proportions: where both target and
 #Note: For row target pincome and pnetworth respectively, predictors dad_educ_hs, ret_sav, and hown have lowest proportions
 
 impute <- impute %>%
-    select(-dad_educ_hs, -race) # I suspect multi-collinearity is causing singularity in the multiple imputation below, so removed race and only kept interaction race_eth for now
+    select(-race, -hisp) # I suspect multi-collinearity is causing singularity in the multiple imputation below, so removed race and only kept interaction race_eth for now
 ```
 
 ## Multiple Imputation
@@ -147,7 +147,7 @@ predM = init$predictorMatrix
 
 # Set distributions
 num <- c("mom_age") # numerical variables
-log <- c("hisp", "ret_sav", "hown", "both_pars") # binary variables
+log <- c("ret_sav", "hown", "both_pars") # binary variables
 poly <- c("mom_educ_hs") # ordered categorical variables
 poly2 <- c("race", "race_eth")# Unordered categorical variable
 
@@ -155,8 +155,8 @@ poly2 <- c("race", "race_eth")# Unordered categorical variable
 predM[,c("id")] <- 0 # not using as a predictor variable
 predM[c("id"),] <- 0 # not using as a predictor variable
 predM[c("race_eth"),] <- 1 # not using as a predictor variable
-predM[,c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "both_pars", "race_eth")] <- 0 # not imputing
-meth[c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "both_pars", "race_eth")]= "" #not imputing missing values, just using as a predictor
+#predM[,c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "both_pars", "race_eth")] <- 0 
+#meth[c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "both_pars", "race_eth")]= "" 
 
 # Income and Wealth imputation
 set.seed(25)
@@ -166,33 +166,29 @@ imputed <- complete(imputed, action = "repeated", include = FALSE)
 
 final <- imputed %>%
     rename(id = id.1,
-           mom_age = mom_age.1,
-           ret_sav = ret_sav.1,
-           hown = hown.1,
-           mom_educ_hs = mom_educ_hs.1,
-           hisp = hisp.1,
-           both_pars = both_pars.1,
            race_eth = race_eth.1) %>%
-    select(-starts_with("id."), -starts_with("mom_age."), -starts_with("ret_sav."), -starts_with("hown."), -starts_with("mom_educ_hs."), -starts_with("dad_educ_hs."), -starts_with("both_pars."), -starts_with("hisp."),  -starts_with("race_eth."))
+    select(-starts_with("id."), -starts_with("race_eth"))
 
 ```
 
 ```{r}
 # Join back with original income and wealth
 og_values <- impute %>%
-    select(id, pincome, pnetworth)
+    select(id, pincome, pnetworth, race_eth, dad_educ_hs)
 
 final <- merge(x=final,y=og_values,
                     by="id", all.x=TRUE)
 
 income <- final %>%
     select(id, starts_with("pincome"))
-
 wealth <- final %>%
     select(id, starts_with("pnetworth"))
+dad_ed <- final %>%
+    select(id, starts_with("dad_"))
 
 pincome <- tidyr::gather(income, key = "imputation", value ="pincome", matches("pincome"), -id)
 pnetworth <- tidyr::gather(wealth, key = "imputation", value ="pnetworth", matches("pnetworth"), -id)
+dad_educ  <- tidyr::gather(dad_ed, key = "imputation", value ="dad_educ", matches("dad_educ"), -id)
 ```
 
 ## Distribution Plots for Parent Income (non-imputed and imputed)
@@ -209,6 +205,12 @@ ggplot(pincome, aes(x=pincome, fill= imputation)) +
 ggplot(pnetworth, aes(x=pnetworth, fill= imputation)) +
     geom_density(alpha = 0.5) +
     facet_wrap(~imputation, scales="free")
+```
+```{r}
+ggplot(dad_educ, aes(x=dad_educ, fill= imputation)) +
+    geom_bar(alpha = 0.5) +
+    facet_wrap(~imputation, scales="free")
+# Select a larger graphic to see the x-axis labels
 ```
 
 ## Whisker Plots
