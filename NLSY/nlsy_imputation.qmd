@@ -46,8 +46,8 @@ test <- nlsydf %>% #Add additional variables that should be considered during mu
 # Making dummy or factor variables
 test <- test |>
     mutate(
-        mom_educ_hs = factor(nlsy_encode_educ4(mom_education)),
-        dad_educ_hs = factor(nlsy_encode_educ4(dad_education)),
+        mom_educ_hs = nlsy_encode_educ5(mom_education),
+        dad_educ_hs = nlsy_encode_educ5(dad_education),
         race = factor(race),
         hisp = factor(hispanic),
         race_eth = ifelse(hisp == "Yes" & race == "White", "White Hispanic",  NA), # Race and ethnicity interaction
@@ -157,7 +157,11 @@ predM[c("id"),] <- 0 # not using as a predictor variable
 predM[c("race_eth"),] <- 1 # not using as a predictor variable
 #predM[,c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "both_pars", "race_eth")] <- 0 
 #meth[c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "both_pars", "race_eth")]= "" 
+meth
+predM
+```
 
+```{r}
 # Income and Wealth imputation
 set.seed(25)
 imputed = mice(impute, method=meth, predictorMatrix=predM, m=5)
@@ -168,7 +172,6 @@ final <- imputed %>%
     rename(id = id.1,
            race_eth = race_eth.1) %>%
     select(-starts_with("id."), -starts_with("race_eth"))
-
 ```
 
 ```{r}
@@ -206,19 +209,27 @@ ggplot(pnetworth, aes(x=pnetworth, fill= imputation)) +
     geom_density(alpha = 0.5) +
     facet_wrap(~imputation, scales="free")
 ```
+
+## Distribution Plots for Dad Education (non-imputed and imputed)
+
 ```{r}
-ggplot(dad_educ, aes(x=dad_educ, fill= imputation)) +
+ggplot(dad_educ, aes(y= factor(dad_educ, level = c(
+        "Less than high school",
+        "High-school graduate",
+        "Some college",
+        "College degree",
+        "Graduate degree"
+    )), fill= imputation)) +
     geom_bar(alpha = 0.5) +
     facet_wrap(~imputation, scales="free")
-# Select a larger graphic to see the x-axis labels
 ```
 
 ## Whisker Plots
+
 ```{r}
 boxplot(pincome$pincome ~ pincome$imputation)
 boxplot(pnetworth$pnetworth ~ pnetworth$imputation)
 ```
-
 
 ## Scatter Plots for both parent income and wealth (non-imputed is zero)
 
@@ -235,4 +246,3 @@ ggplot(merge, aes(x=pincome, y=pnetworth, color = imputation)) +
     geom_point(alpha = 0.5) +
     facet_wrap(~imputation, scales="free")
 ```
-

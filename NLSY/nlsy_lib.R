@@ -282,34 +282,11 @@ nlsy_get_student_loans_df = function()
     return(sloandf)
 }
 
-# Encode education variable
-nlsy_encode_educ4 = function(var)
-{
-    return( case_when(
-        {{var}} %in% c(
-            "12TH GRADE"
-        ) ~ "High-school graduate",
-        {{var}} %in% c(
-            "1ST YEAR COLLEGE",
-            "2ND YEAR COLLEGE",
-            "3RD YEAR COLLEGE"
-        ) ~ "Some college",
-        {{var}} %in% c(
-            "4TH YEAR COLLEGE",
-            "5TH YEAR COLLEGE"
-        ) ~ "College degree",
-        {{var}} %in% c(
-            "6TH YEAR COLLEGE",
-            "7TH YEAR COLLEGE",
-            "8TH YEAR COLLEGE"
-        ) ~ "Graduate degree"
-    )
-    )
-}
 
 #' Encodes education into 5 levels
 nlsy_encode_educ5 = function(var, factorize=FALSE)
 {
+
     edlevels = c(
         "Less than high school",
         "High-school graduate",
@@ -351,9 +328,8 @@ nlsy_encode_educ5 = function(var, factorize=FALSE)
         ) ~ edlevels[5]
     )
 
-    if(factorize) {
         x = factor(x, levels=edlevels, ordered=TRUE)
-    }
+
     return(x)
 }
 
