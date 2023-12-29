@@ -46,8 +46,8 @@ test <- nlsydf %>% #Add additional variables that should be considered during mu
 # Making dummy or factor variables
 test <- test |>
     mutate(
-        mom_educ_hs = nlsy_encode_educ5(mom_education),
-        dad_educ_hs = nlsy_encode_educ5(dad_education),
+        mom_educ_hs = nlsy_encode_educ5(mom_education, factorize=TRUE),
+        dad_educ_hs = nlsy_encode_educ5(dad_education, factorize=TRUE),
         race = factor(race),
         hisp = factor(hispanic),
         race_eth = ifelse(hisp == "Yes" & race == "White", "White Hispanic",  NA), # Race and ethnicity interaction

@@ -328,7 +328,9 @@ nlsy_encode_educ5 = function(var, factorize=FALSE)
         ) ~ edlevels[5]
     )
 
+    if(factorize) {
         x = factor(x, levels=edlevels, ordered=TRUE)
+    }
 
     return(x)
 }
