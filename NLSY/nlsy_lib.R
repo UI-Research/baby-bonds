@@ -282,18 +282,22 @@ nlsy_get_student_loans_df = function()
     return(sloandf)
 }
 
-
-#' Encodes education into 5 levels
-nlsy_encode_educ5 = function(var, factorize=FALSE)
+nlsy_get_educ5_levels = function()
 {
-
-    edlevels = c(
+    return(c(
         "Less than high school",
         "High-school graduate",
         "Some college",
         "College degree",
         "Graduate degree"
-    )
+    ))
+}
+
+#' Encodes education into 5 levels
+nlsy_encode_educ5 = function(var, factorize=FALSE)
+{
+
+    edlevels = nlsy_get_educ5_levels()
 
     x = case_when(
         {{var}} %in% c(

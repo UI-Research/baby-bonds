@@ -192,6 +192,7 @@ dad_ed <- final %>%
 pincome <- tidyr::gather(income, key = "imputation", value ="pincome", matches("pincome"), -id)
 pnetworth <- tidyr::gather(wealth, key = "imputation", value ="pnetworth", matches("pnetworth"), -id)
 dad_educ  <- tidyr::gather(dad_ed, key = "imputation", value ="dad_educ", matches("dad_educ"), -id)
+dad_educ = mutate(dad_educ, dad_educ = factor(dad_educ, levels=nlsy_get_educ5_levels()))
 ```
 
 ## Distribution Plots for Parent Income (non-imputed and imputed)
@@ -213,15 +214,39 @@ ggplot(pnetworth, aes(x=pnetworth, fill= imputation)) +
 ## Distribution Plots for Dad Education (non-imputed and imputed)
 
 ```{r}
-ggplot(dad_educ, aes(y= factor(dad_educ, level = c(
-        "Less than high school",
-        "High-school graduate",
-        "Some college",
-        "College degree",
-        "Graduate degree"
-    )), fill= imputation)) +
-    geom_bar(alpha = 0.5) +
-    facet_wrap(~imputation, scales="free")
+
+tmpdf = dad_educ |>
+    filter(if_all(everything(), ~!is.na(.) )) |>
+    mutate(imputation = if_else(imputation=="dad_educ_hs", "0", imputation),
+           imputation = gsub("dad_educ_hs.", "", imputation))
+
+
+tmpdf |>
+    group_by(imputation) |>
+    mutate(N=n()) |>
+    group_by(dad_educ, imputation) |>
+    summarise(N=max(N), share=n()/N) |>
+    ggplot() +
+    geom_col(
+        aes(y=share, x=imputation, fill=dad_educ), 
+        position = position_stack(reverse = TRUE)
+        )
+
+
+tmpdf |>
+    left_join(select(test, id, race_eth), by="id") |>
+    filter(!is.na(race_eth)) |>
+    group_by(race_eth, imputation) |>
+    mutate(N=n()) |>
+    group_by(dad_educ, race_eth, imputation) |>
+    summarise(N=max(N), share=n()/N) |>
+    ggplot() +
+    geom_col(
+        aes(y=share, x=imputation, fill=dad_educ),
+        position = position_stack(reverse = TRUE)
+        ) +
+    facet_wrap(~race_eth, nrow=2)
+
 ```
 
 ## Whisker Plots
