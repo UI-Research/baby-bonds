@@ -29,13 +29,6 @@ set_urbn_defaults(style = "print")
 source(here::here("NLSY/nlsy_lib.R"))
 source(here::here("dynasim_lib.R"))
 
-# Make a frame with college enrollment and highest grade completed
-colstdf = left_join(
-  nlsy_get_col_stat_fall_df(),
-  nlsy_get_highest_grade_completed_df(),
-  by=c('id', 'year')
-)
-
 # Create a base frame
 basedf = nlsy_get_base_df() |> 
     select(id, sex, race, hisp, pnetworth, wt) |>
@@ -130,42 +123,9 @@ Another interesting thing to note on @fig-enrol-hazard is that the college-enrol
 
 ```{r}
 #| label: make-colenrdf
+#| cache: true
+#| cache-vars: colenrdf
 
-
-make_first_enr_year_df = function()
-{
-    # Make a college enrollment frame with:
-    #   col1 (boolean):         enrolled first time
-    #   cumenr (int):           cumulative years of enrollment,
-    #   years_since_hs (int):   number of years since the high-school graduation
-    #
-    data = colstdf |>
-      filter(year>=hs_grad_year) |>
-      mutate(
-        cumenr = cumsum(enrolled),
-        col1 = as.integer(enrolled==TRUE & cumenr==1),
-        year_since_hs = year-hs_grad_year
-        )
-
-    # Test that nobody has col1==1 in more than one year    
-    stopifnot(max((data |> group_by(id) |>
-        summarise(col1 = sum(col1)))$col1) == 1)
-
-    # Add the year of college enrollment
-    #   colenryr (int):         the year when first enrolled in college
-    #
-    data = data |>
-        group_by(id) |>
-        mutate(
-            colenryr = case_when(
-                col1 == 1 ~ year,
-                TRUE ~ 0
-                ),
-            colenryr = max(colenryr)
-        )
-    
-    return(data)    
-}
 
 colenrdf = nlsy_make_spell_df('enroll') |>
     filter(!is.na(spEnroll)) |>
@@ -230,6 +190,50 @@ plotdf |>
 #| fig-height: 10
 #| fig-cap: "College years completed in every year since the graduation from high school."
 #| eval: false
+
+make_first_enr_year_df = function()
+{
+    # Make a college enrollment frame with:
+    #   col1 (boolean):         enrolled first time
+    #   cumenr (int):           cumulative years of enrollment,
+    #   years_since_hs (int):   number of years since the high-school graduation
+    #
+    
+    # Make a frame with college enrollment and highest grade completed
+    colstdf = left_join(
+      nlsy_get_col_stat_fall_df(),
+      nlsy_get_highest_grade_completed_df(),
+      by=c('id', 'year')
+    )
+
+    data = colstdf |>
+      filter(year>=hs_grad_year) |>
+      mutate(
+        cumenr = cumsum(enrolled),
+        col1 = as.integer(enrolled==TRUE & cumenr==1),
+        year_since_hs = year-hs_grad_year
+        )
+
+    # Test that nobody has col1==1 in more than one year    
+    stopifnot(max((data |> group_by(id) |>
+        summarise(col1 = sum(col1)))$col1) == 1)
+
+    # Add the year of college enrollment
+    #   colenryr (int):         the year when first enrolled in college
+    #
+    data = data |>
+        group_by(id) |>
+        mutate(
+            colenryr = case_when(
+                col1 == 1 ~ year,
+                TRUE ~ 0
+                ),
+            colenryr = max(colenryr)
+        )
+    
+    return(data)    
+}
+
 
 plotdf = make_first_enr_year_df() |> 
   ungroup() |>
@@ -368,6 +372,79 @@ estdf |>
 
 
 ```
+
+
+
+@tbl-enrol2-simple-mod-est shows the estimated coefficients.
+
+```{r}
+#| label: est-enroll2-models
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = colenrdf |>
+    filter(spEnroll==1) |>
+    mutate(
+        yearf       = factor(pmin(timeEnroll,8)),
+        pwealthpos  = dyn_wealth_xform(pnetworth, type='log+'),
+        pwealthneg  = dyn_wealth_xform(pnetworth, type='log-')
+    )
+
+# Estimate one model for each sex-race combination
+estdf = estdf |>
+    group_by(race, sex) |>
+    nest() |>
+    mutate(
+        mods = map(data, \(x) glm(
+            tEnroll ~ yearf + asian + pwealthpos + pwealthneg + pnetworth_na, 
+            data=x, 
+            family=binomial)
+        )
+    ) |>
+    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
+    mutate(
+        margpos = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthpos"))),
+        margneg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthneg"))),
+        )
+
+```
+
+```{r}
+#| label: tbl-enrol2-simple-mod-est
+#| tbl-cap: "Estimated coefficients for the model of college enrollment with parental networth split into negative an dpositive terms"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+models = estdf$mods
+names(models) = dyn_get_sexrace_names(estdf)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x)
+             )
+
+```
+
+@tbl-enroll2-marginal shows average marginal effects of parental networth on the likelihood of enrollment. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of enrollment in college.
+
+```{r}
+#| label: tbl-enroll2-marginal
+#| tbl-cap: "Marginal effects of parental networth separate for negative and positive"
+
+df1 = data.frame(estdf$margpos)
+df2 = data.frame(estdf$margneg)
+colnames(df1) = dyn_get_sexrace_names(estdf)
+colnames(df2) = dyn_get_sexrace_names(estdf)
+
+df = bind_rows(df1, df2)
+colnames(df) = dyn_get_sexrace_names(estdf)
+knitr::kable(df, digits=5)
+```
+
+
+
 
 ### Enrollment After Dropping out of College
 
@@ -543,6 +620,8 @@ One way to address this issue is to construct an alternative model that does not
 
 ```{r}
 #| label: make-drop-df
+#| cache: true
+#| cache-vars: dropdf
 
 dropdf = nlsy_make_spell_df() |>
     filter(!is.na(spDrop))
@@ -792,6 +871,8 @@ estdf |>
 
 ```{r}
 #| label: make-grad-df
+#| cache: true
+#| cache-vars: graddf
 
 graddf = nlsy_make_spell_df() |>
     filter(!is.na(spGrad))
