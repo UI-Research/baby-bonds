@@ -32,12 +32,12 @@ source(here::here("dynasim_lib.R"))
 # Create a base frame
 basedf = nlsy_get_base_df() |> 
     select(id, sex, race, hisp, pnetworth, wt) |>
+    filter(!is.na(race) & !is.na(hisp) & race!='No information') |>
     mutate(
         pnetworth_na = as.integer(is.na(pnetworth)),
-        pnetworth = if_else(is.na(pnetworth), 0, pnetworth)
-        ) |>
-    filter(!is.na(race) & !is.na(hisp) & race!='No information') |>
-    nlsy_recode_race_and_ethn() |> 
+        pnetworth = if_else(is.na(pnetworth), 0, pnetworth),
+        race = nlsy_recode_race_and_eth5(race, hisp)
+    ) |>
     # There are not enough Asians in the dataset for a separate model
     # We group them with whites and use a dummy variable
     mutate(
