@@ -19,53 +19,24 @@ librarian::shelf(dplyr, mice, car, corrplot, caret, tidyr)
 source(here::here("NLSY/nlsy_lib.R"))
 
 # Read data
-nlsydf = readRDS(paste0(here::here(), "/NLSY/NLSY-college-finance.rds"))
+# nlsydf = readRDS(paste0(here::here(), "/NLSY/NLSY-college-finance.rds"))
 ```
 
 ```{r}
-test <- nlsydf %>% #Add additional variables that should be considered during multiple imputation
-    select(id = "PUBID_1997",
-           mom_age_birth = "CV_BIO_MOM_AGE_YOUTH_1997", # numeric
-           age_resp =  "CV_AGE_12/31/96_1997",
-           hispanic = "KEY_ETHNICITY_1997", # binary
-           race = "KEY_RACE_1997", # categorical
-           mom_education = "CV_HGC_RES_MOM_1997", # categorical - highest grade completed in 1997 by mom
-           dad_education = "CV_HGC_RES_DAD_1997", # categorical - highest grade completed in 1997 by dad
-           savings = "P5-130_1997", #binary - yes/no retirement savings
-           home = "P5-101_1997", # binary - homeownership or renting
-           both_parents = "YOUTH_BOTHBIO.01_1997",
-           par1_deceased = "YOUTH_NONR1DEAD.01_1997",
-           par2_deceased = "YOUTH_NONR2DEAD.01_1997",
-           pincome = "CV_INCOME_GROSS_YR_1997",
-           pnetworth = "CV_HH_NET_WORTH_P_1997",
-           # Also, it seems that this represents the wealth of the household in which a respondent lives. That means that for a respondent who lives with only one parent, the net-worth variable represents the wealth of that parent.
-           # In the case of an independent respondent, contains respondent's, rather than parents', wealth.
-    ) %>%
-    mutate(mom_age = mom_age_birth + age_resp)
+
+basedf = nlsy_get_base_df()
 
 # Making dummy or factor variables
-test <- test |>
+test <- basedf |>
     mutate(
-        mom_educ_hs = factor(nlsy_encode_educ4(mom_education)),
-        dad_educ_hs = factor(nlsy_encode_educ4(dad_education)),
+        mom_educ_hs = nlsy_encode_educ5(mom_res_ed, factorize=TRUE),
+        dad_educ_hs = nlsy_encode_educ5(dad_res_ed, factorize=TRUE),
+        race_eth = nlsy_recode_race_and_eth10(race, hisp),
+        race_eth = factor(race_eth),
         race = factor(race),
-        hisp = factor(hispanic),
-        race_eth = ifelse(hisp == "Yes" & race == "White", "White Hispanic",  NA), # Race and ethnicity interaction
-        race_eth = ifelse(hisp == "No" & race == "White", "White NonHispanic", race_eth),
-        race_eth = ifelse(hisp == "Yes" & race == "Black or African American", "Black Hispanic", race_eth),
-        race_eth = ifelse(hisp == "No" & race == "Black or African American", "Black NonHispanic", race_eth),
-        race_eth = ifelse(hisp == "Yes" & race == "American Indian, Eskimo, or Aleut", "AIAN Hispanic", race_eth),
-        race_eth = ifelse(hisp == "Yes" & race == "Asian or Pacific Islander", "AAPI Hispanic", race_eth),
-        race_eth = ifelse(hisp == "Yes" & race == "Something else? (SPECIFY)", "Other Race Hispanic", race_eth),
-        race_eth = ifelse(hisp == "No" & race == "American Indian, Eskimo, or Aleut", "AIAN NonHispanic", race_eth),
-        race_eth = ifelse(hisp == "No" & race == "Asian or Pacific Islander", "AAPI NonHispanic", race_eth),
-        race_eth = ifelse(hisp == "No" & race == "Something else? (SPECIFY)", "Other Race NonHispanic", race_eth),
-        race_eth = factor(race_eth))
-
-test$ret_sav <- ifelse(test$savings == "YES", 1, 0)
-test$hown <- ifelse(test$home == "OWNS OR IS BUYING; LAND CONTRACT", 1, 0)
-test$both_pars <- ifelse(test$both_parents == "Yes", 1, 0)
-test$par_dec <- ifelse(test$par1_deceased == "Yes" | test$par2_deceased == "Yes", 1, 0) # Either parent deceased
+        hisp = factor(hisp),
+        par_dec = ifelse(par1_deceased == "Yes" | par2_deceased == "Yes", 1, 0) # Either parent deceased
+    )
 
 ```
 
@@ -75,7 +46,7 @@ non_missing <- test %>%
     filter(!is.na(pincome),
            !is.na(pnetworth))
 
-summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + ret_sav + hown + both_pars + par_dec, data = non_missing))
+summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + has_retsav + owns_home + both_parents + par_dec, data = non_missing))
 #Non-significant: par_dec - dropping for now
 ```
 
@@ -83,8 +54,8 @@ summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs 
 
 ```{r}
 
-testing_cor <- test %>%
-    select(-id, -hispanic, -race, -mom_education, -dad_education, -savings, -home, -both_parents, -par1_deceased, -par2_deceased, - mom_age_birth, -pincome, -pnetworth, -par_dec, -mom_educ_hs,-dad_educ_hs, -hisp,-race_eth) %>%
+testing_cor <- test |>
+    select(age_resp, mom_age, has_retsav, owns_home, both_parents) |>
     drop_na()
 
 M <- cor(testing_cor)
@@ -108,32 +79,46 @@ car::vif(model)
 summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs, data = test)) #Adj R2 = 0.1616
 car::vif(model)
 
-summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + ret_sav, data = test)) #Adj R2 = 0.199
+summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + has_retsav, data = test)) #Adj R2 = 0.199
 car::vif(model)
 
-summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + ret_sav + hown, data = test)) #Adj R2 = 0.2107
+summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + has_retsav + owns_home, data = test)) #Adj R2 = 0.2107
 car::vif(model)
 
-summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + ret_sav + hown + both_pars, data = test)) #Adj R2 = 0.2108
+summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + has_retsav + owns_home + both_parents, data = test)) #Adj R2 = 0.2108
 car::vif(model)
 ```
 
 ## Checking for missings in the predictor variables
 
 ```{r}
-impute <- test %>%
-    select(-hispanic, -mom_education, -dad_education, -savings, -home, -both_parents, -par1_deceased, -par2_deceased, - mom_age_birth, -par_dec, -age_resp)
-t <- nearZeroVar(impute) # no variables are found to have near zero variance
 
-sapply(impute, function(x) sum(is.na(x))) # dad_educ_hs has 4598 missings
+impute <- test |>
+    select(
+        id, race, pincome, pnetworth, mom_age, mom_educ_hs, dad_educ_hs, 
+        hisp, race_eth, has_retsav, owns_home, both_parents
+    )
+
+# no variables are found to have near zero variance
+t <- nearZeroVar(impute) 
+
+# dad_educ_hs has 4598 missings
+# TODO: dad_educ_hs has 3433 missings in data-cleaning
+# and 771 missings in data-cleaning-refactor
+sapply(impute, function(x) sum(is.na(x))) 
 
 # Calculating percent of usable cases
 m <- md.pairs(impute)
-round(m$mr/(m$mr + m$mm), 3) #looking for low proportions: where both target and predictor are missing on the same cases
-#Note: For row target pincome and pnetworth respectively, predictors dad_educ_hs, ret_sav, and hown have lowest proportions
 
+# looking for low proportions: where both target and predictor are missing on the same cases
+# Note: For row target pincome and pnetworth respectively, predictors dad_educ_hs, has_retsav, 
+# and owns_home have lowest proportions
+round(m$mr/(m$mr + m$mm), 3) 
+
+# I suspect multi-collinearity is causing singularity in the multiple imputation below, 
+# so removed race and only kept interaction race_eth for now
 impute <- impute %>%
-    select(-dad_educ_hs, -race) # I suspect multi-collinearity is causing singularity in the multiple imputation below, so removed race and only kept interaction race_eth for now
+    select(-race, -hisp) 
 ```
 
 ## Multiple Imputation
@@ -147,7 +132,7 @@ predM = init$predictorMatrix
 
 # Set distributions
 num <- c("mom_age") # numerical variables
-log <- c("hisp", "ret_sav", "hown", "both_pars") # binary variables
+log <- c("has_retsav", "owns_home", "both_parents") # binary variables
 poly <- c("mom_educ_hs") # ordered categorical variables
 poly2 <- c("race", "race_eth")# Unordered categorical variable
 
@@ -155,9 +140,13 @@ poly2 <- c("race", "race_eth")# Unordered categorical variable
 predM[,c("id")] <- 0 # not using as a predictor variable
 predM[c("id"),] <- 0 # not using as a predictor variable
 predM[c("race_eth"),] <- 1 # not using as a predictor variable
-predM[,c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "both_pars", "race_eth")] <- 0 # not imputing
-meth[c("hisp", "mom_age", "ret_sav", "hown", "mom_educ_hs", "both_pars", "race_eth")]= "" #not imputing missing values, just using as a predictor
+#predM[,c("hisp", "mom_age", "has_retsav", "owns_home", "mom_educ_hs", "both_parents", "race_eth")] <- 0 
+#meth[c("hisp", "mom_age", "has_retsav", "owns_home", "mom_educ_hs", "both_parents", "race_eth")]= "" 
+meth
+predM
+```
 
+```{r}
 # Income and Wealth imputation
 set.seed(25)
 imputed = mice(impute, method=meth, predictorMatrix=predM, m=5)
@@ -166,33 +155,29 @@ imputed <- complete(imputed, action = "repeated", include = FALSE)
 
 final <- imputed %>%
     rename(id = id.1,
-           mom_age = mom_age.1,
-           ret_sav = ret_sav.1,
-           hown = hown.1,
-           mom_educ_hs = mom_educ_hs.1,
-           hisp = hisp.1,
-           both_pars = both_pars.1,
            race_eth = race_eth.1) %>%
-    select(-starts_with("id."), -starts_with("mom_age."), -starts_with("ret_sav."), -starts_with("hown."), -starts_with("mom_educ_hs."), -starts_with("dad_educ_hs."), -starts_with("both_pars."), -starts_with("hisp."),  -starts_with("race_eth."))
-
+    select(-starts_with("id."), -starts_with("race_eth"))
 ```
 
 ```{r}
 # Join back with original income and wealth
 og_values <- impute %>%
-    select(id, pincome, pnetworth)
+    select(id, pincome, pnetworth, race_eth, dad_educ_hs)
 
 final <- merge(x=final,y=og_values,
                     by="id", all.x=TRUE)
 
 income <- final %>%
     select(id, starts_with("pincome"))
-
 wealth <- final %>%
     select(id, starts_with("pnetworth"))
+dad_ed <- final %>%
+    select(id, starts_with("dad_"))
 
 pincome <- tidyr::gather(income, key = "imputation", value ="pincome", matches("pincome"), -id)
 pnetworth <- tidyr::gather(wealth, key = "imputation", value ="pnetworth", matches("pnetworth"), -id)
+dad_educ  <- tidyr::gather(dad_ed, key = "imputation", value ="dad_educ", matches("dad_educ"), -id)
+dad_educ = mutate(dad_educ, dad_educ = factor(dad_educ, levels=nlsy_get_educ5_levels()))
 ```
 
 ## Distribution Plots for Parent Income (non-imputed and imputed)
@@ -211,12 +196,50 @@ ggplot(pnetworth, aes(x=pnetworth, fill= imputation)) +
     facet_wrap(~imputation, scales="free")
 ```
 
+## Distribution Plots for Dad Education (non-imputed and imputed)
+
+```{r}
+
+tmpdf = dad_educ |>
+    filter(if_all(everything(), ~!is.na(.) )) |>
+    mutate(imputation = if_else(imputation=="dad_educ_hs", "0", imputation),
+           imputation = gsub("dad_educ_hs.", "", imputation))
+
+
+tmpdf |>
+    group_by(imputation) |>
+    mutate(N=n()) |>
+    group_by(dad_educ, imputation) |>
+    summarise(N=max(N), share=n()/N) |>
+    ggplot() +
+    geom_col(
+        aes(y=share, x=imputation, fill=dad_educ), 
+        position = position_stack(reverse = TRUE)
+        )
+
+
+tmpdf |>
+    left_join(select(test, id, race_eth), by="id") |>
+    filter(!is.na(race_eth)) |>
+    group_by(race_eth, imputation) |>
+    mutate(N=n()) |>
+    group_by(dad_educ, race_eth, imputation) |>
+    summarise(N=max(N), share=n()/N) |>
+    ggplot() +
+    geom_col(
+        aes(y=share, x=imputation, fill=dad_educ),
+        position = position_stack(reverse = TRUE)
+        ) +
+    facet_wrap(~race_eth, nrow=2)
+
+```
+
 ## Whisker Plots
+
 ```{r}
 boxplot(pincome$pincome ~ pincome$imputation)
 boxplot(pnetworth$pnetworth ~ pnetworth$imputation)
 ```
-
 
 ## Scatter Plots for both parent income and wealth (non-imputed is zero)
 
@@ -233,4 +256,3 @@ ggplot(merge, aes(x=pincome, y=pnetworth, color = imputation)) +
     geom_point(alpha = 0.5) +
     facet_wrap(~imputation, scales="free")
 ```
-
