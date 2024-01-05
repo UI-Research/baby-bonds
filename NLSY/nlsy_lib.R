@@ -11,38 +11,43 @@ nlsy_get_base_df = function()
 
     basedf = nlsydf |>
         select(
-            id =        "PUBID_1997",
-            age0 =      "CV_AGE_12/31/96_1997",
-            sex =       "KEY_SEX_1997",
-            bdate_m =   "KEY_BDATE_M_1997",
-            bdate_y =   "KEY_BDATE_Y_1997",
-            hisp =      "KEY_ETHNICITY_1997",
-            race =      "KEY_RACE_1997",
-            pincome =   "CV_INCOME_GROSS_YR_1997",
-            pnetworth = "CV_HH_NET_WORTH_P_1997",
-            has_retsav= "P5-130_1997",
-            retsav1 =   "P5-131_1997",
-            retsav2 =   "P5-132_1997",
-            dad_bio_ed ="CV_HGC_BIO_DAD_1997",
-            dad_res_ed ="CV_HGC_BIO_MOM_1997",
-            mom_bio_ed ="CV_HGC_RES_DAD_1997",
-            mom_res_ed ="CV_HGC_RES_MOM_1997",
+            id              = "PUBID_1997",
+            age_resp        = "CV_AGE_12/31/96_1997",
+            sex             = "KEY_SEX_1997",
+            bdate_m         = "KEY_BDATE_M_1997",
+            bdate_y         = "KEY_BDATE_Y_1997",
+            hisp            = "KEY_ETHNICITY_1997",
+            race            = "KEY_RACE_1997",
+            pincome         = "CV_INCOME_GROSS_YR_1997",
+            pnetworth       = "CV_HH_NET_WORTH_P_1997",
+            has_retsav      = "P5-130_1997",
+            retsav1         = "P5-131_1997",
+            retsav2         = "P5-132_1997",
+            owns_home       = "P5-101_1997",
+            both_parents    = "YOUTH_BOTHBIO.01_1997",
+            par1_deceased   = "YOUTH_NONR1DEAD.01_1997",
+            par2_deceased   = "YOUTH_NONR2DEAD.01_1997",
+            dad_bio_ed      = "CV_HGC_BIO_DAD_1997",
+            dad_res_ed      = "CV_HGC_RES_DAD_1997",
+            mom_bio_ed      = "CV_HGC_BIO_MOM_1997",
+            mom_res_ed      = "CV_HGC_RES_MOM_1997",
+            mom_age_birth   = "CV_BIO_MOM_AGE_YOUTH_1997",
             wt
         )
 
     basedf = basedf |>
         mutate(
             race = droplevels(race),
-            hisp = fct_recode(
-                hisp,
-                'Hispanic'     = 'Yes',
-                'Non-Hispanic' = 'No'
-            ),
             has_retsav = case_when(
                 has_retsav=='YES' ~ 1,
                 has_retsav=='NO'  ~ 0,
                 TRUE ~ NA
-            )
+            ),
+            owns_home = if_else(
+                owns_home == "OWNS OR IS BUYING; LAND CONTRACT", 1, 0
+                ),
+            both_parents = if_else(both_parents=="Yes", 1, 0),
+            mom_age = mom_age_birth + age_resp
         )
 
     basedf = basedf |>
@@ -82,40 +87,37 @@ nlsy_get_base_df = function()
     return(basedf)
 }
 
-#' Recodes race
-nlsy_recode_race = function(data)
+#' Recodes race and ethnicity
+nlsy_recode_race_and_eth5 = function(race, hisp)
 {
-    data = data |>
-        mutate(
-            race = fct_recode(
-                race,
-                'Other'  = "Something else? (SPECIFY)",
-                'Black'  = "Black or African American",
-                'Other'  = "Asian or Pacific Islander",
-                'Other' = "American Indian, Eskimo, or Aleut"
-            )
+    return(case_when(
+        {{hisp}} == 'Yes'                               ~ 'Hispanic',
+        {{race}} == 'Black or African American'         ~ 'Black',
+        {{race}} == 'Asian or Pacific Islander'         ~ 'Asian',
+        {{race}} == 'American Indian, Eskimo, or Aleut' ~ 'Other',
+        {{race}} == 'White'                             ~ 'White',
+        {{race}} == 'Something else? (SPECIFY)'         ~ 'Other',
+        TRUE                                            ~ {{race}}
         )
-    return(data)
+    )
 }
 
-#' Recodes race and ethnicity
-nlsy_recode_race_and_ethn = function(data)
-{
-    data = data |>
-        mutate(
-            race = case_when(
-                hisp == 'Hispanic'                          ~ 'Hispanic',
-                race == 'Black or African American'         ~ 'Black',
-                race == 'Asian or Pacific Islander'         ~ 'Asian',
-                race == 'American Indian, Eskimo, or Aleut' ~ 'Other',
-                race == 'White'                             ~ 'White',
-                race == 'Something else? (SPECIFY)'         ~ 'Other',
-                TRUE                                        ~ race
-            )
-        )
 
-    #    stopifnot(all(!is.na(data$race)))
-    return(data)
+nlsy_recode_race_and_eth10 = function(race, hisp)
+{
+    return(case_when(
+        {{hisp}} == "Yes" & {{race}} == "White"                             ~ "White Hispanic",
+        {{hisp}} == "No"  & {{race}} == "White"                             ~ "White NonHispanic",
+        {{hisp}} == "Yes" & {{race}} == "Black or African American"         ~ "Black Hispanic",
+        {{hisp}} == "No"  & {{race}} == "Black or African American"         ~ "Black NonHispanic",
+        {{hisp}} == "Yes" & {{race}} == "American Indian, Eskimo, or Aleut" ~ "AIAN Hispanic",
+        {{hisp}} == "Yes" & {{race}} == "Asian or Pacific Islander"         ~ "AAPI Hispanic",
+        {{hisp}} == "Yes" & {{race}} == "Something else? (SPECIFY)"         ~ "Other Race Hispanic",
+        {{hisp}} == "No"  & {{race}} == "American Indian, Eskimo, or Aleut" ~ "AIAN NonHispanic",
+        {{hisp}} == "No"  & {{race}} == "Asian or Pacific Islander"         ~ "AAPI NonHispanic",
+        {{hisp}} == "No"  & {{race}} == "Something else? (SPECIFY)"         ~ "Other Race NonHispanic"
+        )
+    )
 }
 
 
