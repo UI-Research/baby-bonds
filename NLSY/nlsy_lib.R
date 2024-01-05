@@ -47,6 +47,8 @@ nlsy_get_base_df = function()
                 owns_home == "OWNS OR IS BUYING; LAND CONTRACT", 1, 0
                 ),
             both_parents = if_else(both_parents=="Yes", 1, 0),
+            mom_age_birth = pmax(mom_age_birth, 16),
+            mom_age_birth = pmin(mom_age_birth, 45),
             mom_age = mom_age_birth + age_resp
         )
 
