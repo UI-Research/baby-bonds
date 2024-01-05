@@ -5,21 +5,20 @@ format:
     embed-resources: true
 editor: visual
 execute: 
+  echo: false
   warning: false
 fig-cap-location: top
 toc: true
 toc-expand: true
 ---
 
-## Data Cleaning
+## Data Summary
 
 ```{r}
 #Packages
-librarian::shelf(dplyr, mice, car, corrplot, caret, tidyr)
+librarian::shelf(dplyr, mice, car, corrplot, caret, tidyr, modelsummary)
 source(here::here("NLSY/nlsy_lib.R"))
 
-# Read data
-# nlsydf = readRDS(paste0(here::here(), "/NLSY/NLSY-college-finance.rds"))
 ```
 
 ```{r}
@@ -36,17 +35,53 @@ test <- basedf |>
         race = factor(race),
         hisp = factor(hisp),
         par_dec = ifelse(par1_deceased == "Yes" | par2_deceased == "Yes", 1, 0) # Either parent deceased
-    )
+    ) |>
+    filter(!is.na(race_eth))
+    
+```
+
+```{r}
+#| label: tbl-data-summary-contvar
+#| tbl-cap: "Data summary, continuous variables"
+
+test |>
+  select(age_resp, bdate_y, pincome, pnetworth, retsav1, mom_age_birth, 
+         mom_age, has_retsav, owns_home, both_parents) |>
+  datasummary_skim()
+```
+
+```{r}
+#| label: tbl-data-summary-catvar
+#| tbl-cap: "Data summary, categorical variables"
+
+test |>
+  select(mom_educ_hs, dad_educ_hs, race_eth) |>
+  datasummary_skim(type="categorical")
 
 ```
 
 ```{r}
+#| label: tbl-reg-pincome
+#| tbl-cap: "Regression of pincome to examine significance of predictors"
+
 # Looking for significance with non-missing income and wealth
 non_missing <- test %>%
     filter(!is.na(pincome),
            !is.na(pnetworth))
 
-summary(model <- lm(pincome ~ mom_age + hisp + race + mom_educ_hs + dad_educ_hs + has_retsav + owns_home + both_parents + par_dec, data = non_missing))
+m1 = lm(pincome ~ mom_age + race_eth + mom_educ_hs + dad_educ_hs + 
+    has_retsav + owns_home + both_parents + par_dec, 
+    data = non_missing)
+
+m2 = lm(pnetworth ~ mom_age + race_eth + mom_educ_hs + dad_educ_hs + 
+    has_retsav + owns_home + both_parents + par_dec, 
+    data = non_missing)
+
+modelsummary(list(m1, m2),
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01)
+             )
 #Non-significant: par_dec - dropping for now
 ```
 
@@ -66,6 +101,7 @@ corrplot(M, type = "upper")
 ### Checking for multi-collinearity - VIF and Successive addition of regressors
 
 ```{r}
+#| eval: false
 
 summary(model <- lm(pincome ~ mom_age, data = test)) #Adj R2 = 0.057
 summary(model <- lm(pincome ~ mom_age + hisp, data = test)) #Adj R2 = 0.09
@@ -95,16 +131,14 @@ car::vif(model)
 
 impute <- test |>
     select(
-        id, race, pincome, pnetworth, mom_age, mom_educ_hs, dad_educ_hs, 
-        hisp, race_eth, has_retsav, owns_home, both_parents
+        id, pincome, pnetworth, mom_age, mom_educ_hs, dad_educ_hs, 
+        race_eth, has_retsav, owns_home, both_parents
     )
 
 # no variables are found to have near zero variance
 t <- nearZeroVar(impute) 
 
-# dad_educ_hs has 4598 missings
-# TODO: dad_educ_hs has 3433 missings in data-cleaning
-# and 771 missings in data-cleaning-refactor
+# dad_educ_hs has 3433 missings
 sapply(impute, function(x) sum(is.na(x))) 
 
 # Calculating percent of usable cases
@@ -115,10 +149,7 @@ m <- md.pairs(impute)
 # and owns_home have lowest proportions
 round(m$mr/(m$mr + m$mm), 3) 
 
-# I suspect multi-collinearity is causing singularity in the multiple imputation below, 
-# so removed race and only kept interaction race_eth for now
-impute <- impute %>%
-    select(-race, -hisp) 
+
 ```
 
 ## Multiple Imputation
@@ -137,13 +168,26 @@ poly <- c("mom_educ_hs") # ordered categorical variables
 poly2 <- c("race", "race_eth")# Unordered categorical variable
 
 # Assign Variables to be imputed
-predM[,c("id")] <- 0 # not using as a predictor variable
-predM[c("id"),] <- 0 # not using as a predictor variable
-predM[c("race_eth"),] <- 1 # not using as a predictor variable
-#predM[,c("hisp", "mom_age", "has_retsav", "owns_home", "mom_educ_hs", "both_parents", "race_eth")] <- 0 
-#meth[c("hisp", "mom_age", "has_retsav", "owns_home", "mom_educ_hs", "both_parents", "race_eth")]= "" 
-meth
-predM
+# Don't use id as a predictor variable
+predM[,c("id")] <- 0
+# Use race_eth as predictor for all imputations
+predM[,c("race_eth")] <- 1
+```
+
+```{r}
+#| label: tbl-imputation-methods
+#| tbl-cap: "Imputation-methods vector"
+
+# Imputation methods
+knitr::kable(meth)
+```
+
+```{r}
+#| label: tbl-imput-predictor-matrix
+#| tbl-cap: "Imputation predictor matrix"
+
+# Imputation predictors
+knitr::kable(predM)
 ```
 
 ```{r}
@@ -171,13 +215,10 @@ income <- final %>%
     select(id, starts_with("pincome"))
 wealth <- final %>%
     select(id, starts_with("pnetworth"))
-dad_ed <- final %>%
-    select(id, starts_with("dad_"))
 
 pincome <- tidyr::gather(income, key = "imputation", value ="pincome", matches("pincome"), -id)
 pnetworth <- tidyr::gather(wealth, key = "imputation", value ="pnetworth", matches("pnetworth"), -id)
-dad_educ  <- tidyr::gather(dad_ed, key = "imputation", value ="dad_educ", matches("dad_educ"), -id)
-dad_educ = mutate(dad_educ, dad_educ = factor(dad_educ, levels=nlsy_get_educ5_levels()))
+
 ```
 
 ## Distribution Plots for Parent Income (non-imputed and imputed)
@@ -199,14 +240,39 @@ ggplot(pnetworth, aes(x=pnetworth, fill= imputation)) +
 ## Distribution Plots for Dad Education (non-imputed and imputed)
 
 ```{r}
+#| label: tbl-dad-educ-missing
+#| tbl-cap: "Total number of observations and number of missing values of father's education by race and ethnicity"
 
-tmpdf = dad_educ |>
-    filter(if_all(everything(), ~!is.na(.) )) |>
+dad_educ <- final %>%
+    select(id, starts_with("dad_")) |>
+    tidyr::gather(key = "imputation", value ="dad_educ", matches("dad_educ"), -id) |>
+    mutate(dad_educ = factor(dad_educ, levels=nlsy_get_educ5_levels())) |>
     mutate(imputation = if_else(imputation=="dad_educ_hs", "0", imputation),
            imputation = gsub("dad_educ_hs.", "", imputation))
 
+dad_ed_miss = dad_educ |>
+    filter(imputation=="0") |>
+    select(-imputation) |>
+    left_join(select(test, id, race_eth), by="id") |>
+    mutate(dad_ed_miss=is.na(dad_educ)) |>
+    group_by(race_eth) |>
+    summarize(
+        N=n(),
+        dad_educ_miss = sum(dad_ed_miss)
+    )
 
-tmpdf |>
+knitr::kable(dad_ed_miss)
+```
+
+
+```{r}
+#| label: fig-dad-educ-shares
+#| fig-cap: "Shares of father's educational attainment for the original and imputed data"
+
+plotdf = dad_educ |>
+    filter(if_all(everything(), ~!is.na(.) ))
+
+plotdf |>
     group_by(imputation) |>
     mutate(N=n()) |>
     group_by(dad_educ, imputation) |>
@@ -216,9 +282,13 @@ tmpdf |>
         aes(y=share, x=imputation, fill=dad_educ), 
         position = position_stack(reverse = TRUE)
         )
+```
 
+```{r}
+#| label: fig-dad-educ-shares-by-race
+#| fig-cap: "Shares of father's educational attainment for the original and imputed data by race and ethnicity"
 
-tmpdf |>
+plotdf |>
     left_join(select(test, id, race_eth), by="id") |>
     filter(!is.na(race_eth)) |>
     group_by(race_eth, imputation) |>
