@@ -404,13 +404,17 @@ ggplot(final_long, aes(x=pincome, y=pnetworth, color = imputation)) +
 
 number_of_imputations = 5
 
+first_stage_imp = '1'
 
 # We take one of the imputed sets and add retsav onto it
 rs_impute = final_long |>
-    filter(imputation=='1') |>
+    filter(imputation==first_stage_imp) |>
     select(-imputation) |>
     left_join(select(test, id, retsav), by="id") |>
     mutate(retsav = if_else(has_retsav==0, 0, retsav))
+
+rs_no_retsav = rs_impute |>
+  filter(has_retsav==0)
 
 # First strategy: use only the subset of those who has_retsav==1 for imputation
 rs_impute <- rs_impute |>
@@ -502,3 +506,53 @@ ggplot(rs_final_long, aes(x=retsav, y=pnetworth, color = imputation)) +
     facet_wrap(~imputation, scales="free")
 
 ```
+```{r}
+#| label: save-results
+
+save_df = bind_rows(
+  filter(rs_final_long, imputation=='1') |> select(-imputation),
+  rs_no_retsav
+)
+
+readr::write_csv(save_df, paste0(here::here(), '/NLSY/imputed_data.csv'))
+
+```
+
+```{r}
+#| label: fig-scatter-pnetworth2
+#| fig-cap: "Scatter plot of parental networth and networth without retirement savings"
+
+plotdf = save_df |>
+    mutate(pnetworth2 = pnetworth-retsav)
+
+plotdf |>
+  ggplot(aes(x=pnetworth, y=pnetworth2)) +
+  geom_point(size=.25)
+
+```
+
+
+```{r}
+#| label: fig-density-pnetworth2
+#| fig-cap: "Distribution of parental networth and networth without retirement savings"
+
+plotdf |> select(pnetworth1=pnetworth, pnetworth2) |>
+  pivot_longer(everything(), names_prefix = "pnetworth", names_to="name", values_to="value") |>
+  ggplot() +
+  geom_density(aes(x=value, color=name))
+
+```
+
+
+```{r}
+#| label: fig-density-pnetworth2-by_race
+#| fig-cap: "Distribution of parental networth and networth without retirement savings by race"
+
+
+plotdf |> select(race_eth, pnetworth1=pnetworth, pnetworth2) |>
+  pivot_longer(-race_eth, names_prefix = "pnetworth", names_to="name", values_to="value") |>
+  ggplot() +
+  geom_density(aes(x=value, color=name)) +
+  facet_wrap(~race_eth)
+```
+
