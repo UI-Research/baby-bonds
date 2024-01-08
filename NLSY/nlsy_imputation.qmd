@@ -12,11 +12,12 @@ toc: true
 toc-expand: true
 ---
 
-## Data Summary
+# Data Summary
 
 ```{r}
 #Packages
-librarian::shelf(dplyr, mice, car, corrplot, caret, tidyr, modelsummary)
+librarian::shelf(dplyr, mice, car, corrplot, caret, tidyr, modelsummary, VIM)
+
 source(here::here("NLSY/nlsy_lib.R"))
 
 ```
@@ -60,6 +61,22 @@ test |>
 
 ```
 
+# Imputation of Parental Income and Networth
+
+## Choices
+
+From `mice` package documentation:
+
+1.  First, we should decide whether the missing at random (MAR) assumption (Rubin 1976) is plausible. The MAR assumption is a suitable starting point in many practical cases, but there are also cases where the assumption is suspect. Schafer (1997, pp. 20–23) provides a good set of practical examples. MICE can handle both MAR and missing not at random (MNAR). Multiple imputation under MNAR requires additional modeling assumptions that influence the generated imputations. There are many ways to do this. We refer to Section 6.2 for an example of how that could be realized.
+2.  The second choice refers to the form of the imputation model. The form encompasses both the structural part and the assumed error distribution. Within MICE the form needs to be specified for each incomplete column in the data. The choice will be steered by the scale of the dependent variable (i.e., the variable to be imputed), and preferably incorporates knowledge about the relation between the variables. Section 3.2 describes the possibilities within mice 2.9.
+3.  Our third choice concerns the set of variables to include as predictors into the imputation model. The general advice is to include as many relevant variables as possible including their interactions (Collins et al. 2001). This may however lead to unwieldy model specifications that could easily get out of hand. Section 3.3 describes the facilities within mice 2.9 for selecting the predictor set.
+4.  The fourth choice is whether we should impute variables that are functions of other (incomplete) variables. Many data sets contain transformed variables, sum scores, interaction variables, ratios, and so on. It can be useful to incorporate the transformed variables into the multiple imputation algorithm. Section 3.4 describes how mice 2.9 deals with this situation using passive imputation.
+5.  The fifth choice concerns the order in which variables should be imputed. Several strategies are possible, each with their respective pro’s and cons. Section 3.6 shows how the visitation scheme of the MICE algorithm within mice 2.9 is under control of the user
+6.  The sixth choice concerns the setup of the starting imputations and the number of iterations. The convergence of the MICE algorithm can be monitored in many ways. Section 4.3 outlines some techniques in mice 2.9 that assist in this task.
+7.  The seventh choice is m, the number of multiply imputed data sets. Setting m too low may result in large simulation error, especially if the fraction of missing information is high.
+
+## Significance of Predictors
+
 ```{r}
 #| label: tbl-reg-pincome
 #| tbl-cap: "Regression of pincome to examine significance of predictors"
@@ -77,7 +94,7 @@ m2 = lm(pnetworth ~ mom_age + race_eth + mom_educ_hs + dad_educ_hs +
     has_retsav + owns_home + both_parents + par_dec, 
     data = non_missing)
 
-modelsummary(list(m1, m2),
+modelsummary(list('pincome'=m1, 'pnetworth'=m2),
              estimate="{estimate}{stars}", 
              statistic=NULL,
              stars=c('*'=.1, '**'=.05, '***'=.01)
@@ -152,26 +169,43 @@ round(m$mr/(m$mr + m$mm), 3)
 
 ```
 
-## Multiple Imputation
+## Checking for MCAR
+
+The two pairs of boxplots on the edges of @fig-margplot-pincome-pnetworth show distributions of pincome and pwealth when the other variable is present and when it's missing. Variable pnetworth has somewhat lower mean in the subsample where pincome is missing than in the subsample where pincome is present. The distribution of pincome in the subsample where pnetworth is missing is shifted upward relative to its distribution in the subsample where pnetworth is present. In each case, these distributions are relatively similar, and the MCAR assumption is not implausible.
 
 ```{r}
+#| label: fig-margplot-pincome-pnetworth
+#| fig-cap: "Marginal plot for parental income and wealth"
+
+marginplot(
+  test[,c("pincome", "pnetworth")],
+  col=mdc(1:2),
+  xlab="pincome", 
+  ylab="pnetworth")
+```
+
+## Multiple Imputation of Parental Income and Networth
+
+```{r}
+#| label: impute-init
+#| output: false
+
 # Paper that uses multiple imputation: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6049093/
 # Multiple imputation in R reference: https://library.virginia.edu/data/articles/getting-started-with-multiple-imputation-in-r
-init = mice(impute, maxit=5)
+
+number_of_imputations = 5
+
+init = mice(impute, maxit=0)
 meth = init$method
 predM = init$predictorMatrix
-
-# Set distributions
-num <- c("mom_age") # numerical variables
-log <- c("has_retsav", "owns_home", "both_parents") # binary variables
-poly <- c("mom_educ_hs") # ordered categorical variables
-poly2 <- c("race", "race_eth")# Unordered categorical variable
 
 # Assign Variables to be imputed
 # Don't use id as a predictor variable
 predM[,c("id")] <- 0
 # Use race_eth as predictor for all imputations
 predM[,c("race_eth")] <- 1
+
+meth[c("has_retsav", "owns_home")] = "logreg"
 ```
 
 ```{r}
@@ -191,9 +225,12 @@ knitr::kable(predM)
 ```
 
 ```{r}
+#| label: impute-pincome-pnetworth
+#| output: false
+
 # Income and Wealth imputation
 set.seed(25)
-imputed = mice(impute, method=meth, predictorMatrix=predM, m=5)
+imputed = mice(impute, method=meth, predictorMatrix=predM, m=number_of_imputations, maxit=20)
 
 imputed <- complete(imputed, action = "repeated", include = FALSE)
 
@@ -201,6 +238,15 @@ final <- imputed %>%
     rename(id = id.1,
            race_eth = race_eth.1) %>%
     select(-starts_with("id."), -starts_with("race_eth"))
+
+final_long = imputed |>
+    pivot_longer(
+      cols=everything(), 
+      cols_vary = "slowest",
+      names_to=c(".value", "imputation"),
+      names_pattern = "([[:alpha:]_]+)\\.(\\d)"
+      )
+  
 ```
 
 ```{r}
@@ -210,6 +256,14 @@ og_values <- impute %>%
 
 final <- merge(x=final,y=og_values,
                     by="id", all.x=TRUE)
+
+cols_to_select = colnames(final_long)[!grepl("imputation", colnames(final_long))]
+
+final_long = bind_rows(
+    select(impute, cols_to_select) |>
+      mutate(imputation='0'),
+    final_long
+)
 
 income <- final %>%
     select(id, starts_with("pincome"))
@@ -224,18 +278,51 @@ pnetworth <- tidyr::gather(wealth, key = "imputation", value ="pnetworth", match
 ## Distribution Plots for Parent Income (non-imputed and imputed)
 
 ```{r}
-ggplot(pincome, aes(x=pincome, fill= imputation)) +
-    geom_density(alpha = 0.5) +
-    facet_wrap(~imputation, scales="free")
+#| label: fig-pincome-imputed
+#| fig-cap: "Distribution of parental income, original and imputed"
+
+final_long |>
+    ggplot(aes(x=pincome, color=imputation)) + 
+        geom_density()
+
+```
+
+```{r}
+#| label: fig-pincome-imputed-by-race
+#| fig-cap: "Distribution of parental income by race, original and imputed"
+
+final_long |>
+    filter(race_eth %in% c("Black Hispanic", "Black NonHispanic", "White Hispanic", "White NonHispanic")) |>
+    ggplot(aes(x=pincome, color=imputation)) + 
+        geom_density() +
+        facet_wrap(~race_eth)
+
 ```
 
 ## Distribution Plots for Parent Wealth (non-imputed and imputed)
 
 ```{r}
-ggplot(pnetworth, aes(x=pnetworth, fill= imputation)) +
-    geom_density(alpha = 0.5) +
-    facet_wrap(~imputation, scales="free")
+#| label: fig-pnetworth-imputed
+#| fig-cap: "Distribution of parental net worth, original and imputed"
+
+final_long |>
+    ggplot(aes(x=pnetworth, color=imputation)) + 
+        geom_density(alpha=.5)
+
 ```
+
+```{r}
+#| label: fig-pnetworth-imputed-by-race
+#| fig-cap: "Distribution of parental net worth by race, original and imputed"
+
+final_long |>
+    filter(race_eth %in% c("Black Hispanic", "Black NonHispanic", "White Hispanic", "White NonHispanic")) |>
+    ggplot(aes(x=pnetworth, color=imputation)) + 
+        geom_density(alpha=.5) +
+        facet_wrap(~race_eth)
+
+```
+
 
 ## Distribution Plots for Dad Education (non-imputed and imputed)
 
@@ -243,18 +330,9 @@ ggplot(pnetworth, aes(x=pnetworth, fill= imputation)) +
 #| label: tbl-dad-educ-missing
 #| tbl-cap: "Total number of observations and number of missing values of father's education by race and ethnicity"
 
-dad_educ <- final %>%
-    select(id, starts_with("dad_")) |>
-    tidyr::gather(key = "imputation", value ="dad_educ", matches("dad_educ"), -id) |>
-    mutate(dad_educ = factor(dad_educ, levels=nlsy_get_educ5_levels())) |>
-    mutate(imputation = if_else(imputation=="dad_educ_hs", "0", imputation),
-           imputation = gsub("dad_educ_hs.", "", imputation))
-
-dad_ed_miss = dad_educ |>
+dad_ed_miss = final_long |>
     filter(imputation=="0") |>
-    select(-imputation) |>
-    left_join(select(test, id, race_eth), by="id") |>
-    mutate(dad_ed_miss=is.na(dad_educ)) |>
+    mutate(dad_ed_miss=is.na(dad_educ_hs)) |>
     group_by(race_eth) |>
     summarize(
         N=n(),
@@ -264,40 +342,36 @@ dad_ed_miss = dad_educ |>
 knitr::kable(dad_ed_miss)
 ```
 
-
 ```{r}
 #| label: fig-dad-educ-shares
 #| fig-cap: "Shares of father's educational attainment for the original and imputed data"
 
-plotdf = dad_educ |>
-    filter(if_all(everything(), ~!is.na(.) ))
-
-plotdf |>
+final_long |>
+    filter(!is.na(dad_educ_hs)) |>
     group_by(imputation) |>
     mutate(N=n()) |>
-    group_by(dad_educ, imputation) |>
+    group_by(dad_educ_hs, imputation) |>
     summarise(N=max(N), share=n()/N) |>
     ggplot() +
     geom_col(
-        aes(y=share, x=imputation, fill=dad_educ), 
+        aes(y=share, x=imputation, fill=dad_educ_hs), 
         position = position_stack(reverse = TRUE)
-        )
+    )
 ```
 
 ```{r}
 #| label: fig-dad-educ-shares-by-race
 #| fig-cap: "Shares of father's educational attainment for the original and imputed data by race and ethnicity"
 
-plotdf |>
-    left_join(select(test, id, race_eth), by="id") |>
-    filter(!is.na(race_eth)) |>
+final_long |>
+    filter(!is.na(dad_educ_hs)) |>
     group_by(race_eth, imputation) |>
     mutate(N=n()) |>
-    group_by(dad_educ, race_eth, imputation) |>
+    group_by(dad_educ_hs, race_eth, imputation) |>
     summarise(N=max(N), share=n()/N) |>
     ggplot() +
     geom_col(
-        aes(y=share, x=imputation, fill=dad_educ),
+        aes(y=share, x=imputation, fill=dad_educ_hs),
         position = position_stack(reverse = TRUE)
         ) +
     facet_wrap(~race_eth, nrow=2)
@@ -314,15 +388,117 @@ boxplot(pnetworth$pnetworth ~ pnetworth$imputation)
 ## Scatter Plots for both parent income and wealth (non-imputed is zero)
 
 ```{r}
-pincome$imputation <- gsub("pincome.", "", pincome$imputation)
-pincome$imputation <- ifelse(pincome$imputation == "pincome", 0, pincome$imputation)
+#| label: fig-scatter-pincome-pnetworth
+#| fig-cap: "Scatterplots of parental income and networth, original and imputed"
 
-pnetworth$imputation <- gsub("pnetworth.", "", pnetworth$imputation)
-pnetworth$imputation <- ifelse(pnetworth$imputation == "pnetworth", 0, pnetworth$imputation)
-
-merge <- merge(pincome, pnetworth, by = c("id", "imputation"))
-
-ggplot(merge, aes(x=pincome, y=pnetworth, color = imputation)) +
+ggplot(final_long, aes(x=pincome, y=pnetworth, color = imputation)) +
     geom_point(alpha = 0.5) +
     facet_wrap(~imputation, scales="free")
+
+```
+# Imputation of Retirement Savings
+
+```{r}
+#| label: impute-retsav-init
+#| output: false
+
+number_of_imputations = 5
+
+
+# We take one of the imputed sets and add retsav onto it
+rs_impute = final_long |>
+    filter(imputation=='1') |>
+    select(-imputation) |>
+    left_join(select(test, id, retsav), by="id") |>
+    mutate(retsav = if_else(has_retsav==0, 0, retsav))
+
+# First strategy: use only the subset of those who has_retsav==1 for imputation
+rs_impute <- rs_impute |>
+  filter(has_retsav==1)
+
+init = mice(rs_impute, maxit=0)
+meth = init$method
+predM = init$predictorMatrix
+
+# Assign Variables to be imputed
+# Don't use id as a predictor variable
+predM[,c("id")] <- 0
+# Use race_eth as predictor for all imputations
+predM[,c("race_eth")] <- 1
+
+
+# Imputation of retirement savings
+set.seed(25)
+rs_imputed = mice(rs_impute, method=meth, predictorMatrix=predM, m=number_of_imputations, maxit=20)
+
+rs_imputed <- complete(rs_imputed, action = "repeated", include = FALSE)
+
+rs_final_long = rs_imputed |>
+    pivot_longer(
+      cols=everything(), 
+      cols_vary = "slowest",
+      names_to=c(".value", "imputation"),
+      names_pattern = "([[:alpha:]_]+)\\.(\\d)"
+      )
+
+cols_to_select = colnames(rs_final_long)[!grepl("imputation", colnames(rs_final_long))]
+
+rs_final_long = bind_rows(
+    select(rs_impute, cols_to_select) |>
+      mutate(imputation='0'),
+    rs_final_long
+)
+
+```
+
+```{r}
+#| label: tbl-imputation-methods-retsav
+#| tbl-cap: "Methods vector for the imputation of retirement savings"
+
+# Imputation methods
+knitr::kable(meth)
+```
+
+```{r}
+#| label: tbl-imput-predictor-matrix-retsav
+#| tbl-cap: "Predictor matrix for the imputation of retirement savings"
+
+# Imputation predictors
+knitr::kable(predM)
+```
+
+
+
+## Distribution Plots for Retirement Savings (non-imputed and imputed)
+
+```{r}
+#| label: fig-retsav-imputed
+#| fig-cap: "Distribution of parental retirement savings, original and imputed"
+
+rs_final_long |>
+    ggplot(aes(x=retsav, color=imputation)) + 
+        geom_density()
+
+```
+
+```{r}
+#| label: fig-retsav-imputed-by-race
+#| fig-cap: "Distribution of parental retirement savings by race, original and imputed"
+
+rs_final_long |>
+    filter(race_eth %in% c("Black Hispanic", "Black NonHispanic", "White Hispanic", "White NonHispanic")) |>
+    ggplot(aes(x=retsav, color=imputation)) + 
+        geom_density() +
+        facet_wrap(~race_eth)
+
+```
+
+```{r}
+#| label: fig-scatter-retsav-pnetworth
+#| fig-cap: "Scatterplots of parental retirement savings and networth, original and imputed"
+
+ggplot(rs_final_long, aes(x=retsav, y=pnetworth, color = imputation)) +
+    geom_point(alpha = 0.5) +
+    facet_wrap(~imputation, scales="free")
+
 ```
