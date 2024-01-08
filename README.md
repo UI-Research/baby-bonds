@@ -13,6 +13,9 @@ It is assumed that an R project file is in the repo's root folder and that the B
 * `make_nlsy.R`: Run it once to create a local RDS file.
 * `nlsy_explore.Rmd`: RMarkdown file that explores NLSY data.
 * [`nlsy_explore.html`](NLSY/nlsy_explore.html): Rendering of the above file.
+* `nlsy_imputation.qmd`: Quarto file that imputes missing values in NLSY data.
+* [`nlsy_imputation.html`](NLSY/nlsy_imputation.html): Rendering of the above file.
+* nlsy_lib.R: library of functions dealing with NLSY data.
 
 ## Data Folder on Box
 * `College-finance2-value-labels.do`: Stata script for reading the sample.
