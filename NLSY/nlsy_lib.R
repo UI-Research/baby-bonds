@@ -243,6 +243,121 @@ nlsy_get_highest_grade_completed_df = function()
     return(data)
 }
 
+#' Returns marriage status the last month of a given year
+nlsy_get_marstat_df = function()
+{
+    data = nlsydf |>
+        select(
+            id =        "PUBID_1997",
+            starts_with('MAR_STATUS_')
+        ) |>
+        pivot_longer(
+            starts_with('MAR_STATUS_'),
+            names_to=c('year', 'month'),
+            names_pattern='MAR_STATUS_(\\d\\d\\d\\d)\\.(\\d\\d)_XRND',
+            values_to='mar_status'
+        ) |>
+        mutate(
+            year=as.integer(year),
+            month=as.integer(month),
+            single=as.integer(mar_status == 'Never Married, Not Cohabitating'),
+            married=as.integer(mar_status == 'Married'),
+            divorced=as.integer(mar_status == 'Divorced'),
+            widowed=as.integer(mar_status == 'Widowed')
+        )
+
+    data = data |>
+        filter(month == 12) |>
+        group_by(id, year) |>
+        summarise(
+            allna = all(is.na(mar_status)),
+            single=any(single, na.rm=TRUE),
+            married=any(married, na.rm=TRUE),
+            divorced=any(divorced, na.rm=TRUE),
+            widowed=any(widowed, na.rm=TRUE),
+        ) |>
+        filter(!allna) |>
+        select(-allna)
+
+    return(data)
+}
+
+#' Returns number of biological children in and out of household
+nlsy_get_biochild_df = function()
+{
+    data1 = nlsydf |>
+        select(
+            id =        "PUBID_1997",
+            starts_with('CV_BIO_CHILD_HH'),
+            -contains('U18') #Dropping variables with only children under 18
+
+        ) |>
+        pivot_longer(
+            starts_with('CV_BIO_CHILD_HH'),
+            names_to='year',
+            names_pattern='CV_BIO_CHILD_HH_(\\d\\d\\d\\d)',
+            values_to='bio_child_hh',
+            values_transform = list(bio_child_hh = as.integer)
+        )
+
+    data2 = nlsydf |>
+        select(
+            id =        "PUBID_1997",
+            starts_with('CV_BIO_CHILD_NR'),
+            -contains('U18') #Dropping variables with only children under 18
+
+        ) |>
+        pivot_longer(
+            starts_with('CV_BIO_CHILD_NR'),
+            names_to='year',
+            names_pattern='CV_BIO_CHILD_NR_(\\d\\d\\d\\d)',
+            values_to='bio_child_nr',
+            values_transform = list(bio_child_nr = as.integer)
+        )
+
+    data = left_join(data1, data2, by=c('id', 'year')
+    ) |>
+        mutate(bio_child = bio_child_hh + bio_child_nr,
+               year = as.integer(year)
+        )|>
+        group_by(id) |>
+        complete(year=1997:2019) |>
+        fill(bio_child, bio_child_hh, bio_child_nr)|>
+        mutate(total_bio_children = case_when(
+            is.na(bio_child) & lead(bio_child, 1)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 2)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 3)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 4)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 5)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 6)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 7)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 8)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 9)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 10)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 11)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 12)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 13)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 14)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 15)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 16)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 17)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 18)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 19)==1 ~ 0,
+            is.na(bio_child) & lead(bio_child, 20)==1 ~ 0,
+            TRUE ~ bio_child)
+        )|>
+        select(-bio_child_nr, -bio_child_hh, -bio_child)
+
+    # Attempt at creating a function for the above... for some reason, it generates random NAs in unexpected places
+    # for (i in 1:20){
+    #     test = biochild |>
+    #         mutate(test = case_when(
+    #             is.na(bio_child) & lead(bio_child, i)==1 ~ 0,
+    #             TRUE ~ bio_child))
+    #}
+return(data)
+}
+
 # Returns data with relations to other family members
 nlsy_get_famrel_df = function()
 {
@@ -392,10 +507,9 @@ nlsy_add_colgradyr = function(data)
 #'
 nlsy_make_spell_df = function(spell_type='all')
 {
-    colstdf = left_join(
-        nlsy_get_col_stat_fall_df(),
-        nlsy_get_highest_grade_completed_df(),
-        by=c('id', 'year')
+    colstdf =  left_join(nlsy_get_col_stat_fall_df(), nlsy_get_col_stat_fall_df(), by=c('id', 'year')) %>%
+        left_join(., nlsy_get_marstat_df(), by=c('id', 'year')) %>%
+        left_join(., nlsy_get_biochild_df(), by=c('id', 'year')
     )
 
     # Drop people whose information about college education is inconsistent
