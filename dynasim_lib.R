@@ -120,6 +120,12 @@ dyn_wealth_xform = function(var, type="log")
         x = pmax({{var}}/widx1997,-3)
         return(log(sqrt(x^2+1)+x))
     }
+    else if(type == "log+") {
+        return(if_else({{var}}>0, log({{var}}/widx1997),0,NA))
+    }
+    else if(type == "log-") {
+        return(if_else({{var}}<0, log(-{{var}}/widx1997),0,NA))
+    }
     else {
         stop(paste0(type, " not implemented"))
     }
