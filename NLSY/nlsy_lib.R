@@ -259,25 +259,25 @@ nlsy_get_marstat_df = function()
         ) |>
         mutate(
             year=as.integer(year),
-            month=as.integer(month),
+            month=as.integer(month)
+        ) |>
+        filter(month == 12) |>
+        group_by(id) |>
+        complete(year=1997:2021) |>
+        fill(mar_status, .direction = "downup") |>
+    #Counting missings:sum(is.na(data))/12 = 203 out of 8984 in nlsydf
+        mutate(mar_status = case_when(
+            is.na(mar_status) ~ 'Never Married, Not Cohabitating',
+            TRUE ~ mar_status)
+         ) |>
+        mutate(
             single=as.integer(mar_status == 'Never Married, Not Cohabitating'),
+            cohabitating=as.integer(mar_status == 'Never Married, Cohabiting'),
             married=as.integer(mar_status == 'Married'),
             divorced=as.integer(mar_status == 'Divorced'),
             widowed=as.integer(mar_status == 'Widowed')
-        )
-
-    data = data |>
-        filter(month == 12) |>
-        group_by(id, year) |>
-        summarise(
-            allna = all(is.na(mar_status)),
-            single=any(single, na.rm=TRUE),
-            married=any(married, na.rm=TRUE),
-            divorced=any(divorced, na.rm=TRUE),
-            widowed=any(widowed, na.rm=TRUE),
-        ) |>
-        filter(!allna) |>
-        select(-allna)
+        )|>
+        select(-month)
 
     return(data)
 }
@@ -324,37 +324,11 @@ nlsy_get_biochild_df = function()
         complete(year=1997:2019) |>
         fill(bio_child, bio_child_hh, bio_child_nr)|>
         mutate(total_bio_children = case_when(
-            is.na(bio_child) & lead(bio_child, 1)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 2)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 3)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 4)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 5)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 6)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 7)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 8)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 9)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 10)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 11)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 12)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 13)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 14)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 15)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 16)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 17)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 18)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 19)==1 ~ 0,
-            is.na(bio_child) & lead(bio_child, 20)==1 ~ 0,
+            is.na(bio_child) ~ 0, # Assuming zeroes are part of the survey auto skips
             TRUE ~ bio_child)
         )|>
         select(-bio_child_nr, -bio_child_hh, -bio_child)
 
-    # Attempt at creating a function for the above... for some reason, it generates random NAs in unexpected places
-    # for (i in 1:20){
-    #     test = biochild |>
-    #         mutate(test = case_when(
-    #             is.na(bio_child) & lead(bio_child, i)==1 ~ 0,
-    #             TRUE ~ bio_child))
-    #}
 return(data)
 }
 
