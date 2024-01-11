@@ -1,4 +1,6 @@
 
+library(tidyverse)
+library(broom)
 
 # Get the wage index for the survey year
 widx = read.csv(paste0(here::here(), "/windex.csv"))
@@ -26,32 +28,48 @@ dyn_get_sexrace_names = function(data)
 }
 
 
-dyn_coef_to_df = function(models)
+dyn_coef_to_df = function(models, sig_level=1)
 {
 
     # Pad variable names to 8 characters and enclose them in
     # single, not fancy, quotation marks
     varnames = toupper(names(coef(models[[1]])))
 
+    varnames = gsub('YEARF',            'YEAR',         varnames)
+    varnames = gsub('\\(INTERCEPT\\)',  'INTERCEPT',    varnames)
+    varnames = gsub('ASIAN\\:',         'ASN',          varnames)
+    varnames = gsub('PARED',            'PED',          varnames)
+    varnames = gsub('COLLEGE',          'COL',          varnames)
+    varnames = gsub('NO\\>|ZERO\\>',    '0',            varnames)
+    varnames = gsub('ONE\\>',           '1',            varnames)
+    varnames = gsub('TWO\\>',           '2',            varnames)
+    varnames = gsub('THREE\\>',         '3',            varnames)
+    varnames = gsub(' ',                '',             varnames)
+
+    varnames = str_trunc(varnames, 8, ellipsis = '')
+    varnames = str_pad(varnames, 8, side='right')
+    varnames = sQuote(varnames, q=FALSE)
+
     # Create a dataframe with models' coefficients
-    df = as_tibble(map(models, coef)) |>
+    df = as_tibble(map(models, dyn_get_coef, sig_level)) |>
         mutate(
             N=format(row_number(), width=2, justify="right"),
             varname=varnames
         ) |>
         filter(!grepl('.*_NA', varname)) |>
         mutate(
-            varname =gsub('YEARF','YEAR',varname),
-            varname =if_else(varname=="(INTERCEPT)","INTERCPT",varname),
-            varname = str_trunc(varname,8,ellipsis = ''),
-            varname = str_pad(varname,8,side='right'),
-            varname = sQuote(varname, q=FALSE),
             across(-c(N,varname), ~round(.x, digits=6)),
             across(-c(N,varname), ~format(.x, width=10, digits=6, zero.print="0.")),
             across(-c(N,varname), ~gsub('NA','  ',.x))
         ) |>
         relocate(N, varname)
     return(df)
+}
+
+#' Returns model's coefficients. Those not significant at sig_level are set to zero.
+dyn_get_coef = function(model, sig_level=1)
+{
+    return(coef(model) * as.integer(tidy(model)$p.value<sig_level))
 }
 
 dyn_merge_results = function(dfs)
@@ -70,11 +88,11 @@ dyn_merge_results = function(dfs)
 #' @param models - list of models
 #' @param filename - path of output file
 #' @param description - a short description
-dyn_write_coef_file = function(models, filename, description)
+dyn_write_coef_file = function(models, filename, description, sig_level=1)
 {
 
     # Create a dataframe with models' coefficients
-    df = dyn_coef_to_df(models)
+    df = dyn_coef_to_df(models, sig_level)
 
     modnames = names(models)
 
@@ -106,8 +124,37 @@ dyn_write_coef_file = function(models, filename, description)
 }
 
 
-dyn_wealth_xform = function(var, type="log")
+dyn_wealth_xform = function(var, type="log", inverse=FALSE)
 {
+    # Offset used for log-transofmration
+    log_offset = 3
+
+    if(inverse) {
+        # Logarithmic transformation
+        if(type == "log") {
+            # Divide by the 1997 wage index
+            # Cap negative values and shift them to be positive
+            # Calculate log
+            return((exp({{var}})-log_offset)*widx1997)
+        }
+        # Inverse hyperbolic sine transformation
+        else if(type == "ihs") {
+            return(sinh(x)*widx1997)
+        }
+        else if(type == "log+") {
+            return(exp({{var}}*widx1997))
+        }
+        else if(type == "log-") {
+            return(-exp({{var}}*widx1997))
+        }
+        else if(type == "linear") {
+            return({{var}}*widx1997)
+        }
+        else {
+            stop(paste0(type, " not implemented"))
+        }
+    }
+
     # Logarithmic transformation
     if(type == "log") {
         # Divide by the 1997 wage index
@@ -117,14 +164,16 @@ dyn_wealth_xform = function(var, type="log")
     }
     # Inverse hyperbolic sine transformation
     else if(type == "ihs") {
-        x = pmax({{var}}/widx1997,-3)
-        return(log(sqrt(x^2+1)+x))
+        return(asinh(pmax({{var}}/widx1997,-3)))
     }
     else if(type == "log+") {
         return(if_else({{var}}>0, log({{var}}/widx1997),0,NA))
     }
     else if(type == "log-") {
         return(if_else({{var}}<0, log(-{{var}}/widx1997),0,NA))
+    }
+    else if(type == "linear") {
+        return({{var}}/widx1997)
     }
     else {
         stop(paste0(type, " not implemented"))
