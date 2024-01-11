@@ -512,9 +512,15 @@ ggplot(rs_final_long, aes(x=retsav, y=pnetworth, color = imputation)) +
 save_df = bind_rows(
   filter(rs_final_long, imputation=='1') |> select(-imputation),
   rs_no_retsav
-)
+) |>
+    rename_with(~gsub("_hs", "", .), ends_with("educ_hs"))
 
-readr::write_csv(save_df, paste0(here::here(), '/NLSY/imputed_data.csv'))
+# We don't save race_eth and both_parents because they were not imputed and we
+# will use different race encoding in teh estimation
+readr::write_csv(
+      select(save_df, -race_eth, -both_parents),
+      nlsy_imp_file
+      )
 
 ```
 
