@@ -92,6 +92,7 @@ The proposed model of college education consists of four models:
 
 ## Data and Settings
 
+
 ```{r}
 #| echo: true
 
@@ -140,7 +141,9 @@ basedf = nlsy_get_base_df() |>
     left_join(nlsy_get_imputed()) |>
     mutate(
         race = nlsy_recode_race_and_eth5(race, hisp),
-        pared= nlsy_encode_parents_educ(mom_educ, dad_educ, encoding=opt_pared_code)
+        pared= nlsy_encode_parents_educ(mom_educ, dad_educ, encoding=opt_pared_code),
+        # Remove retirement savings because we don't have them in FEH
+        pnetworth = pnetworth-retsav
     ) |>
     # There are not enough Asians in the dataset for a separate model
     # We group them with whites and use a dummy variable
@@ -149,29 +152,54 @@ basedf = nlsy_get_base_df() |>
         race  = if_else(race=="Asian", "White", race)
     ) |>
     filter(race != 'Other') |>
-  mutate(
-      pnworth_cat = cut(
-          pnetworth, 
-          breaks=Hmisc::wtd.quantile(pnetworth, wt, probs=seq(0,1,.2)),
-          labels=c('1st','2nd','3rd','4th','5th'),
-          include.lowest = TRUE)
-  )
+    mutate(
+        pnworth_cat = cut(
+            pnetworth, 
+            breaks=Hmisc::wtd.quantile(pnetworth, wt, probs=seq(0,1,.2)),
+            labels=c('1st','2nd','3rd','4th','5th'),
+            include.lowest = TRUE)
+    )
   
+
+
+```
+```{r}
+#| label: fig-pnetworth-density
+#| fig-cap: "Distribution of parent's networth (divided by the average wage index) by race"
+
+basedf |>
+  select(id, pnetworth, pincome, race, wt) |>
+  mutate(pnetworth = dyn_wealth_xform(pnetworth, type='linear')) |>
+  filter(pnetworth>-20) |>
+  ggplot() +
+  geom_density(aes(x=pnetworth, y=after_stat(density), color=race, weight=wt), fill=NA) +
+  xlab("Net worth / AWI") + ylab("Density")
 
 ```
 
-```{r}
-#| label: tbl-data-summary
-#| tbl-cap: 'Data summary'
-#| eval: false
 
-df = basedf |>
-    select(sex, race, pnetworth, pincome, pared, asian, wt) |>
+```{r}
+#| label: fig-ever-college-by-race-pnetworth
+#| fig-cap: "The share of NLSY participants who attended college by race and quintile of parents' net worth"
+
+nlsy_get_col_stat_annual_df() |>
+    group_by(id) |>
+    summarise(evercol = max(colenr)) |>
+    right_join(
+        basedf,
+        by='id'
+    ) |>
+    filter(!is.na(pnworth_cat)) |>
+    group_by(race, pnworth_cat) |>
     mutate(
-      pnetworth = dyn_wealth_xform(pnetworth, opt_wealth_xform),
-      pincome = dyn_wealth_xform(pincome, opt_wealth_xform),
-      )
-datasummary(sex*(pnetworth+pincome+asian) ~ race*(weighted.mean*Arguments(w=wt)+sd), data=df)
+        `College Attendance`=weighted.mean(evercol, wt),
+        se = sqrt(`College Attendance`*(1-`College Attendance`)/n()),
+        ci_l = `College Attendance`-1.96*se,
+        ci_h = `College Attendance`+1.96*se) |>
+    ggplot() +
+      geom_col(aes(x=race,y=`College Attendance`,fill=pnworth_cat), position="dodge") +
+#      geom_errorbar(aes(x=race, ymin=ci_l, ymax=ci_h, group=pnworth_cat), color='red', width = .2, position=position_dodge(.7)) +
+      xlab("Race")
 
 ```
 
@@ -390,7 +418,7 @@ estdf = estdf |>
         )
     ) |>
     mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth","asian"))))
+    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
 
 
 ```
@@ -425,7 +453,7 @@ dyn_write_coef_file(
 )
 ```
 
-@tbl-enroll-marginal shows average marginal effects of parental networth on the likelihood of enrollment. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of enrollment in college.
+@tbl-enroll-marginal shows average marginal effects of parental networth on the likelihood of enrollment. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of enrollment in college.
 
 ```{r}
 #| label: tbl-enroll-marginal
@@ -436,7 +464,7 @@ colnames(df) = dyn_get_sexrace_names(estdf)
 knitr::kable(df, digits=5)
 ```
 
-@fig-enr-simple-mod-pred shows hazard rates by sex and race predicted by these two models, as well as the actual hazard rates from @fig-enrol-hazard. As expected, model 2 performs much better because its time-varying term is estimated separately for each combination of sex and race.
+@fig-enr-simple-mod-pred shows hazard rates by sex and race predicted by the model, as well as the actual hazard rates from @fig-enrol-hazard.
 
 ```{r}
 #| label: fig-enr-simple-mod-pred
@@ -544,8 +572,6 @@ knitr::kable(df, digits=5)
 
 Many students who drop out of college return and re-enroll. Some do this multiple times. @fig-enrol-hazard-spells shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college for all students who drop out of college. @fig-enrol-hazard-two-spells-sex-race shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college by sex and race. The higher-order spells have few observations, which makes their hazard rates very noisy.
 
-The hazard rates for the first two spells are remarkably close to each other. Surprisingly, the hazard rates for all spells have another peak at or after year 10.
-
 ```{r}
 #| label: fig-enrol-hazard-spells
 #| fig-cap: "Hazard function for college enrollment by enrollment spell. X-axes represents years since the graduation from high school, for the first spell of non-enrollment, and years, since dropping out of college for subsequent spells."
@@ -618,13 +644,15 @@ estdf = colenrdf |>
         pnetworth=dyn_wealth_xform(pnetworth, type=opt_wealth_xform)
     )
 
+model_formula = as.formula(paste("tEnroll ~ ", paste(model_covars, collapse = " + ")))
+
 # Estimate one model for each sex-race combination
 estdf = estdf |>
     group_by(race, sex) |>
     nest() |>
     mutate(
         mods = map(data, \(x) glm(
-            tEnroll ~ yearf + asian + pnetworth + pared, 
+            model_formula, 
             data=x,
             family=binomial)
         )
@@ -663,7 +691,7 @@ dyn_write_coef_file(
 ```
 
 
-@tbl-reenroll-marginal shows average marginal effects of parental networth on the likelihood of enrollment in college after having dropped out. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of re-enrollment.
+@tbl-reenroll-marginal shows average marginal effects of parental networth on the likelihood of enrollment in college after having dropped out. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of re-enrollment in college.
 
 ```{r}
 #| label: tbl-reenroll-marginal
@@ -709,9 +737,7 @@ rm(m1, m2models, models, plotdf)
 
 The drop-out model simulates the likelihood of dropping out of college for students who are enrolled in college. This is a survival model where the dependent variable is zero if a student is enrolled in college and one in the year the student drops out. For students who graduate from college, the variable is zero in all years.
 
-**Multiple Spells.** A problem with modeling dropping out of college as a terminal event is that some students who drop out of college return later. Some drop out and return multiple times, i.e., have multiple spells of college enrollment. @fig-college-spells-number shows the distribution of number of spells in the NLSY sample for all individuals who were enrolled in college and @fig-college-spells-shares shows this distribution by race and sex. It appears that about one-third of students have more than one spell, and some have as many as seven.
-
-One way to address this issue is to construct an alternative model that does not treat dropping out of college as a terminal event. Each year while enrolled, a student would be at risk of dropping out. If they drop out before graduation, they would be at risk of re-enrolling in subsequent years.
+**Multiple Spells.** A problem with modeling dropping out of college as a terminal event is that some students who drop out of college return later. Some drop out and return multiple times, i.e., have multiple spells of college enrollment. @fig-college-spells-number shows the distribution of number of spells in the NLSY sample for all individuals who were enrolled in college and @fig-college-spells-shares shows this distribution by race and sex. It appears that about one-third of students have more than one spell, and some have as many as seven. Which is why we do not treat dropping out of college as a terminal event. If a student drops out before graduation, they would be at risk of re-enrolling in subsequent years.
 
 ```{r}
 #| label: make-drop-df
@@ -924,7 +950,7 @@ dyn_write_coef_file(
 
 ```
 
-@tbl-drop-marginal shows average marginal effects of parental networth on the likelihood of dropping out of college. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of dropping out.
+@tbl-drop-marginal shows average marginal effects of parental networth on the likelihood of dropping out of college. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of dropping out of college.
 
 ```{r}
 #| label: tbl-drop-marginal
@@ -964,7 +990,6 @@ estdf |>
 ```
 
 ## Graduating from College
-
 
 ```{r}
 #| label: make-grad-df
@@ -1070,7 +1095,7 @@ dyn_write_coef_file(
 
 ```
 
-@tbl-grad-marginal shows average marginal effects of parental networth on the likelihood of graduating from college. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of graduation.
+@tbl-grad-marginal shows average marginal effects of parental networth on the likelihood of graduating from college. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of graduation from college.
 
 ```{r}
 #| label: tbl-grad-marginal
