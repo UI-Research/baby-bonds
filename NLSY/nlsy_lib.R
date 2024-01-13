@@ -266,11 +266,14 @@ nlsy_get_marstat_df = function()
             year=as.integer(year),
             month=as.integer(month)
         ) |>
-        filter(month == 12) |>
-        group_by(id) |>
-        complete(year=1997:2021) |>
+        group_by(id,year) |>
         fill(mar_status, .direction = "downup") |>
-    #Counting missings:sum(is.na(data))/12 = 203 out of 8984 in nlsydf
+        filter(month == 12, year > 1996) |>
+        group_by(id) |>
+        arrange(id, year) |>
+        complete(year=1997:2019) |>
+        fill(mar_status, .direction = "downup") |>
+    #Counting missings:sum(is.na(data))/12 = 181.25 out of 8984 in nlsydf
         mutate(mar_status = case_when(
             is.na(mar_status) ~ 'Never Married, Not Cohabitating',
             TRUE ~ mar_status)
@@ -320,18 +323,19 @@ nlsy_get_biochild_df = function()
             values_transform = list(bio_child_nr = as.integer)
         )
 
-    data = left_join(data1, data2, by=c('id', 'year')
-    ) |>
-        mutate(bio_child = bio_child_hh + bio_child_nr,
-               year = as.integer(year)
-        )|>
+    data = left_join(data1, data2, by=c('id', 'year'))|>
+        mutate(year = as.integer(year))|>
         group_by(id) |>
         complete(year=1997:2019) |>
-        fill(bio_child, bio_child_hh, bio_child_nr)|>
-        mutate(total_bio_children = case_when(
-            is.na(bio_child) ~ 0, # Assuming zeroes are part of the survey auto skips
-            TRUE ~ bio_child)
+        fill(bio_child_hh, bio_child_nr)|>
+        mutate(bio_child_hh = case_when(
+                   is.na(bio_child_hh) ~ 0, # Assuming zeroes are part of the survey auto skips
+                   TRUE ~ bio_child_hh),
+               bio_child_nr = case_when(
+                   is.na(bio_child_nr) ~ 0, # Assuming zeroes are part of the survey auto skips
+                   TRUE ~ bio_child_nr)
         )|>
+        mutate(bio_child = bio_child_hh + bio_child_nr)|>
         select(-bio_child_nr, -bio_child_hh, -bio_child)
 
 return(data)
