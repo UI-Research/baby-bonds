@@ -86,7 +86,8 @@ dyn_uniformize_coef = function(coefs)
     for(i in 1:length(coefs)) {
         df = left_join(vardf, coefs[[i]]$df, by='varname') |>
         mutate(N=format(row_number(), width=2, justify="right")) |>
-        mutate(across(-c(N,varname), ~replace_na(.x, paste(rep(' ',10),collapse=''))))
+        mutate(across(-c(N,varname), ~replace_na(.x, paste(rep(' ',10),collapse='')))) |>
+        relocate(N, varname)
         coefs[[i]]$df = df
     }
     return(coefs)
