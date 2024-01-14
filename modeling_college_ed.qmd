@@ -444,13 +444,14 @@ modelsummary(models,
 # Dataframe with coefficients
 res_colenr = dyn_coef_to_df(models, sig_level=opt_sig_level)
 
-# Write regression coefficients to a file
-dyn_write_coef_file(
-    models, 
-    "coefs/coef_col_enr.csv",
-    'Coefficients for college enrollment model.',
-    sig_level=opt_sig_level
+coefs = list()
+
+coefs[['colenr']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_enr.csv",
+    description = 'Coefficients for college enrollment model.'
 )
+
 ```
 
 @tbl-enroll-marginal shows average marginal effects of parental networth on the likelihood of enrollment. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of enrollment in college.
@@ -681,11 +682,10 @@ modelsummary(models,
 # Dataframe with coefficients
 res_colreenr = dyn_coef_to_df(models)
 
-dyn_write_coef_file(
-    models, 
-    "coefs/coef_col_reenr.csv",
-    'Coefficients for the model of re-enrolling into college after dropping out.',
-    sig_level=opt_sig_level
+coefs[['colreenr']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_reenr.csv",
+    description = 'Coefficients for the model of re-enrolling into college after dropping out.'
 )
 
 ```
@@ -941,11 +941,10 @@ modelsummary(models,
 # Dataframe with coefficients
 res_coldrop = dyn_coef_to_df(models)
 
-dyn_write_coef_file(
-    models, 
-    "coefs/coef_col_drop.csv",
-    'Coefficients for the model of dropping out of college.',
-    sig_level=opt_sig_level
+coefs[['coldrop']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_drop.csv",
+    description = 'Coefficients for the model of dropping out of college.'
 )
 
 ```
@@ -1085,13 +1084,15 @@ modelsummary(models,
 # Dataframe with coefficients
 res_colgrad = dyn_coef_to_df(models)
 
-dyn_write_coef_file(
-    models, 
-    "coefs/coef_col_grad.csv",
-    'Coefficients for college graduation model.',
-    sig_level=opt_sig_level
+coefs[['colgrad']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_grad.csv",
+    description = 'Coefficients for college graduation model.'
 )
 
+# Uniformize and write coefficients
+coefs2 = dyn_uniformize_coef(coefs)
+map(coefs2, \(x) dyn_write_coef_file(x$df, x$filename, x$description))
 
 ```
 

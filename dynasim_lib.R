@@ -72,33 +72,39 @@ dyn_get_coef = function(model, sig_level=1)
     return(coef(model) * as.integer(tidy(model)$p.value<sig_level))
 }
 
-dyn_merge_results = function(dfs)
+#' Uses the same list of variables in all models
+#' If a variable does not appear in a model, it has a string of spaces
+dyn_uniformize_coef = function(coefs)
 {
 
-
-    for(i in 1:length(dfs)) {
-
+    varnames=character(0)
+    for(i in 1:length(coefs)) {
+        varnames = union(varnames, coefs[[i]]$df$varname)
     }
 
-
+    vardf = tibble(varname=varnames)
+    for(i in 1:length(coefs)) {
+        df = left_join(vardf, coefs[[i]]$df, by='varname') |>
+        mutate(N=format(row_number(), width=2, justify="right")) |>
+        mutate(across(-c(N,varname), ~replace_na(.x, paste(rep(' ',10),collapse=''))))
+        coefs[[i]]$df = df
+    }
+    return(coefs)
 }
 
 #' Writes coefficients of a list of models into a DYNASIM coefficient file
 #'
-#' @param models - list of models
+#' @param df - dataframe with coefficiets
 #' @param filename - path of output file
 #' @param description - a short description
-dyn_write_coef_file = function(models, filename, description, sig_level=1)
+dyn_write_coef_file = function(df, filename, description)
 {
 
-    # Create a dataframe with models' coefficients
-    df = dyn_coef_to_df(models, sig_level)
-
-    modnames = names(models)
+    modnames = colnames(df)[-(1:2)]
 
     # Number of variables and models
     nv = dim(df)[1]
-    ng = dim(df)[2]
+    ng = length(modnames)
 
     # File header
     #   - lines starting with ';' are comments
