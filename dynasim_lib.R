@@ -60,7 +60,7 @@ dyn_coef_to_df = function(models, sig_level=1)
         mutate(
             across(-c(N,varname), ~round(.x, digits=6)),
             across(-c(N,varname), ~format(.x, width=10, digits=6, zero.print="0.")),
-            across(-c(N,varname), ~gsub('NA','  ',.x))
+            across(-c(N,varname), ~gsub('\\s+NA','  0.      ',.x))
         ) |>
         relocate(N, varname)
     return(df)
@@ -86,7 +86,7 @@ dyn_uniformize_coef = function(coefs)
     for(i in 1:length(coefs)) {
         df = left_join(vardf, coefs[[i]]$df, by='varname') |>
         mutate(N=format(row_number(), width=2, justify="right")) |>
-        mutate(across(-c(N,varname), ~replace_na(.x, paste(rep(' ',10),collapse='')))) |>
+        mutate(across(-c(N,varname), ~replace_na(.x, '  0.      '))) |>
         relocate(N, varname)
         coefs[[i]]$df = df
     }
