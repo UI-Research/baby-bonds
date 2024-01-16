@@ -3657,6 +3657,236 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 </div>
 </div>
 </div>
+<p><a href="#tbl-enrol2-simple-mod-est">Table 3</a> shows the estimated coefficients.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div id="tbl-enrol2-simple-mod-est" class="anchored">
+<table class="table table-sm table-striped small" data-quarto-postprocess="true">
+<caption>Table 3: Estimated coefficients for the model of college enrollment with parental networth split into negative an dpositive terms</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th"></th>
+<th style="text-align: center;" data-quarto-table-cell-role="th">FBLACK</th>
+<th style="text-align: center;" data-quarto-table-cell-role="th"> FHISPANI</th>
+<th style="text-align: center;" data-quarto-table-cell-role="th"> FWHITE</th>
+<th style="text-align: center;" data-quarto-table-cell-role="th">MBLACK</th>
+<th style="text-align: center;" data-quarto-table-cell-role="th"> MHISPANI</th>
+<th style="text-align: center;" data-quarto-table-cell-role="th"> MWHITE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: center;">0.267***</td>
+<td style="text-align: center;">0.005</td>
+<td style="text-align: center;">0.395***</td>
+<td style="text-align: center;">−0.288***</td>
+<td style="text-align: center;">−0.308***</td>
+<td style="text-align: center;">−0.096</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Year1</td>
+<td style="text-align: center;">−1.643***</td>
+<td style="text-align: center;">−1.219***</td>
+<td style="text-align: center;">−2.082***</td>
+<td style="text-align: center;">−1.306***</td>
+<td style="text-align: center;">−1.232***</td>
+<td style="text-align: center;">−2.166***</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Year2</td>
+<td style="text-align: center;">−2.393***</td>
+<td style="text-align: center;">−2.189***</td>
+<td style="text-align: center;">−3.156***</td>
+<td style="text-align: center;">−2.300***</td>
+<td style="text-align: center;">−2.076***</td>
+<td style="text-align: center;">−3.079***</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Year3</td>
+<td style="text-align: center;">−2.630***</td>
+<td style="text-align: center;">−2.916***</td>
+<td style="text-align: center;">−3.866***</td>
+<td style="text-align: center;">−2.226***</td>
+<td style="text-align: center;">−2.552***</td>
+<td style="text-align: center;">−3.011***</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Year4</td>
+<td style="text-align: center;">−2.908***</td>
+<td style="text-align: center;">−3.330***</td>
+<td style="text-align: center;">−4.124***</td>
+<td style="text-align: center;">−2.737***</td>
+<td style="text-align: center;">−2.568***</td>
+<td style="text-align: center;">−3.106***</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Year5</td>
+<td style="text-align: center;">−2.706***</td>
+<td style="text-align: center;">−2.730***</td>
+<td style="text-align: center;">−4.182***</td>
+<td style="text-align: center;">−3.246***</td>
+<td style="text-align: center;">−2.578***</td>
+<td style="text-align: center;">−4.036***</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Year6</td>
+<td style="text-align: center;">−2.568***</td>
+<td style="text-align: center;">−3.084***</td>
+<td style="text-align: center;">−3.959***</td>
+<td style="text-align: center;">−3.212***</td>
+<td style="text-align: center;">−2.609***</td>
+<td style="text-align: center;">−3.384***</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Year7</td>
+<td style="text-align: center;">−3.213***</td>
+<td style="text-align: center;">−3.027***</td>
+<td style="text-align: center;">−3.604***</td>
+<td style="text-align: center;">−3.325***</td>
+<td style="text-align: center;">−3.272***</td>
+<td style="text-align: center;">−3.565***</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Year8</td>
+<td style="text-align: center;">−3.732***</td>
+<td style="text-align: center;">−4.011***</td>
+<td style="text-align: center;">−4.486***</td>
+<td style="text-align: center;">−3.505***</td>
+<td style="text-align: center;">−3.540***</td>
+<td style="text-align: center;">−4.466***</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">pwealthpos</td>
+<td style="text-align: center;">0.172***</td>
+<td style="text-align: center;">0.063</td>
+<td style="text-align: center;">0.351***</td>
+<td style="text-align: center;">0.216***</td>
+<td style="text-align: center;">0.173***</td>
+<td style="text-align: center;">0.313***</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">pwealthneg</td>
+<td style="text-align: center;">0.057</td>
+<td style="text-align: center;">0.000</td>
+<td style="text-align: center;">0.151</td>
+<td style="text-align: center;">−0.012</td>
+<td style="text-align: center;">0.139</td>
+<td style="text-align: center;">0.045</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">pnetworth_na</td>
+<td style="text-align: center;">−0.122</td>
+<td style="text-align: center;">0.033</td>
+<td style="text-align: center;">0.493***</td>
+<td style="text-align: center;">−0.111</td>
+<td style="text-align: center;">−0.030</td>
+<td style="text-align: center;">0.390***</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left; box-shadow: 0px 1.5px;">asian</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;"></td>
+<td style="text-align: center; box-shadow: 0px 1.5px;"></td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">0.849***</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;"></td>
+<td style="text-align: center; box-shadow: 0px 1.5px;"></td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">0.659***</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Num.Obs.</td>
+<td style="text-align: center;">4433</td>
+<td style="text-align: center;">3773</td>
+<td style="text-align: center;">7334</td>
+<td style="text-align: center;">4955</td>
+<td style="text-align: center;">4107</td>
+<td style="text-align: center;">9958</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">AIC</td>
+<td style="text-align: center;">2691.4</td>
+<td style="text-align: center;">2037.9</td>
+<td style="text-align: center;">3887.7</td>
+<td style="text-align: center;">2265.8</td>
+<td style="text-align: center;">2003.7</td>
+<td style="text-align: center;">4637.7</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">BIC</td>
+<td style="text-align: center;">2768.1</td>
+<td style="text-align: center;">2112.7</td>
+<td style="text-align: center;">3977.4</td>
+<td style="text-align: center;">2343.9</td>
+<td style="text-align: center;">2079.5</td>
+<td style="text-align: center;">4731.4</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Log.Lik.</td>
+<td style="text-align: center;">−1333.681</td>
+<td style="text-align: center;">−1006.934</td>
+<td style="text-align: center;">−1930.857</td>
+<td style="text-align: center;">−1120.888</td>
+<td style="text-align: center;">−989.841</td>
+<td style="text-align: center;">−2305.840</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">RMSE</td>
+<td style="text-align: center;">0.30</td>
+<td style="text-align: center;">0.28</td>
+<td style="text-align: center;">0.28</td>
+<td style="text-align: center;">0.25</td>
+<td style="text-align: center;">0.26</td>
+<td style="text-align: center;">0.26</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+
+</div>
+</div>
+<p><a href="#tbl-enroll2-marginal">Table 4</a> shows average marginal effects of parental networth on the likelihood of enrollment. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of enrollment in college.</p>
+<div class="cell">
+<div class="cell-output-display">
+<div id="tbl-enroll2-marginal" class="anchored">
+<table data-quarto-postprocess="true" class="table table-sm table-striped small">
+<caption>Table 4: Marginal effects of parental networth separate for negative and positive</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th"></th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">FBLACK</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">FHISPANI</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">FWHITE</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">MBLACK</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">MHISPANI</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">MWHITE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">pwealthpos</td>
+<td style="text-align: right;">0.01553</td>
+<td style="text-align: right;">0.00506</td>
+<td style="text-align: right;">0.02760</td>
+<td style="text-align: right;">0.01407</td>
+<td style="text-align: right;">0.01213</td>
+<td style="text-align: right;">0.02150</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">pwealthneg</td>
+<td style="text-align: right;">0.00517</td>
+<td style="text-align: right;">-0.00003</td>
+<td style="text-align: right;">0.01191</td>
+<td style="text-align: right;">-0.00075</td>
+<td style="text-align: right;">0.00974</td>
+<td style="text-align: right;">0.00308</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+
+</div>
+</div>
 </section>
 <section id="enrollment-after-dropping-out-of-college" class="level3">
 <h3 class="anchored" data-anchor-id="enrollment-after-dropping-out-of-college">Enrollment After Dropping out of College</h3>
@@ -3697,7 +3927,7 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 <div class="cell-output-display">
 <div id="tbl-reenrol-mod-est" class="anchored">
 <table class="table table-sm table-striped small" data-quarto-postprocess="true">
-<caption>Table 3: Estimated coefficients of the re-enrollment model</caption>
+<caption>Table 5: Estimated coefficients of the re-enrollment model</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;" data-quarto-table-cell-role="th"></th>
@@ -3834,12 +4064,12 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 
 </div>
 </div>
-<p><a href="#tbl-reenroll-marginal">Table 4</a> shows average marginal effects of parental networth on the likelihood of enrollment in college after having dropped out. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of re-enrollment.</p>
+<p><a href="#tbl-reenroll-marginal">Table 6</a> shows average marginal effects of parental networth on the likelihood of enrollment in college after having dropped out. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of re-enrollment.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="tbl-reenroll-marginal" class="anchored">
 <table data-quarto-postprocess="true" class="table table-sm table-striped small">
-<caption>Table 4: Marginal effects of parental networth on re-enrollment in college</caption>
+<caption>Table 6: Marginal effects of parental networth on re-enrollment in college</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;" data-quarto-table-cell-role="th"></th>
@@ -3958,7 +4188,7 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 <div class="cell-output-display">
 <div id="tbl-drop-simple-mod-est" class="anchored">
 <table class="table table-sm table-striped small" data-quarto-postprocess="true">
-<caption>Table 5: Estimated coefficients of the model of dropping out of college</caption>
+<caption>Table 7: Estimated coefficients of the model of dropping out of college</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;" data-quarto-table-cell-role="th"></th>
@@ -4095,12 +4325,12 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 
 </div>
 </div>
-<p><a href="#tbl-drop-marginal">Table 6</a> shows average marginal effects of parental networth on the likelihood of dropping out of college. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of dropping out.</p>
+<p><a href="#tbl-drop-marginal">Table 8</a> shows average marginal effects of parental networth on the likelihood of dropping out of college. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of dropping out.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="tbl-drop-marginal" class="anchored">
 <table data-quarto-postprocess="true" class="table table-sm table-striped small">
-<caption>Table 6: Marginal effects of parental networth on dropping out of college</caption>
+<caption>Table 8: Marginal effects of parental networth on dropping out of college</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;" data-quarto-table-cell-role="th"></th>
@@ -4167,7 +4397,7 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 <div class="cell-output-display">
 <div id="tbl-grad-simple-mod-est" class="anchored">
 <table class="table table-sm table-striped small" data-quarto-postprocess="true">
-<caption>Table 7: Estimated coefficients of the college graduation model</caption>
+<caption>Table 9: Estimated coefficients of the college graduation model</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;" data-quarto-table-cell-role="th"></th>
@@ -4304,12 +4534,12 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 
 </div>
 </div>
-<p><a href="#tbl-grad-marginal">Table 8</a> shows average marginal effects of parental networth on the likelihood of graduating from college. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of graduation.</p>
+<p><a href="#tbl-grad-marginal">Table 10</a> shows average marginal effects of parental networth on the likelihood of graduating from college. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of graduation.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="tbl-grad-marginal" class="anchored">
 <table data-quarto-postprocess="true" class="table table-sm table-striped small">
-<caption>Table 8: Marginal effects of parental networth on graduation from college</caption>
+<caption>Table 10: Marginal effects of parental networth on graduation from college</caption>
 <thead>
 <tr class="header">
 <th style="text-align: left;" data-quarto-table-cell-role="th"></th>
