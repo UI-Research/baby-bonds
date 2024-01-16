@@ -341,6 +341,46 @@ nlsy_get_biochild_df = function()
 return(data)
 }
 
+
+#' Adds longitudinal income and wealth vars to the input dataset
+nlsy_get_income_wealth_df = function(){
+    income <- nlsydf |>
+        select(id = PUBID_1997, income_source = CV_HH_INCOME_SOURCE_1997, matches('CV_INCOME_GROSS_YR|CV_INCOME_FAMILY')) |>
+        pivot_longer(-c('id', 'income_source'),
+                     names_to = 'year', values_to = 'income') |>
+        mutate(year = as.numeric(str_sub(year, start=-4)))
+    networth_97_03 <- nlsydf |>
+        select(id = PUBID_1997, matches('CV_HH_NET_WORTH_Y')) |>
+        pivot_longer(-id,
+                     names_to = 'year', values_to = 'networth') |>
+        mutate(year = as.numeric(str_sub(year, start=-4)))
+
+    networth_5yr <- nlsydf |>
+        select(id = PUBID_1997, age_resp = "CV_AGE_12/31/96_1997", matches('CVC_HH_NET_WORTH_\\d{2}')) |>
+        pivot_longer(-c('id', 'age_resp'),
+                     names_to = 'year', values_to = 'networth') |>
+        mutate(year = as.numeric(str_sub(year, start=-7, end=-6)), # Get age for 5-yr wealth vars
+               year = 1997 + (year - age_resp)) # Add correct number of years based on resp's starting age
+
+    networth_merged <- tidylog::full_join(networth_97_03, networth_5yr, by = c('id', 'year', 'networth')) |>
+        select(-age_resp)
+
+    dups <- count(networth_merged, id, year) |> filter(n>1)
+    dups_rm_na <- networth_merged |> inner_join(dups, by=c('id', 'year')) |> filter(!is.na(networth)) |> select(-n)
+    networth_merged2 <- networth_merged |>
+        anti_join(dups, by=c('id', 'year')) |> # Remove duplicate id-years
+        bind_rows(dups_rm_na) |> # Add back in the de-duplicated id-years
+        arrange(id, year)
+
+
+    income_networth <- tidylog::full_join(income, networth_merged2, by = c('id', 'year')) |>
+        group_by(id) |>
+        complete(year = 1997:2019) |>
+        filter(year <= 2019)
+
+}
+
+
 # Returns data with relations to other family members
 nlsy_get_famrel_df = function()
 {
