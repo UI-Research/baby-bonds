@@ -378,6 +378,8 @@ nlsy_get_income_wealth_df = function(){
         complete(year = 1997:2019) |>
         filter(year <= 2019)
 
+    return(income_networth)
+
 }
 
 
