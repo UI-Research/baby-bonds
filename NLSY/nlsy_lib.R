@@ -3,9 +3,6 @@
 # Read the raw data
 nlsydf = readRDS(paste0(here::here(), "/NLSY/NLSY-college-finance.rds"))
 
-# Source scripts for interpolation and extrapolation
-source('interp_extrap_lib.R')
-
 #' Returns the NLSY dataframe with basic demographic information
 #'
 nlsy_get_base_df = function()
@@ -251,191 +248,6 @@ nlsy_get_highest_grade_completed_df = function()
     return(data)
 }
 
-#' Returns marriage status the last month of a given year
-nlsy_get_marstat_df = function()
-{
-    data = nlsydf |>
-        select(
-            id =        "PUBID_1997",
-            starts_with('MAR_STATUS_')
-        ) |>
-        pivot_longer(
-            starts_with('MAR_STATUS_'),
-            names_to=c('year', 'month'),
-            names_pattern='MAR_STATUS_(\\d\\d\\d\\d)\\.(\\d\\d)_XRND',
-            values_to='mar_status'
-        ) |>
-        mutate(
-            year=as.integer(year),
-            month=as.integer(month)
-        ) |>
-        group_by(id,year) |>
-        fill(mar_status, .direction = "downup") |>
-        filter(month == 12, year > 1996) |>
-        group_by(id) |>
-        arrange(id, year) |>
-        complete(year=1997:2019) |>
-        fill(mar_status, .direction = "downup") |>
-    #Counting missings:sum(is.na(data))/12 = 181.25 out of 8984 in nlsydf
-        mutate(mar_status = case_when(
-            is.na(mar_status) ~ 'Never Married, Not Cohabitating',
-            TRUE ~ mar_status)
-         ) |>
-        mutate(
-            single=as.integer(mar_status == 'Never Married, Not Cohabitating'),
-            cohabitating=as.integer(mar_status == 'Never Married, Cohabiting'),
-            married=as.integer(mar_status == 'Married'),
-            divorced=as.integer(mar_status == 'Divorced'),
-            widowed=as.integer(mar_status == 'Widowed')
-        )|>
-        select(-month)
-
-    return(data)
-}
-
-#' Returns number of biological children in and out of household
-nlsy_get_biochild_df = function()
-{
-    data1 = nlsydf |>
-        select(
-            id =        "PUBID_1997",
-            starts_with('CV_BIO_CHILD_HH'),
-            -contains('U18') #Dropping variables with only children under 18
-
-        ) |>
-        pivot_longer(
-            starts_with('CV_BIO_CHILD_HH'),
-            names_to='year',
-            names_pattern='CV_BIO_CHILD_HH_(\\d\\d\\d\\d)',
-            values_to='bio_child_hh',
-            values_transform = list(bio_child_hh = as.integer)
-        )
-
-    data2 = nlsydf |>
-        select(
-            id =        "PUBID_1997",
-            starts_with('CV_BIO_CHILD_NR'),
-            -contains('U18') #Dropping variables with only children under 18
-
-        ) |>
-        pivot_longer(
-            starts_with('CV_BIO_CHILD_NR'),
-            names_to='year',
-            names_pattern='CV_BIO_CHILD_NR_(\\d\\d\\d\\d)',
-            values_to='bio_child_nr',
-            values_transform = list(bio_child_nr = as.integer)
-        )
-
-    data = left_join(data1, data2, by=c('id', 'year'))|>
-        mutate(year = as.integer(year))|>
-        group_by(id) |>
-        complete(year=1997:2019) |>
-        fill(bio_child_hh, bio_child_nr)|>
-        mutate(bio_child_hh = case_when(
-                   is.na(bio_child_hh) ~ 0, # Assuming zeroes are part of the survey auto skips
-                   TRUE ~ bio_child_hh),
-               bio_child_nr = case_when(
-                   is.na(bio_child_nr) ~ 0, # Assuming zeroes are part of the survey auto skips
-                   TRUE ~ bio_child_nr)
-        )|>
-        mutate(bio_child = bio_child_hh + bio_child_nr)|>
-        select(-bio_child_nr, -bio_child_hh, -bio_child)
-
-return(data)
-}
-
-
-#' Adds longitudinal income and wealth vars to the input dataset
-nlsy_get_income_wealth_df = function(){
-    income <- nlsydf |>
-        select(id = PUBID_1997, income_source = CV_HH_INCOME_SOURCE_1997, matches('CV_INCOME_GROSS_YR|CV_INCOME_FAMILY')) |>
-        pivot_longer(-c('id', 'income_source'),
-                     names_to = 'year', values_to = 'income') |>
-        mutate(year = as.numeric(str_sub(year, start=-4)))
-    networth_97_03 <- nlsydf |>
-        select(id = PUBID_1997, matches('CV_HH_NET_WORTH_Y')) |>
-        pivot_longer(-id,
-                     names_to = 'year', values_to = 'networth') |>
-        mutate(year = as.numeric(str_sub(year, start=-4)))
-
-    networth_5yr <- nlsydf |>
-        select(id = PUBID_1997, age_resp = "CV_AGE_12/31/96_1997", matches('CVC_HH_NET_WORTH_\\d{2}')) |>
-        pivot_longer(-c('id', 'age_resp'),
-                     names_to = 'year', values_to = 'networth') |>
-        mutate(year = as.numeric(str_sub(year, start=-7, end=-6)), # Get age for 5-yr wealth vars
-               year = 1997 + (year - age_resp)) # Add correct number of years based on resp's starting age
-
-    networth_merged <- tidylog::full_join(networth_97_03, networth_5yr, by = c('id', 'year', 'networth')) |>
-        select(-age_resp)
-
-    dups <- count(networth_merged, id, year) |> filter(n>1)
-    dups_rm_na <- networth_merged |> inner_join(dups, by=c('id', 'year')) |> filter(!is.na(networth)) |> select(-n)
-    networth_merged2 <- networth_merged |>
-        anti_join(dups, by=c('id', 'year')) |> # Remove duplicate id-years
-        bind_rows(dups_rm_na) |> # Add back in the de-duplicated id-years
-        arrange(id, year)
-
-
-    income_networth <- tidylog::full_join(income, networth_merged2, by = c('id', 'year')) |>
-        group_by(id) |>
-        complete(year = 1997:2019) |>
-        filter(year <= 2019) |>
-        ungroup()
-
-    return(income_networth)
-
-}
-
-
-
-#' Interpolates income and wealth
-#' @param data: data frame with income, wealth by ID and year
-#' @param interp_type: Type of interpolation, either approx for linear or spline for nonlinear
-nlsy_interp_inc_nw <- function(data, interp_type=approx){
-    # Can't interpolate for these IDs
-    missing_ids_income <- data |> summarize(income_na = sum(is.na(income)), .by='id') |> filter(income_na >= 22) |> pull(id)
-    missing_ids_nw <- data |> summarize(networth_na = sum(is.na(networth)), .by='id') |> filter(networth_na >= 22) |> pull(id)
-
-    interp_income_nw <- full_join(
-        data |>
-            filter(!(id %in% missing_ids_income)) |>
-            group_by(id) |>
-            do(grouped_interpolate(., variable='income', interp_type=interp_type)) |>
-            ungroup(),
-        data |>
-            filter(!(id %in% missing_ids_nw)) |>
-            group_by(id) |>
-            do(grouped_interpolate(., variable='networth', interp_type=interp_type)) |>
-            ungroup(),
-        by = c('id', 'year')
-    )
-    return(interp_income_nw)
-}
-
-
-#' Extrapolates income and wealth
-#' #' @param data: data frame with income, wealth interpolated by ID and year
-nlsy_extrap_inc_nw <- function(data){
-    by_id <- data |>
-        group_by(id) |>
-        nest()
-    by_id_extrap <- by_id |>
-        mutate(start_inc = map(data, function(df) df |> filter(!is.na(income)) |> head(1) |> pull(year)),
-               end_inc = map(data, function(df) df |> filter(!is.na(income)) |> tail(1) |> pull(year)),
-               start_nw = map(data, function(df) df |> filter(!is.na(networth)) |> head(1) |> pull(year)),
-               end_nw = map(data, function(df) df |> filter(!is.na(networth)) |> tail(1) |> pull(year)),
-               ts_income = map(data, ~create_ts_by_id(.x, 'income')),
-               ts_networth = map(data, ~create_ts_by_id(.x, 'networth')),
-               income_extrap = pmap(list(ts_income, start_inc, end_inc, id), extrap_ts, variable='income'),
-               networth_extrap = pmap(list(ts_networth, start_nw, end_nw, id), extrap_ts, variable='networth')
-               ) |>
-        select(id, income_extrap, networth_extrap) |>
-        unnest(-id) |>
-        ungroup()
-    return(by_id_extrap |>
-                bind_cols(year = rep(1997:2019, length(unique(by_id_extrap$id)))))
-}
-
 # Returns data with relations to other family members
 nlsy_get_famrel_df = function()
 {
@@ -585,9 +397,10 @@ nlsy_add_colgradyr = function(data)
 #'
 nlsy_make_spell_df = function(spell_type='all')
 {
-    colstdf =  left_join(nlsy_get_col_stat_fall_df(), nlsy_get_col_stat_fall_df(), by=c('id', 'year')) %>%
-        left_join(., nlsy_get_marstat_df(), by=c('id', 'year')) %>%
-        left_join(., nlsy_get_biochild_df(), by=c('id', 'year')
+    colstdf = left_join(
+        nlsy_get_col_stat_fall_df(),
+        nlsy_get_highest_grade_completed_df(),
+        by=c('id', 'year')
     )
 
     # Drop people whose information about college education is inconsistent
