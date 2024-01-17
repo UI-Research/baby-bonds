@@ -3,6 +3,9 @@
 # Read the raw data
 nlsydf = readRDS(paste0(here::here(), "/NLSY/NLSY-college-finance.rds"))
 
+# Source scripts for interpolation and extrapolation
+source('interp_extrap_lib.R')
+
 #' Returns the NLSY dataframe with basic demographic information
 #'
 nlsy_get_base_df = function()
@@ -376,12 +379,62 @@ nlsy_get_income_wealth_df = function(){
     income_networth <- tidylog::full_join(income, networth_merged2, by = c('id', 'year')) |>
         group_by(id) |>
         complete(year = 1997:2019) |>
-        filter(year <= 2019)
+        filter(year <= 2019) |>
+        ungroup()
 
     return(income_networth)
 
 }
 
+
+
+#' Interpolates income and wealth
+#' @param data: data frame with income, wealth by ID and year
+#' @param interp_type: Type of interpolation, either approx for linear or spline for nonlinear
+nlsy_interp_inc_nw <- function(data, interp_type=approx){
+    # Can't interpolate for these IDs
+    missing_ids_income <- data |> summarize(income_na = sum(is.na(income)), .by='id') |> filter(income_na >= 22) |> pull(id)
+    missing_ids_nw <- data |> summarize(networth_na = sum(is.na(networth)), .by='id') |> filter(networth_na >= 22) |> pull(id)
+
+    interp_income_nw <- full_join(
+        data |>
+            filter(!(id %in% missing_ids_income)) |>
+            group_by(id) |>
+            do(grouped_interpolate(., variable='income', interp_type=interp_type)) |>
+            ungroup(),
+        data |>
+            filter(!(id %in% missing_ids_nw)) |>
+            group_by(id) |>
+            do(grouped_interpolate(., variable='networth', interp_type=interp_type)) |>
+            ungroup(),
+        by = c('id', 'year')
+    )
+    return(interp_income_nw)
+}
+
+
+#' Extrapolates income and wealth
+#' #' @param data: data frame with income, wealth interpolated by ID and year
+nlsy_extrap_inc_nw <- function(data){
+    by_id <- data |>
+        group_by(id) |>
+        nest()
+    by_id_extrap <- by_id |>
+        mutate(start_inc = map(data, function(df) df |> filter(!is.na(income)) |> head(1) |> pull(year)),
+               end_inc = map(data, function(df) df |> filter(!is.na(income)) |> tail(1) |> pull(year)),
+               start_nw = map(data, function(df) df |> filter(!is.na(networth)) |> head(1) |> pull(year)),
+               end_nw = map(data, function(df) df |> filter(!is.na(networth)) |> tail(1) |> pull(year)),
+               ts_income = map(data, ~create_ts_by_id(.x, 'income')),
+               ts_networth = map(data, ~create_ts_by_id(.x, 'networth')),
+               income_extrap = pmap(list(ts_income, start_inc, end_inc, id), extrap_ts, variable='income'),
+               networth_extrap = pmap(list(ts_networth, start_nw, end_nw, id), extrap_ts, variable='networth')
+               ) |>
+        select(id, income_extrap, networth_extrap) |>
+        unnest(-id) |>
+        ungroup()
+    return(by_id_extrap |>
+                bind_cols(year = rep(1997:2019, length(unique(by_id_extrap$id)))))
+}
 
 # Returns data with relations to other family members
 nlsy_get_famrel_df = function()
