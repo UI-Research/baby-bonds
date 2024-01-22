@@ -3,8 +3,6 @@
 # Read the raw data
 nlsydf = readRDS(paste0(here::here(), "/NLSY/NLSY-college-finance.rds"))
 
-# Source scripts for interpolation and extrapolation
-source('interp_extrap_lib.R')
 
 #' Returns the NLSY dataframe with basic demographic information
 #'
@@ -386,6 +384,96 @@ nlsy_get_income_wealth_df = function(){
 
 }
 
+# Function to interpolate for each group (ID) in the data
+#' @param interp_type: Type of interpolation, either approx for linear or spline for nonlinear
+#' @param variable: Either "income" or "networth"
+#' @param grouped_df: data frame with year, variable to interpolate, and ID
+
+grouped_interpolate <- function(grouped_df, variable, interp_type = approx) {
+    if (variable == 'income'){
+        interp <- interp_type(x = grouped_df$year, y = grouped_df$income, xout = grouped_df$year)$y
+    }
+    else if (variable == 'networth'){
+        interp <- interp_type(x = grouped_df$year, y = grouped_df$networth, xout = grouped_df$year)$y
+    }
+    return(data.frame(year = grouped_df$year, interp) |>
+               rename(!!variable := interp))
+}
+
+
+# Function to reverse the order of a time series for backcasting, used in combination with reverse_forecast
+reverse_ts <- function(y)
+{
+    ts(rev(y), start=tsp(y)[1L], frequency=frequency(y))
+}
+#' Function to reverse a forecast object to predict back in time
+#' @param object: A forecast object
+reverse_forecast <- function(object)
+    # See source code here: https://otexts.com/fpp2/backcasting.html
+{
+    h <- length(object[["mean"]]) # number of years to forecast
+    f <- frequency(object[["mean"]]) # number of obs per year
+    object[["x"]] <- reverse_ts(object[["x"]])
+    # this line reverses each forecasted value
+    object[["mean"]] <- ts(rev(object[["mean"]]), # reverses point estimate for forecast
+                           end=tsp(object[["x"]])[1L]-1/f, frequency=f)
+    object[["lower"]] <- object[["lower"]][h:1L,] #reverses lower bound forecasts (80 and 95%)
+    object[["upper"]] <- object[["upper"]][h:1L,] #reverses upper bound forecasts (80 and 95%)
+    return(object)
+}
+
+#' This function creates time series for income and wealth for each ID
+#' @param data: A data frame that has been nested such that the column "data"
+#' contains data frames with the interpolated income and networth for each ID
+#' @param variable: Either "income" or "networth"
+create_ts_by_id <- function(data, variable){
+    data_filtered <- data |>
+        filter(!is.na({{variable}})) |>
+        pull({{variable}})
+
+    start <- data |> filter(!is.na({{variable}})) |> head(1) |> pull(year)
+    end <- data |> filter(!is.na({{variable}})) |> tail(1) |> pull(year)
+
+    group_ts <- ts(data_filtered, start=start, end=end)
+    return(group_ts)
+}
+
+#' Extrapolate (forecast and backcast) for a time series
+#' @param ts: A time series object
+#' @param method: A forecasting method, default's to Holt's Linear Trend
+#' @param variable: Either "income" or "networth"
+extrap_ts <- function(ts, start, end, variable, id, method=holt, min_len = 5){
+    # Return none if ID has fully missing info
+    if((variable == 'income' & id %in% missing_ids_income) |
+       (variable == 'networth' & id %in% missing_ids_nw)){
+        return(c())
+    }
+    # Checks if the ts is sufficiently long enough to be forecasted
+    if (length(na.omit(ts)) < min_len){
+        return(c())
+    }
+
+    backcast <- c()
+    forecast <- c()
+    if(start > 1997){
+        # Pipe functionality not working...but pipeline is reverse_ts -> holt -> forecast -> reverse_forecast
+        cast <- reverse_forecast(
+            forecast(
+                holt(
+                    reverse_ts(ts), h=(start-1997)
+                )
+            )
+        )
+        backcast <- cast$mean
+    }
+    if(end < 2019){
+        cast <- forecast(
+            holt(ts, h=(2019-end))
+        )
+        forecast <- cast$mean
+    }
+    return(c(backcast, na.omit(ts), forecast))
+}
 
 
 #' Interpolates income and wealth
