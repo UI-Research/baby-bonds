@@ -21,30 +21,10 @@ library(ggridges)
 library(modelsummary)
 library(urbnthemes)
 set_urbn_defaults(style = "print")
-```
 
-```{r}
-#| label: make-colstdf
-
-source(here::here("NLSY/nlsy_lib.R"))
-source(here::here("dynasim_lib.R"))
-
-# Create a base frame
-basedf = nlsy_get_base_df() |> 
-    select(id, sex, race, hisp, pnetworth, wt) |>
-    filter(!is.na(race) & !is.na(hisp) & race!='No information') |>
-    mutate(
-        pnetworth_na = as.integer(is.na(pnetworth)),
-        pnetworth = if_else(is.na(pnetworth), 0, pnetworth),
-        race = nlsy_recode_race_and_eth5(race, hisp)
-    ) |>
-    # There are not enough Asians in the dataset for a separate model
-    # We group them with whites and use a dummy variable
-    mutate(
-        asian = as.integer(race=="Asian"),
-        race  = if_else(race=="Asian", "White", race)
-    ) |>
-    filter(race != 'Other')
+# In regressions, treat ordered factors as unordered
+defcontrasts=options('contrasts')
+options(contrasts=c("contr.treatment", "contr.treatment"))
 
 ```
 
@@ -52,7 +32,7 @@ basedf = nlsy_get_base_df() |>
 
 The main purpose of this document is to define a new model of college education that is sensitive to parents' wealth and income.
 
-# Current Model
+## Current Model
 
 The model of college education in the current version of DYNASIM consists of four models that simulate four separate college-related events each year:
 
@@ -73,11 +53,11 @@ Parents' education is the education of the head of a family. In two-parent house
 
 This is a simplified model, as it assumes that each year spent in college, before the senior year, is successfully completed. All students who get enrolled in college are assumed to complete first year. In subsequent years, the retention model simulates their decision to return to school and continue their education.
 
-# Logistic Hazard Model
+## Logistic Hazard Model
 
 The new model of college education will use the logistic hazard model rather than tables of transitional probabilities. This section introduces some concepts and notation.
 
-## Survival and Hazard Functions
+### Survival and Hazard Functions
 
 Assuming discrete time $t=1,2,...$ and a random variable $T$ that indicates the timing of an event (e.g., college enrollment), we define a *survival function* $S(.)$ at the end of time $t$ as: $$Pr(T>t) = 1-F(t) = S(t) = S_t$$ Similarly, at the beginning of $t$, the survival function is $Pr(T>t-1) = 1-F(t-1) = S(t-1)$. The (unconditional) probability of exit during the interval $t$ is $Pr(t-1<T<t) = S_{t-1}-S_t$. The conditional probability of exit during time $t$ conditional on surviving until $t-1$ is *interval hazard rate*: \begin{align}
 h_t &= Pr(t-1<T<t|T>t-1) \\
@@ -89,7 +69,7 @@ The probability of survival until the end of interval $t$ is the product of prob
 
 $$S_t = \Pi_{k=1}^{t} (1-h_k)$$
 
-## Proportional Odds and Logistic Hazard Model
+### Proportional Odds and Logistic Hazard Model
 
 The proportional odds model assumes that the odds ratio for a person with a vector of individual characteristics $X$ at time $t$ is proportional to the odds ratio at $t$ that is common to all individuals and an individual-specific scaling factor:
 
@@ -103,11 +83,126 @@ Note that the only time-variable term is $\alpha_t$. This term can be modeled as
 
 # Proposed Model
 
-The proposed model of college education consists of three models, effectively merging models 2. and 3. from the current college-education model into one:
+The proposed model of college education consists of four models:
 
-1.  Enrollment, for those who graduated from high school,
-2.  Dropping out of college, for those who are enrolled in college,
-3.  Graduating from college, for those who reach their senior year.
+1.  College enrollment, for those who graduated from high school,
+2.  College re-enrollment, for those who dropped out of college,
+3.  Dropping out of college, for those who are enrolled in college,
+4.  Graduating from college, for those who reach their senior year.
+
+## Data and Settings
+
+
+```{r}
+#| echo: true
+
+# These covariates are used in all regressions
+model_covars = c("yearf", "asian", "pnetworth", "asian*pnetworth", "pared", "asian*pared")
+
+# Linear transformation of wealth (divided by average annual earnings)
+opt_wealth_xform = 'linear'
+
+# Parents' education is encoded as number of parents with a college diploma
+opt_pared_code = 'college'
+
+# Coefficients' significance level
+opt_sig_level = .1
+
+```
+
+
+```{r}
+#| label: make-basedf
+
+source(here::here("NLSY/nlsy_lib.R"))
+source(here::here("dynasim_lib.R"))
+
+# Create a base frame
+basedf0 = nlsy_get_base_df() |> 
+    select(id, sex, race, hisp, pnetworth, wt) |>
+    filter(!is.na(race) & !is.na(hisp) & race!='No information') |>
+    mutate(
+        pnetworth_na = as.integer(is.na(pnetworth)),
+        pnetworth = if_else(is.na(pnetworth), 0, pnetworth),
+        race = nlsy_recode_race_and_eth5(race, hisp)
+    ) |>
+    # There are not enough Asians in the dataset for a separate model
+    # We group them with whites and use a dummy variable
+    mutate(
+        asian = as.integer(race=="Asian"),
+        race  = if_else(race=="Asian", "White", race)
+    ) |>
+    filter(race != 'Other')
+
+
+basedf = nlsy_get_base_df() |> 
+    select(id, sex, race, hisp, wt) |>
+    filter(!is.na(race) & !is.na(hisp) & race!='No information') |>
+    left_join(nlsy_get_imputed()) |>
+    mutate(
+        race = nlsy_recode_race_and_eth5(race, hisp),
+        pared= nlsy_encode_parents_educ(mom_educ, dad_educ, encoding=opt_pared_code),
+        # Remove retirement savings because we don't have them in FEH
+        pnetworth = pnetworth-retsav
+    ) |>
+    # There are not enough Asians in the dataset for a separate model
+    # We group them with whites and use a dummy variable
+    mutate(
+        asian = as.integer(race=="Asian"),
+        race  = if_else(race=="Asian", "White", race)
+    ) |>
+    filter(race != 'Other') |>
+    mutate(
+        pnworth_cat = cut(
+            pnetworth, 
+            breaks=Hmisc::wtd.quantile(pnetworth, wt, probs=seq(0,1,.2)),
+            labels=c('1st','2nd','3rd','4th','5th'),
+            include.lowest = TRUE)
+    )
+  
+
+
+```
+```{r}
+#| label: fig-pnetworth-density
+#| fig-cap: "Distribution of parent's networth (divided by the average wage index) by race"
+
+basedf |>
+  select(id, pnetworth, pincome, race, wt) |>
+  mutate(pnetworth = dyn_wealth_xform(pnetworth, type='linear')) |>
+  filter(pnetworth>-20) |>
+  ggplot() +
+  geom_density(aes(x=pnetworth, y=after_stat(density), color=race, weight=wt), fill=NA) +
+  xlab("Net worth / AWI") + ylab("Density")
+
+```
+
+
+```{r}
+#| label: fig-ever-college-by-race-pnetworth
+#| fig-cap: "The share of NLSY participants who attended college by race and quintile of parents' net worth"
+
+nlsy_get_col_stat_annual_df() |>
+    group_by(id) |>
+    summarise(evercol = max(colenr)) |>
+    right_join(
+        basedf,
+        by='id'
+    ) |>
+    filter(!is.na(pnworth_cat)) |>
+    group_by(race, pnworth_cat) |>
+    mutate(
+        `College Attendance`=weighted.mean(evercol, wt),
+        se = sqrt(`College Attendance`*(1-`College Attendance`)/n()),
+        ci_l = `College Attendance`-1.96*se,
+        ci_h = `College Attendance`+1.96*se) |>
+    ggplot() +
+      geom_col(aes(x=race,y=`College Attendance`,fill=pnworth_cat), position="dodge") +
+#      geom_errorbar(aes(x=race, ymin=ci_l, ymax=ci_h, group=pnworth_cat), color='red', width = .2, position=position_dodge(.7)) +
+      xlab("Race")
+
+```
+
 
 ## Enrollment
 
@@ -123,8 +218,8 @@ Another interesting thing to note on @fig-enrol-hazard is that the college-enrol
 
 ```{r}
 #| label: make-colenrdf
-#| cache: true
-#| cache-vars: colenrdf
+##| cache: true
+##| cache-vars: colenrdf
 
 
 colenrdf = nlsy_make_spell_df('enroll') |>
@@ -134,6 +229,7 @@ colenrdf = nlsy_make_spell_df('enroll') |>
         basedf,
         by='id'
     )
+
 
 ```
 
@@ -183,6 +279,25 @@ plotdf |>
     ylab("Cumulative share")
 
 ```
+
+
+```{r}
+#| label: fig-enrol-hazard-by-pnetworth
+#| fig-cap: "Hazard function for college enrollment by quintile of parents net-worth and year since the graduation from high school."
+
+
+plotdf = colenrdf |>
+    group_by(timeEnroll, spEnroll, pnworth_cat) |>
+    summarise(tEnroll=weighted.mean(tEnroll, wt)) |>
+    filter(spEnroll==1)
+
+ggplot(plotdf) +
+    geom_line(aes(x=timeEnroll, y=tEnroll, color=pnworth_cat)) +
+    xlab('Years') +
+    ylab('Likelihood of college enrollment')
+
+```
+
 
 ```{r}
 #| label: fig-college-completion-tiles
@@ -286,8 +401,10 @@ estdf = colenrdf |>
     filter(spEnroll==1) |>
     mutate(
         yearf=factor(pmin(timeEnroll,8)),
-        pnetworth=dyn_wealth_xform(pnetworth, type='ihs')
+        pnetworth=dyn_wealth_xform(pnetworth, type=opt_wealth_xform)
     )
+
+model_formula = as.formula(paste("tEnroll ~ ", paste(model_covars, collapse = " + ")))
 
 # Estimate one model for each sex-race combination
 estdf = estdf |>
@@ -295,7 +412,7 @@ estdf = estdf |>
     nest() |>
     mutate(
         mods = map(data, \(x) glm(
-            tEnroll ~ yearf + asian + pnetworth + pnetworth_na, 
+            model_formula, 
             data=x, 
             family=binomial)
         )
@@ -320,21 +437,24 @@ modelsummary(models,
              estimate="{estimate}{stars}", 
              statistic=NULL,
              stars=c('*'=.1, '**'=.05, '***'=.01),
-             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x)
+             coef_rename=coef_rename
+#             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x)
              )
 
 # Dataframe with coefficients
-res_colenr = dyn_coef_to_df(models)
+res_colenr = dyn_coef_to_df(models, sig_level=opt_sig_level)
 
-# Write regression coefficients to a file
-dyn_write_coef_file(
-    models, 
-    "coefs/coef_col_enr.csv",
-    'Coefficients for college enrollment model.'
+coefs = list()
+
+coefs[['colenr']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_enr.csv",
+    description = 'Coefficients for college enrollment model.'
 )
+
 ```
 
-@tbl-enroll-marginal shows average marginal effects of parental networth on the likelihood of enrollment. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of enrollment in college.
+@tbl-enroll-marginal shows average marginal effects of parental networth on the likelihood of enrollment. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of enrollment in college.
 
 ```{r}
 #| label: tbl-enroll-marginal
@@ -345,7 +465,7 @@ colnames(df) = dyn_get_sexrace_names(estdf)
 knitr::kable(df, digits=5)
 ```
 
-@fig-enr-simple-mod-pred shows hazard rates by sex and race predicted by these two models, as well as the actual hazard rates from @fig-enrol-hazard. As expected, model 2 performs much better because its time-varying term is estimated separately for each combination of sex and race.
+@fig-enr-simple-mod-pred shows hazard rates by sex and race predicted by the model, as well as the actual hazard rates from @fig-enrol-hazard.
 
 ```{r}
 #| label: fig-enr-simple-mod-pred
@@ -374,8 +494,9 @@ estdf |>
 ```
 
 
+### Enrollment After Graduating from High School, an Alternative
 
-@tbl-enrol2-simple-mod-est shows the estimated coefficients.
+In this variation, we use the logarithmic transformation for parents' networth and we separate it in a positive and a negative term. For positive values of networth, the positive term equals the  natural logarithm of networth and the negative term is zero. For negative values of networth, the positive term is zero and the negative term equals the natural logarithm of negative networth. @tbl-enrol2-simple-mod-est shows the estimated coefficients.
 
 ```{r}
 #| label: est-enroll2-models
@@ -389,13 +510,17 @@ estdf = colenrdf |>
         pwealthneg  = dyn_wealth_xform(pnetworth, type='log-')
     )
 
+model_covars2 = gsub("pnetworth","pwealthpos", model_covars)
+model_covars2 = c(model_covars2, "pwealthneg", "asian*pwealthneg")
+model_formula = as.formula(paste("tEnroll ~ ", paste(model_covars2, collapse = " + ")))
+
 # Estimate one model for each sex-race combination
 estdf = estdf |>
     group_by(race, sex) |>
     nest() |>
     mutate(
         mods = map(data, \(x) glm(
-            tEnroll ~ yearf + asian + pwealthpos + pwealthneg + pnetworth_na, 
+            model_formula, 
             data=x, 
             family=binomial)
         )
@@ -444,13 +569,9 @@ knitr::kable(df, digits=5)
 ```
 
 
-
-
 ### Enrollment After Dropping out of College
 
-Many students who drop out of college return and re-enroll. Some do this multiple times. @fig-enrol-hazard-spells shows shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college for all students who drop out of college. @fig-enrol-hazard-two-spells-sex-race shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college by sex and race. The higher-order spells have few observations, which makes their hazard rates very noisy.
-
-The hazard rates for the first two spells are remarkably close to each other. Surprisingly, the hazard rates for all spells have another peak at or after year 10.
+Many students who drop out of college return and re-enroll. Some do this multiple times. @fig-enrol-hazard-spells shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college for all students who drop out of college. @fig-enrol-hazard-two-spells-sex-race shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college by sex and race. The higher-order spells have few observations, which makes their hazard rates very noisy.
 
 ```{r}
 #| label: fig-enrol-hazard-spells
@@ -521,8 +642,10 @@ estdf = colenrdf |>
     filter(spEnroll==2) |>
     mutate(
         yearf=factor(pmin(timeEnroll,5)),
-        pnetworth=dyn_wealth_xform(pnetworth, type='ihs')
+        pnetworth=dyn_wealth_xform(pnetworth, type=opt_wealth_xform)
     )
+
+model_formula = as.formula(paste("tEnroll ~ ", paste(model_covars, collapse = " + ")))
 
 # Estimate one model for each sex-race combination
 estdf = estdf |>
@@ -530,7 +653,7 @@ estdf = estdf |>
     nest() |>
     mutate(
         mods = map(data, \(x) glm(
-            tEnroll ~ yearf + asian + pnetworth + pnetworth_na, 
+            model_formula, 
             data=x,
             family=binomial)
         )
@@ -559,16 +682,16 @@ modelsummary(models,
 # Dataframe with coefficients
 res_colreenr = dyn_coef_to_df(models)
 
-dyn_write_coef_file(
-    models, 
-    "coefs/coef_col_reenr.csv",
-    'Coefficients for the model of re-enrolling into college after dropping out.'
+coefs[['colreenr']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_reenr.csv",
+    description = 'Coefficients for the model of re-enrolling into college after dropping out.'
 )
 
 ```
 
 
-@tbl-reenroll-marginal shows average marginal effects of parental networth on the likelihood of enrollment in college after having dropped out. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of re-enrollment.
+@tbl-reenroll-marginal shows average marginal effects of parental networth on the likelihood of enrollment in college after having dropped out. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of re-enrollment in college.
 
 ```{r}
 #| label: tbl-reenroll-marginal
@@ -614,9 +737,7 @@ rm(m1, m2models, models, plotdf)
 
 The drop-out model simulates the likelihood of dropping out of college for students who are enrolled in college. This is a survival model where the dependent variable is zero if a student is enrolled in college and one in the year the student drops out. For students who graduate from college, the variable is zero in all years.
 
-**Multiple Spells.** A problem with modeling dropping out of college as a terminal event is that some students who drop out of college return later. Some drop out and return multiple times, i.e., have multiple spells of college enrollment. @fig-college-spells-number shows the distribution of number of spells in the NLSY sample for all individuals who were enrolled in college and @fig-college-spells-shares shows this distribution by race and sex. It appears that about one-third of students have more than one spell, and some have as many as seven.
-
-One way to address this issue is to construct an alternative model that does not treat dropping out of college as a terminal event. Each year while enrolled, a student would be at risk of dropping out. If they drop out before graduation, they would be at risk of re-enrolling in subsequent years.
+**Multiple Spells.** A problem with modeling dropping out of college as a terminal event is that some students who drop out of college return later. Some drop out and return multiple times, i.e., have multiple spells of college enrollment. @fig-college-spells-number shows the distribution of number of spells in the NLSY sample for all individuals who were enrolled in college and @fig-college-spells-shares shows this distribution by race and sex. It appears that about one-third of students have more than one spell, and some have as many as seven. Which is why we do not treat dropping out of college as a terminal event. If a student drops out before graduation, they would be at risk of re-enrolling in subsequent years.
 
 ```{r}
 #| label: make-drop-df
@@ -766,7 +887,6 @@ plotdf |>
 
 
 ```
-### Model Estimation
 
 
 ```{r}
@@ -782,8 +902,10 @@ estdf = dropdf |>
 #    filter(spDrop==1) |>
     mutate(
         yearf=factor(pmin(timeDrop,5)),
-        pnetworth=dyn_wealth_xform(pnetworth, type='ihs')
+        pnetworth=dyn_wealth_xform(pnetworth, type=opt_wealth_xform)
         )
+
+model_formula = as.formula(paste("tDrop ~ ", paste(model_covars, collapse = " + ")))
 
 # Estimate one model for each sex-race combination
 estdf = estdf |>
@@ -791,7 +913,7 @@ estdf = estdf |>
     nest() |>
     mutate(
         mods = map(data, \(x) glm(
-            tDrop ~ yearf + asian + pnetworth + pnetworth_na, 
+            model_formula, 
             data=x, 
             family=binomial)
         )
@@ -819,15 +941,15 @@ modelsummary(models,
 # Dataframe with coefficients
 res_coldrop = dyn_coef_to_df(models)
 
-dyn_write_coef_file(
-    models, 
-    "coefs/coef_col_drop.csv",
-    'Coefficients for the model of dropping out of college.'
+coefs[['coldrop']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_drop.csv",
+    description = 'Coefficients for the model of dropping out of college.'
 )
 
 ```
 
-@tbl-drop-marginal shows average marginal effects of parental networth on the likelihood of dropping out of college. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of dropping out.
+@tbl-drop-marginal shows average marginal effects of parental networth on the likelihood of dropping out of college. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of dropping out of college.
 
 ```{r}
 #| label: tbl-drop-marginal
@@ -867,7 +989,6 @@ estdf |>
 ```
 
 ## Graduating from College
-
 
 ```{r}
 #| label: make-grad-df
@@ -924,8 +1045,10 @@ graddf |>
 estdf = graddf |>
     mutate(
         yearf=factor(pmin(timeGrad,4)),
-        pnetworth=dyn_wealth_xform(pnetworth, type='ihs')
+        pnetworth=dyn_wealth_xform(pnetworth, type=opt_wealth_xform)
     )
+
+model_formula = as.formula(paste("tGrad ~ ", paste(model_covars, collapse = " + ")))
 
 # Estimate one model for each sex-race combination
 estdf = estdf |>
@@ -933,7 +1056,7 @@ estdf = estdf |>
     nest() |>
     mutate(mods = map(
         data, \(x) glm(
-            tGrad ~ yearf + asian + pnetworth + pnetworth_na, 
+            model_formula, 
             data=x, 
             family=binomial)
         )
@@ -961,16 +1084,19 @@ modelsummary(models,
 # Dataframe with coefficients
 res_colgrad = dyn_coef_to_df(models)
 
-dyn_write_coef_file(
-    models, 
-    "coefs/coef_col_grad.csv",
-    'Coefficients for college graduation model.'
+coefs[['colgrad']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_grad.csv",
+    description = 'Coefficients for college graduation model.'
 )
 
+# Uniformize and write coefficients
+coefs2 = dyn_uniformize_coef(coefs)
+map(coefs2, \(x) dyn_write_coef_file(x$df, x$filename, x$description))
 
 ```
 
-@tbl-grad-marginal shows average marginal effects of parental networth on the likelihood of graduating from college. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of graduation.
+@tbl-grad-marginal shows average marginal effects of parental networth on the likelihood of graduating from college. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of graduation from college.
 
 ```{r}
 #| label: tbl-grad-marginal
