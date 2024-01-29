@@ -12,6 +12,7 @@ server: shiny
 
 library(Hmisc)
 library(tidyverse)
+library(rlang)
 library(margins)
 library(scales)
 library(ggridges)
@@ -62,11 +63,10 @@ fwlth_coefs = read.csv(textConnection(text), header=FALSE) |>
   rename(num=1, varname=2, icat1=3, icat2=4, icat3=5, icat4=6)
 
 # Read covariates in the financial wealth equation
-wlthx = read_csv(paste0(fehdir, 'nonhwlth_dump.csv')) |>
+fehwlthx = read_csv(paste0(fehdir, 'nonhwlth_dump.csv')) |>
     rename_with(tolower) 
 
 # TODO: 
-# Select a subset of covariates we're interested in
 # Multiply covariates by coefficients
 # as.matrix(wlthx[1:3,]) * fwlth_coefs$icat1
 
@@ -124,21 +124,95 @@ sasresidf = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/resi
 saswlthx = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/wlthx.csv") |>
     rename_with(tolower) |>
     mutate(
-        age=currentyear-doby,
-        icat = case_when(
+        age         = currentyear-doby,
+        icat        = case_when(
             age<=50 & mstatus==1 ~ 1,
             age<=50 & mstatus >1 ~ 2,
-            age>=51 & mstatus==1 ~ 3,
-            age>=51 & mstatus >1 ~ 4
-        ))
-# |>
-#    select(pernum, age, icat, wlth=wlthYY, intercpt, cpveavg,  pcpveavg=pcpvent)
-# TODO: Rename SAS covariates using names from FEH equation
-#           "spveavg"  "hmeavg5"  "yrsabove" "fyrsabov"
-#  "buyhome5" "sldhome5" "hagesl30" "hagesl35" "hagesl40" "hagesl45" "hagesl50" "hagesl55" "hb35to39" "hb45to44" "hb45to49" "hb50to54" "hb55to59" "hb59to69"
-#  "hageownr" "hagerent" "hagemale" "hageblck" "hagehisp" "hagedrop" "hagecoll" "hageself" "hagessid" "hagepoor" "hagedc"   "hagedb"   "hagenkid" "hageyrwd"
-#  "sageself" "sagedrop" "sagecoll" "widowed"  "hagewid"  "hagenmar" "erroruw"  "errorew"  "fracvar")
+            age >50 & mstatus==1 ~ 3,
+            age >50 & mstatus >1 ~ 4
+        ),
+        #ylogwlth 
+        #ynoisein
+        #ynoisecy
+        #ypsidoff
+        intercpt    = intercpt,
+        cpveavg     = if_else(icat == 3, hrsfpven, 0),
+        pcpveavg    = case_when(icat %in% c(1,2) ~ pcpvent, icat == 4 ~ hrshpven),
+        #spveavg not used
+        hmeavg5     = if_else(icat %in% c(1,2), hmean, 0),
+        yrsabove    = if_else(icat %in% c(1,2), ftmyrs, 0 ),
+        fyrsabov    = if_else(icat==3, hrstmyrs, 0),
+        buyhome5    = if_else(icat == 1, buyhome, 0),
+        sldhome5    = if_else(icat == 1, soldhome, 0),
+        hagesl30    = if_else(icat %in% c(1,2), hsp30, 0), 
+        hagesl35    = if_else(icat %in% c(1,2), hsp35, 0),
+        hagesl40    = if_else(icat %in% c(1,2), hsp40, 0),
+        hagesl45    = if_else(icat %in% c(1,2), hsp45, 0),
+        hagesl50    = if_else(icat %in% c(1,2), hsp50, 0),
+        hagesl55    = if_else(icat %in% c(1,2), hsp55, 0),
+        # dummy for 1970+ not in feh c70p 
+        hageownr    = if_else(icat %in% c(1,2), hagehome, ownhome),
+        hagerent    = if_else(icat == 3, hhrsrent, 0),
+        hagemale    = if_else(icat == 4, hmale, 0),
+        hageblck    = case_when(icat %in% c(1,2) ~ hageblck, TRUE ~ black),
+        hagehisp    = case_when(icat==1 ~ 0, icat==2 ~ hagehisp, icat==3 ~ hispan, icat==4 ~ 0),
+        hagedrop    = case_when(icat %in% c(1,2) ~ hagelhi, TRUE ~ hsdoh),
+        hagecoll    = case_when(icat==1 ~ 0, icat==2 ~ hagecol, icat %in% c(3,4) ~ cgradh),
+        hageself    = case_when(icat %in% c(1,2) ~ hageself, TRUE ~ hhrsself),
+        hagessid    = if_else(icat==3, disah, 0),
+        hagepoor    = case_when(icat %in% c(3,4) ~ phlthh, TRUE ~ 0),
+        hagedc      = case_when(icat %in% c(3,4) ~ hhrsdcp, TRUE ~ 0),
+        hagedb      = case_when(icat %in% c(3,4) ~ fgetpen, TRUE ~ 0),
+        hagenkid    = case_when(icat %in% c(3,4) ~ agechild, TRUE ~ 0),
+        hageyrwd    = if_else(icat==4, htotyrm, 0),
+        sageself    = case_when(icat==1 ~ wageself, icat==3 ~ whrsself, TRUE ~ 0),
+        sagedrop    = case_when(icat==1 ~ wagelhi, icat==3 ~ shiless, TRUE ~ 0),
+        sagecoll    = case_when(icat==1 ~ wagecol, icat==3 ~ shigrad, TRUE ~ 0),
+        widowed     = if_else(icat==2, widow, 0),
+        hagewid     = if_else(icat==4, hhrswid, 0),
+        hagenmar    = if_else(icat==2, hagesing, 0)
+    ) |>
+    select(
+        pernum,
+        age,
+        icat,
+        intercpt,
+        cpveavg,
+        pcpveavg,
+        hmeavg5,
+        yrsabove,
+        fyrsabov,
+        buyhome5,
+        sldhome5,
+        hagesl30,
+        hagesl35,
+        hagesl40,
+        hagesl45,
+        hagesl50,
+        hagesl55,
+        hageownr,
+        hagerent,
+        hagemale,
+        hageblck,
+        hagehisp,
+        hagedrop,
+        hagecoll,
+        hageself,
+        hagessid,
+        hagepoor,
+        hagedc,
+        hagedb,
+        hagenkid,
+        hageyrwd,
+        sageself,
+        sagedrop,
+        sagecoll,
+        widowed,
+        hagewid,
+        hagenmar
+    )    
 
+    
 common_pernums = intersect(unique(fehdf$pernum), unique(sasdf$pernum))
 
 wlthvars=c('pernum', 'age', 'finwealth')
@@ -147,13 +221,21 @@ wlthdf = bind_rows(
   sasdf |> filter(pernum %in% common_pernums) |> select(all_of(wlthvars)) |> mutate(dataset='SAS')
 )
 
-xvars = names(wlthx)[-(1:2)]
+xvars = names(fehwlthx)[-(1:2)]
+
+wlthx = bind_rows(
+  fehwlthx |> filter(pernum %in% common_pernums) |> mutate(dataset='FEH'),
+  saswlthx |> filter(pernum %in% common_pernums) |> mutate(dataset='SAS')
+)
+
 ```
+
 
 # {.sidebar}
 
 ```{r}
-selectInput('perid', 'Person ID', sort(common_pernums))
+selectInput('perid', 'Person ID', c("Mean", as.character(sort(common_pernums))))
+#selectInput('perid', 'Person ID', sort(common_pernums))
 
 selectInput('xvar', 'X Variable', xvars)
 
@@ -176,11 +258,27 @@ plotOutput("xvarPlot")
 ageint = 27:65
 
 plotdf1 <- reactive({
-  dplyr::filter(wlthdf, pernum==input$perid, age %in% ageint)
+    if(input$perid == 'Mean') {
+        wlthdf |>
+            dplyr::filter(age %in% ageint) |>
+            group_by(age, dataset) |>
+            summarise(finwealth = mean(finwealth))
+    }
+    else {
+        dplyr::filter(wlthdf, pernum==input$perid, age %in% ageint)
+    }
 })
 
 plotdf2 <- reactive({
-  dplyr::filter(wlthx, pernum==input$perid, age %in% ageint)
+    if(input$perid == 'Mean') {
+        wlthx |>
+            dplyr::filter(age %in% ageint) |>
+            group_by(age, dataset) |>
+            summarise("{input$xvar}" := mean(.data[[input$xvar]]))
+    }
+    else {
+        dplyr::filter(wlthx, pernum==input$perid, age %in% ageint)
+    }
 })
 
 output$fwealthIndPlot = renderPlot({
@@ -190,7 +288,7 @@ output$fwealthIndPlot = renderPlot({
 
 output$xvarPlot = renderPlot({
    ggplot(plotdf2()) +
-     geom_line(aes(x=age, y=!!sym(input$xvar)))
+     geom_line(aes(x=age, y=!!sym(input$xvar), color=dataset))
 })
 
 ```
