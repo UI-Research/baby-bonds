@@ -1,0 +1,182 @@
+---
+title: "compare_dynasim_cps"
+format:
+  html:
+    embed-resources: true
+editor: visual
+execute: 
+  echo: false
+  warning: false
+fig-cap-location: top
+toc: true
+toc-expand: true
+---
+###Packages
+```{r}
+library(Hmisc)
+library(tidyverse)
+library(margins)
+library(scales)
+library(ggridges)
+library(modelsummary)
+library(urbnthemes)
+library(haven)
+library(purrr)
+set_urbn_defaults(style = "print")
+```
+
+###Read in DYNASIM output
+```{r}
+#| label: read-base-feh
+#| cache: true
+#| cache-vars: dyndf
+
+source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
+
+pidx = read_csv(paste0(here::here(), "/pindex.csv"))
+widx = read_csv(paste0(here::here(), "/windex.csv"))
+pwidx = left_join(pidx, widx, by='year')
+
+yob = 1990
+pidx1958 = pidx |> filter(year==1958) |> select(pindex) |> pull()
+last_year = 2060
+keep_cols = c(
+  'PERNUM', 
+  'DOBY', 
+  'SEX', 
+  'ETHNCTY', 
+  'GRADECAT',
+  'AGE',
+  paste0('NONHOUSW', 2006:last_year),
+  paste0('EARNINGS', 2006:last_year),
+  paste0('SPOUSERN', 2006:last_year),
+  paste0('WEDSTATE', 1951:last_year)
+  )
+
+```
+
+```{r}
+fehdir = "S:/damir/run_1004/"
+fehfile <- paste0(fehdir, "dynasipp_person_even.dat")
+codebookfile = paste0(fehdir, "codebook_2100ds.sipp2006")
+dyndf = read_feh(codebookfile, fehfile, columns=keep_cols)
+
+# Wide to long format
+df = feh_wide_to_long(dyndf)
+write_rds(df, '../data/dynasim_output_long.Rds')
+```
+
+###Read in CPS ASEC
+```{r}
+asec_df_long2 <- read_rds('../data/asec_longitudinal.Rds')
+
+#Double check on person-level ID
+
+```
+
+### Cleaning for Viz
+```{r}
+test <- read_rds('../data/dynasim_output_long.Rds')|>
+    filter(pernum)|>
+    group_by(pernum, year)|>
+    summarize(gradecat)
+
+# Creating comparable educational categories, race/ethnicity, and age categories
+dyn_long <- read_rds('../data/dynasim_output_long.Rds')|>
+    mutate(educ_clean = as.factor(
+               case_when(
+                  gradecat %in% 0:11 ~ "0-11th grades",
+                  gradecat == 12 ~  "HS degree", 
+                  gradecat == 13 ~ "Some college/No Degree",
+                  gradecat %in% c(14,15) ~ "Associate's Degree",
+                  gradecat == 16 ~ "Bachelor's Degree",
+                  TRUE ~ "More than Bachelor's"
+               )), 
+           race_eth = as.factor(
+               case_when(
+                ethncty %in% c(4000,4999) ~ "Asian",
+                ethncty %in% c(2000, 2999) ~ "Black",
+                ethncty %in% c(1014, 1020, 2014, 2020, 3014, 3020, 4014, 4020) ~ "Hispanic",   
+                ethncty %in% c(1000, 1999) ~ "White",
+                  TRUE ~ "Other"
+               )),
+           age_cat = as.factor(
+               case_when(
+                  age < 25 ~ "Under 25",
+                  age < 36 ~ "26-35",
+                  age < 46 ~ "36-45",
+                  age < 56 ~ "46-55",
+                  age < 66 ~ "56-65",
+                   TRUE ~ "Over 65"
+               )),
+            sex = as.factor(
+               case_when(
+                  sex == 1 ~ "Male",
+                  TRUE ~ "Female"
+               )))
+
+dyn_long$educ_clean <- factor(dyn_long$educ_clean, levels = c("0-11th grades", "HS degree", "Some college/No Degree", "Associate's Degree", "Bachelor's Degree", "More than Bachelor's"))
+
+dyn_long$age_cat <- factor(dyn_long$age_cat, levels = c("Under 25", "26-35", "36-45", "46-55", "56-65", "Over 65"))
+
+# Missings in CPS ASEC - about 24% excluded
+length(asec_df_long2$EDUC[asec_df_long2$EDUC==1])/nrow(asec_df_long2)
+length(asec_df_long2$EDUC[asec_df_long2$EDUC==999])/nrow(asec_df_long2)
+
+asec_df_long <- asec_df_long2 |>
+    filter(EDUC != 999 & EDUC != 1)|> #excluding missings, blanks or NIUs
+    mutate(
+        educ_clean = as.factor(
+               case_when(
+                  EDUC >= 0 & EDUC < 70 ~ "0-11th grades",
+                  EDUC  %in% c(70, 71, 72, 73) ~  "HS degree",  
+                  EDUC %in% c(80, 81) ~ "Some college/No Degree",
+                  EDUC %in% c(90, 91, 92, 100) ~ "Associate's Degree",
+                  EDUC %in% c(110,111) ~ "Bachelor's Degree",
+                  TRUE ~ "More than Bachelor's"
+               )),
+           race_eth = as.factor(
+              case_when(
+                  HISPAN != 0 ~ "Hispanic",
+                  RACE == 100 ~ "White",
+                  RACE == 200 ~ "Black",
+                  RACE == 651 ~ "Asian",
+                  TRUE ~ "Other"
+               )),
+            age_cat = as.factor(
+               case_when(
+                  AGE < 25 ~ "Under 25",
+                  AGE < 36 ~ "26-35",
+                  AGE < 46 ~ "36-45",
+                  AGE < 56 ~ "46-55",
+                  AGE < 66 ~ "56-65",
+                   TRUE ~ "Over 65"
+               )))
+
+asec_df_long$educ_clean <- factor(asec_df_long$educ_clean, levels = c("0-11th grades", "HS degree", "Some college/No Degree", "Associate's Degree", "Bachelor's Degree", "More than Bachelor's"))
+
+asec_df_long$age_cat <- factor(asec_df_long$age_cat, levels = c("Under 25", "26-35", "36-45", "46-55", "56-65", "Over 65"))
+
+asec_df_long <- janitor::clean_names(asec_df_long)
+
+plot_df = bind_rows(
+  select(asec_df_long, year, race_eth, age_cat, sex, educ_clean) |> mutate(dataset='CPS ASEC'),
+  select(dyn_long, year, race_eth, age_cat, sex, educ_clean) |> mutate(dataset='DYNASIM')) |>
+    filter(educ_clean != "0-11th grades" & educ_clean != "More than Bachelor's")
+
+```
+
+### Plots
+```{r}
+# Sex
+plot_df |> 
+    count(year,sex, educ_clean, dataset) |>
+    mutate(`Relative Freq` = n/sum(n), .by = c('year', 'sex', 'dataset')) |> 
+    ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_point() +
+    facet_grid(sex~educ_clean, scales='free') +
+    theme(legend.position = 'bottom')
+
+# Where do the weights come in? -
+
+```
+
