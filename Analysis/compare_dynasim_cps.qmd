@@ -46,7 +46,6 @@ keep_cols = c(
   'SEX', 
   'ETHNCTY', 
   'GRADECAT',
-  'AGE',
   paste0('NONHOUSW', 2006:last_year),
   paste0('EARNINGS', 2006:last_year),
   paste0('SPOUSERN', 2006:last_year),
@@ -59,7 +58,7 @@ keep_cols = c(
 fehdir = "S:/damir/run_1004/"
 fehfile <- paste0(fehdir, "dynasipp_person_even.dat")
 codebookfile = paste0(fehdir, "codebook_2100ds.sipp2006")
-dyndf = read_feh(codebookfile, fehfile, columns=keep_cols)
+dyndf = read_feh(codebookfile, fehfile, columns=keep_cols) #test with a smaller number of counts, obs_count=50000
 
 # Wide to long format
 df = feh_wide_to_long(dyndf)
@@ -70,18 +69,26 @@ write_rds(df, '../data/dynasim_output_long.Rds')
 ```{r}
 asec_df_long2 <- read_rds('../data/asec_longitudinal.Rds')
 
-#Double check on person-level ID
+test1 <- asec_df_long2 |>
+    filter(!is.na(CPSIDP) & CPSIDP != 0) |> 
+    filter(SERIAL < 50) |>
+    group_by(CPSIDP, YEAR)|>
+    summarize(EDUC_LABEL_FULL)
 
 ```
 
 ### Cleaning for Viz
 ```{r}
 test <- read_rds('../data/dynasim_output_long.Rds')|>
-    filter(pernum)|>
-    group_by(pernum, year)|>
-    summarize(gradecat)
+    filter(pernum>1000 & pernum<11000)|>
+    group_by(year)|>
+    summarize(sum(gradecat))
 
-# Creating comparable educational categories, race/ethnicity, and age categories
+test2 <- read_rds('../data/dynasim_output_long.Rds')|>
+    count(year, gradecat>=13)
+
+# Creating comparable educational categories, race/ethnicity
+#
 dyn_long <- read_rds('../data/dynasim_output_long.Rds')|>
     mutate(educ_clean = as.factor(
                case_when(
@@ -100,15 +107,15 @@ dyn_long <- read_rds('../data/dynasim_output_long.Rds')|>
                 ethncty %in% c(1000, 1999) ~ "White",
                   TRUE ~ "Other"
                )),
-           age_cat = as.factor(
-               case_when(
-                  age < 25 ~ "Under 25",
-                  age < 36 ~ "26-35",
-                  age < 46 ~ "36-45",
-                  age < 56 ~ "46-55",
-                  age < 66 ~ "56-65",
-                   TRUE ~ "Over 65"
-               )),
+           # age_cat = as.factor(
+           #     case_when(
+           #        age < 25 ~ "Under 25",
+           #        age < 36 ~ "26-35",
+           #        age < 46 ~ "36-45",
+           #        age < 56 ~ "46-55",
+           #        age < 66 ~ "56-65",
+           #         TRUE ~ "Over 65"
+           #     )),
             sex = as.factor(
                case_when(
                   sex == 1 ~ "Male",
@@ -164,6 +171,9 @@ plot_df = bind_rows(
   select(dyn_long, year, race_eth, age_cat, sex, educ_clean) |> mutate(dataset='DYNASIM')) |>
     filter(educ_clean != "0-11th grades" & educ_clean != "More than Bachelor's")
 
+# Generate weight = 1 for dynasim output to use in frequency calculation
+
+
 ```
 
 ### Plots
@@ -171,12 +181,11 @@ plot_df = bind_rows(
 # Sex
 plot_df |> 
     count(year,sex, educ_clean, dataset) |>
-    mutate(`Relative Freq` = n/sum(n), .by = c('year', 'sex', 'dataset')) |> 
+    mutate(`Relative Freq` = n/sum(n), .by = c('year', 'sex', 'dataset')) |>  #add weight to this calculation
     ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_point() +
     facet_grid(sex~educ_clean, scales='free') +
     theme(legend.position = 'bottom')
 
-# Where do the weights come in? -
 
 ```
 
