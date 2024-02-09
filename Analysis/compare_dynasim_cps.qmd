@@ -45,7 +45,7 @@ keep_cols = c(
   'DOBY', 
   'SEX', 
   'ETHNCTY', 
-  'GRADECAT',
+  paste0('GRADECAT', 2006:last_year),
   paste0('NONHOUSW', 2006:last_year),
   paste0('EARNINGS', 2006:last_year),
   paste0('SPOUSERN', 2006:last_year),
@@ -58,7 +58,7 @@ keep_cols = c(
 fehdir = "S:/damir/run_1004/"
 fehfile <- paste0(fehdir, "dynasipp_person_even.dat")
 codebookfile = paste0(fehdir, "codebook_2100ds.sipp2006")
-dyndf = read_feh(codebookfile, fehfile, columns=keep_cols) #test with a smaller number of counts, obs_count=50000
+dyndf = read_feh(codebookfile, fehfile, columns=keep_cols) 
 
 # Wide to long format
 df = feh_wide_to_long(dyndf)
@@ -69,28 +69,16 @@ write_rds(df, '../data/dynasim_output_long.Rds')
 ```{r}
 asec_df_long2 <- read_rds('../data/asec_longitudinal.Rds')
 
-test1 <- asec_df_long2 |>
-    filter(!is.na(CPSIDP) & CPSIDP != 0) |> 
-    filter(SERIAL < 50) |>
-    group_by(CPSIDP, YEAR)|>
-    summarize(EDUC_LABEL_FULL)
-
 ```
 
 ### Cleaning for Viz
 ```{r}
-test <- read_rds('../data/dynasim_output_long.Rds')|>
-    filter(pernum>1000 & pernum<11000)|>
-    group_by(year)|>
-    summarize(sum(gradecat))
-
-test2 <- read_rds('../data/dynasim_output_long.Rds')|>
-    count(year, gradecat>=13)
-
-# Creating comparable educational categories, race/ethnicity
-#
+# Creating comparable educational categories, race/ethnicity (possibly age too)
 dyn_long <- read_rds('../data/dynasim_output_long.Rds')|>
-    mutate(educ_clean = as.factor(
+    mutate(age=year-doby,
+           asecwt = 1)|>
+    filter(!is.na(gradecat), age > 14)|> # note: 50% of gradecat missing
+     mutate(educ_clean = as.factor(
                case_when(
                   gradecat %in% 0:11 ~ "0-11th grades",
                   gradecat == 12 ~  "HS degree", 
@@ -107,15 +95,15 @@ dyn_long <- read_rds('../data/dynasim_output_long.Rds')|>
                 ethncty %in% c(1000, 1999) ~ "White",
                   TRUE ~ "Other"
                )),
-           # age_cat = as.factor(
-           #     case_when(
-           #        age < 25 ~ "Under 25",
-           #        age < 36 ~ "26-35",
-           #        age < 46 ~ "36-45",
-           #        age < 56 ~ "46-55",
-           #        age < 66 ~ "56-65",
-           #         TRUE ~ "Over 65"
-           #     )),
+           age_cat = as.factor(
+               case_when(
+                  age < 25 ~ "Under 25",
+                  age < 36 ~ "26-35",
+                  age < 46 ~ "36-45",
+                  age < 56 ~ "46-55",
+                  age < 66 ~ "56-65",
+                   TRUE ~ "Over 65"
+               )),
             sex = as.factor(
                case_when(
                   sex == 1 ~ "Male",
@@ -167,11 +155,9 @@ asec_df_long$age_cat <- factor(asec_df_long$age_cat, levels = c("Under 25", "26-
 asec_df_long <- janitor::clean_names(asec_df_long)
 
 plot_df = bind_rows(
-  select(asec_df_long, year, race_eth, age_cat, sex, educ_clean) |> mutate(dataset='CPS ASEC'),
-  select(dyn_long, year, race_eth, age_cat, sex, educ_clean) |> mutate(dataset='DYNASIM')) |>
+  select(asec_df_long, year, race_eth, age_cat, sex, educ_clean, asecwt) |> mutate(dataset='CPS ASEC'),
+  select(dyn_long, year, race_eth, age_cat, sex, educ_clean, asecwt) |> mutate(dataset='DYNASIM')) |>
     filter(educ_clean != "0-11th grades" & educ_clean != "More than Bachelor's")
-
-# Generate weight = 1 for dynasim output to use in frequency calculation
 
 
 ```
@@ -180,12 +166,32 @@ plot_df = bind_rows(
 ```{r}
 # Sex
 plot_df |> 
-    count(year,sex, educ_clean, dataset) |>
-    mutate(`Relative Freq` = n/sum(n), .by = c('year', 'sex', 'dataset')) |>  #add weight to this calculation
-    ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_point() +
+    count(year,sex, educ_clean, dataset, wt = asecwt) |>
+    mutate(`Relative Freq` = n/sum(n), .by = c('year', 'sex', 'dataset')) |> 
+    ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +
     facet_grid(sex~educ_clean, scales='free') +
     theme(legend.position = 'bottom')
 
+```
+
+```{r}
+# Race and Ethnicity
+plot_df |> 
+    count(year,race_eth, educ_clean, dataset, wt = asecwt) |>
+    mutate(`Relative Freq` = n/sum(n), .by = c('year', 'race_eth', 'dataset')) |> 
+    ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +
+    facet_grid(race_eth~educ_clean, scales='free') +
+    theme(legend.position = 'bottom')
 
 ```
 
+```{r}
+# Age Categories
+plot_df |> 
+    count(year, age_cat, educ_clean, dataset, wt = asecwt) |>
+    mutate(`Relative Freq` = n/sum(n), .by = c('year', 'age_cat', 'dataset')) |> 
+    ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +
+    facet_grid(age_cat~educ_clean, scales='free') +
+    theme(legend.position = 'bottom')
+
+```
