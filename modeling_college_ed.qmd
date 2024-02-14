@@ -102,8 +102,8 @@ model_covars = c("yearf", "asian", "pnetworth", "asian*pnetworth", "pared", "asi
 # Linear transformation of wealth (divided by average annual earnings)
 opt_wealth_xform = 'linear'
 
-# Parents' education is encoded as number of parents with a college diploma
-opt_pared_code = 'college'
+# Parents' education is encoded as the highest educational attainment of the two parents
+opt_pared_code = 'max4'
 
 # Coefficients' significance level
 opt_sig_level = .1
@@ -1092,7 +1092,7 @@ coefs[['colgrad']] = list(
 
 # Uniformize and write coefficients
 coefs2 = dyn_uniformize_coef(coefs)
-map(coefs2, \(x) dyn_write_coef_file(x$df, x$filename, x$description))
+res = map(coefs2, \(x) dyn_write_coef_file(x$df, x$filename, x$description))
 
 ```
 
