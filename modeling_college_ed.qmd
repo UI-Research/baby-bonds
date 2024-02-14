@@ -103,7 +103,7 @@ model_covars = c("yearf", "asian", "pnetworth", "asian*pnetworth", "pared", "asi
 opt_wealth_xform = 'linear'
 
 # Parents' education is encoded as number of parents with a college diploma
-opt_pared_code = 'college'
+opt_pared_code = 'max'
 
 # Coefficients' significance level
 opt_sig_level = .1
@@ -201,6 +201,20 @@ nlsy_get_col_stat_annual_df() |>
 #      geom_errorbar(aes(x=race, ymin=ci_l, ymax=ci_h, group=pnworth_cat), color='red', width = .2, position=position_dodge(.7)) +
       xlab("Race")
 
+```
+
+```{r}
+#| label: tbl-pnetworth
+#| tbl-cap: "Mean parents' networth (divided by the average wage index) by race"
+
+knitr::kable(
+basedf |>
+  select(id, pnetworth, race, wt) |>
+  mutate(pnetworth = dyn_wealth_xform(pnetworth, type='linear')) |>
+  filter(pnetworth>-20) |>
+  group_by(race) |>
+  summarize(pnetworth = weighted.mean(pnetworth, wt))
+)
 ```
 
 
