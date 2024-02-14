@@ -11,7 +11,9 @@ fig-cap-location: top
 toc: true
 toc-expand: true
 ---
+
 ###Packages
+
 ```{r}
 library(Hmisc)
 library(tidyverse)
@@ -26,52 +28,55 @@ set_urbn_defaults(style = "print")
 ```
 
 ###Read in DYNASIM output
+
 ```{r}
 #| label: read-base-feh
 #| cache: true
 #| cache-vars: dyndf
 
-source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
-
-pidx = read_csv(paste0(here::here(), "/pindex.csv"))
-widx = read_csv(paste0(here::here(), "/windex.csv"))
-pwidx = left_join(pidx, widx, by='year')
-
-yob = 1990
-pidx1958 = pidx |> filter(year==1958) |> select(pindex) |> pull()
-last_year = 2060
-keep_cols = c(
-  'PERNUM', 
-  'DOBY', 
-  'SEX', 
-  'ETHNCTY', 
-  paste0('GRADECAT', 2006:last_year),
-  paste0('NONHOUSW', 2006:last_year),
-  paste0('EARNINGS', 2006:last_year),
-  paste0('SPOUSERN', 2006:last_year),
-  paste0('WEDSTATE', 1951:last_year)
-  )
+# source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
+# 
+# pidx = read_csv(paste0(here::here(), "/pindex.csv"))
+# widx = read_csv(paste0(here::here(), "/windex.csv"))
+# pwidx = left_join(pidx, widx, by='year')
+# 
+# yob = 1990
+# pidx1958 = pidx |> filter(year==1958) |> select(pindex) |> pull()
+# last_year = 2060
+# keep_cols = c(
+#   'PERNUM', 
+#   'DOBY', 
+#   'SEX', 
+#   'ETHNCTY', 
+#   paste0('GRADECAT', 2006:last_year),
+#   paste0('NONHOUSW', 2006:last_year),
+#   paste0('EARNINGS', 2006:last_year),
+#   paste0('SPOUSERN', 2006:last_year),
+#   paste0('WEDSTATE', 1951:last_year)
+#   )
 
 ```
 
 ```{r}
-fehdir = "S:/damir/run_1004/"
-fehfile <- paste0(fehdir, "dynasipp_person_even.dat")
-codebookfile = paste0(fehdir, "codebook_2100ds.sipp2006")
-dyndf = read_feh(codebookfile, fehfile, columns=keep_cols) 
-
-# Wide to long format
-df = feh_wide_to_long(dyndf)
-write_rds(df, '../data/dynasim_output_long.Rds')
+# fehdir = "S:/damir/run_1004/"
+# fehfile <- paste0(fehdir, "dynasipp_person_even.dat")
+# codebookfile = paste0(fehdir, "codebook_2100ds.sipp2006")
+# dyndf = read_feh(codebookfile, fehfile, columns=keep_cols) 
+# 
+# # Wide to long format
+# df = feh_wide_to_long(dyndf)
+# write_rds(df, '../data/dynasim_output_long.Rds')
 ```
 
 ###Read in CPS ASEC
+
 ```{r}
 asec_df_long2 <- read_rds('../data/asec_longitudinal.Rds')
 
 ```
 
 ### Cleaning for Viz
+
 ```{r}
 # Defining Parameters 
 min_age = 16
@@ -182,42 +187,108 @@ asec_df_long <- janitor::clean_names(asec_df_long)
 
 plot_df = bind_rows(
   select(asec_df_long, year, race_eth_cat, age_cat, sex_cat, educ_cat, weight) |> mutate(dataset='CPS ASEC'),
-  select(dyn_long, year, race_eth_cat, age_cat, sex_cat, educ_cat, weight) |> mutate(dataset='DYNASIM')) |>
-    filter(educ_cat != "0-11th grades" & educ_cat != "More than Bachelor's")
+  select(dyn_long, year, race_eth_cat, age_cat, sex_cat, educ_cat, weight) |> mutate(dataset='DYNASIM'))
 
 
 ```
 
 ### Plots
+By sex
 ```{r}
 # Sex
-plot_df |> 
-    count(year,sex_cat, educ_cat, dataset, wt = weight) |>
-    mutate(`Relative Freq` = n/sum(n), .by = c('year', 'sex_cat', 'dataset')) |> 
-    ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +
-    facet_grid(sex_cat~educ_cat, scales='free') +
-    theme(legend.position = 'bottom')
+
+plot_educ_by_educ <- function(eductab)
+{
+  knitr::knit_child(text = c(
+    "#### `r eductab`",
+    "",
+    "```{r}",
+    "#| echo: false",
+    "plot_df %>%",
+    "  count(year, sex_cat, educ_cat, dataset, wt = weight) %>% ",
+    "  mutate(`Relative Freq` = n/sum(n), .by = c('year', 'sex_cat', 'dataset')) %>% ",
+    "  filter(educ_cat==eductab) %>%",
+    "  ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +",
+    "  facet_wrap(~sex_cat, scales='free') +",
+    "  theme(legend.position = 'bottom')",
+    "```",
+    ""
+  ), envir = environment(), quiet = TRUE)
+
+}
 
 ```
 
+::: panel-tabset
+```{r results='asis'}
+res = purrr::map_chr(educ_cats, plot_educ_by_educ)
+cat(res, sep='\n')
+```
+:::
+
+
+By race and ethnicity
 ```{r}
 # Race and Ethnicity
-plot_df |> 
-    count(year,race_eth_cat, educ_cat, dataset, wt = weight) |>
-    mutate(`Relative Freq` = n/sum(n), .by = c('year', 'race_eth_cat', 'dataset')) |> 
-    ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +
-    facet_grid(race_eth_cat~educ_cat, scales='free') +
-    theme(legend.position = 'bottom')
+
+plot_educ_by_educ <- function(eductab)
+{
+  knitr::knit_child(text = c(
+    "#### `r eductab`",
+    "",
+    "```{r}",
+    "#| echo: false",
+    "plot_df %>%",
+    "  count(year, race_eth_cat, educ_cat, dataset, wt = weight) %>% ",
+    "  mutate(`Relative Freq` = n/sum(n), .by = c('year', 'race_eth_cat', 'dataset')) %>% ",
+    "  filter(educ_cat==eductab) %>%",
+    "  ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +",
+    "  facet_wrap(~race_eth_cat, scales='free') +",
+    "  theme(legend.position = 'bottom')",
+    "```",
+    ""
+  ), envir = environment(), quiet = TRUE)
+
+}
 
 ```
 
+::: panel-tabset
+```{r results='asis'}
+res = purrr::map_chr(educ_cats, plot_educ_by_educ)
+cat(res, sep='\n')
+```
+:::
+
+By age category
 ```{r}
-# Age Categories
-plot_df |> 
-    count(year, age_cat, educ_cat, dataset, wt = weight) |>
-    mutate(`Relative Freq` = n/sum(n), .by = c('year', 'age_cat', 'dataset')) |> 
-    ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +
-    facet_grid(age_cat~educ_cat, scales='free') +
-    theme(legend.position = 'bottom')
+# Age
+
+plot_educ_by_educ <- function(eductab)
+{
+  knitr::knit_child(text = c(
+    "#### `r eductab`",
+    "",
+    "```{r}",
+    "#| echo: false",
+    "plot_df %>%",
+    "  count(year, age_cat, educ_cat, dataset, wt = weight) %>% ",
+    "  mutate(`Relative Freq` = n/sum(n), .by = c('year', 'age_cat', 'dataset')) %>% ",
+    "  filter(educ_cat==eductab) %>%",
+    "  ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +",
+    "  facet_wrap(~age_cat, scales='free') +",
+    "  theme(legend.position = 'bottom')",
+    "```",
+    ""
+  ), envir = environment(), quiet = TRUE)
+
+}
 
 ```
+
+::: panel-tabset
+```{r results='asis'}
+res = purrr::map_chr(educ_cats, plot_educ_by_educ)
+cat(res, sep='\n')
+```
+:::
