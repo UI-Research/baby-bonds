@@ -203,6 +203,20 @@ nlsy_get_col_stat_annual_df() |>
 
 ```
 
+```{r}
+#| label: tbl-pnetworth
+#| tbl-cap: "Mean parents' networth (divided by the average wage index) by race"
+
+knitr::kable(
+basedf |>
+  select(id, pnetworth, race, wt) |>
+  mutate(pnetworth = dyn_wealth_xform(pnetworth, type='linear')) |>
+  filter(pnetworth>-20) |>
+  group_by(race) |>
+  summarize(pnetworth = weighted.mean(pnetworth, wt))
+)
+```
+
 
 ## Enrollment
 
