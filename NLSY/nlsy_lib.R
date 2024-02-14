@@ -6,6 +6,12 @@ nlsydf = readRDS(paste0(here::here(), "/NLSY/NLSY-college-finance.rds"))
 # Imputed data file
 nlsy_imp_file = paste0(here::here(), '/NLSY/imputed_data.csv')
 
+nlsy_get_parents_resid = function()
+{
+    nlsydf |>
+        select(matches("HHI2_RELY.\\d\\d_1997")) |>
+        mutate(dad_present = if_any(everything(), \(x) x %in% c("Father", "Step-father", "Foster-father")))
+}
 
 #' Returns the NLSY dataframe with basic demographic information
 #'
@@ -303,6 +309,23 @@ nlsy_get_educ5_levels = function()
         "College degree",
         "Graduate degree"
     ))
+}
+
+nlsy_get_educ4_levels = function()
+{
+    return(c(
+        "Less than high school",
+        "High-school graduate",
+        "Some college",
+        "College degree"
+    ))
+}
+
+nlsy_educ5_to_educ4 = function(x)
+{
+    educ5 = nlsy_get_educ5_levels()
+    educ4 = nlsy_get_educ4_levels()
+    return(factor(if_else(x==educ5[5], educ5[4], x), levels=educ4, ordered = TRUE))
 }
 
 #' Encodes education into 5 levels
@@ -676,10 +699,17 @@ nlsy_get_imputed = function()
     )
 }
 
+#' Encode parents' education jointly
+#'  encoding='max': the highest education level of the two parents
+#'  encoding='max4': the same but with 4 levels of education
+#'  encoding='college': number of parents with a college diploma
 nlsy_encode_parents_educ = function(mom_ed, dad_ed, encoding='max')
 {
     if(encoding=='max') {
         return(pmax({{mom_ed}}, {{dad_ed}}))
+    }
+    else if(encoding=='max4') {
+        return(nlsy_educ5_to_educ4(pmax({{mom_ed}}, {{dad_ed}})))
     }
     else if(encoding=='college') {
         return(factor(
