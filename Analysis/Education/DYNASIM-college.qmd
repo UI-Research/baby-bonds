@@ -1,0 +1,272 @@
+---
+title: "DYNASIM College"
+format:
+  html:
+    page-layout: custom
+execute: 
+  echo: false
+  warning: false
+fig-cap-location: top
+server: shiny
+---
+
+```{r}
+library(Hmisc)
+library(tidyverse)
+#library(urbnthemes)
+#set_urbn_defaults(style = "print")
+
+source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
+
+first_year= 2006
+last_year = 2040
+
+years  = first_year:last_year
+birth_years = 1980:2000
+ages   = 16:40
+grades = 12:16
+sexes = c("All", "Men", "Women")
+
+keep_cols = c(
+  'PERNUM',
+  'DOBY',
+  'SEX',
+  'ETHNCTY',
+  'SCHOOLST',
+  'YEARDIED', 
+  paste0('GRADECAT', first_year:last_year),
+  paste0('EARNINGS', first_year:last_year),
+  paste0('WEDSTATE', first_year:last_year)
+)
+
+```
+
+```{r}
+#| label: read-feh0
+#| context: data
+#| cache: true
+#| cache-vars: fehdf0
+#| output: false
+
+fehdir0       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/baseline/"
+fehfile0      = paste0(fehdir0, "dynasipp_person_even.dat")
+codebookfile0 = paste0(fehdir0, "codebook_2100ds.sipp2006")
+fehdf0        = read_feh(codebookfile0, fehfile0, columns=keep_cols)
+fehdf0        = feh_wide_to_long(fehdf0)
+```
+
+```{r}
+#| label: read-feh1
+#| context: data
+#| cache: true
+#| cache-vars: fehdf1
+#| output: false
+
+fehdir1       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/baseline_new_college_v2/"
+fehfile1      = paste0(fehdir1, "dynasipp_person_even.dat")
+codebookfile1 = paste0(fehdir1, "codebook_2100ds.sipp2006")
+fehdf1        = read_feh(codebookfile1, fehfile1, columns=keep_cols)
+fehdf1        = feh_wide_to_long(fehdf1)
+```
+```{r}
+#| label: read-feh2
+#| context: data
+#| cache: true
+#| cache-vars: fehdf2
+#| output: false
+
+fehdir2       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/baseline_new_college_v3/"
+fehfile2      = paste0(fehdir2, "dynasipp_person_even.dat")
+codebookfile2 = paste0(fehdir2, "codebook_2100ds.sipp2006")
+fehdf2        = read_feh(codebookfile2, fehfile2, columns=keep_cols)
+fehdf2        = feh_wide_to_long(fehdf2)
+```
+
+```{r}
+#| context: data
+#| cache: true
+#| cache-vars: fehdf1
+
+fehdf = bind_rows(
+    mutate(fehdf0, dataset='FEH0'),
+    mutate(fehdf1, dataset='FEH1'),
+    mutate(fehdf2, dataset='FEH2')
+    ) |>
+    mutate(
+        age = year-doby,
+        sex = if_else(sex==1, "Men", "Women")
+    ) |>
+    filter(age>=16, gradecat>=12)
+
+educByAgeYear = fehdf |> 
+    filter(age %in% ages, year %in% years, gradecat %in% grades) |>
+    count(age, year, gradecat, dataset) |>
+    arrange(dataset, year, age, gradecat) |>
+    group_by(dataset, year, age) |>
+    mutate(cumn = cumsum(n))
+
+educByAgeBCoh = fehdf |> 
+    filter(age %in% ages, doby %in% birth_years, gradecat %in% grades) |>
+    count(age, doby, gradecat, dataset) |>
+    arrange(dataset, doby, age, gradecat) |>
+    group_by(dataset, doby, age) |>
+    mutate(cumn = cumsum(n))
+
+```
+
+::: {.panel-tabset}
+
+## Age Profile by Year
+
+```{r}
+#| panel: sidebar
+
+selectInput('year',  'Year',  years,  selected=years[2])
+selectInput('grade1', 'Grade', grades, selected=grades[1])
+selectInput('sex1', 'Sex', sexes, selected=sexes[1])
+```
+
+
+```{r}
+#| panel: fill
+
+plotOutput('plotByYear')
+plotOutput('plotByYearGrade')
+```
+
+```{r}
+#| context: server
+
+library(ggplot2)
+
+plotdf1 = reactive({ 
+    dplyr::filter(
+        educByAgeYear, 
+        year==input$year, 
+        gradecat==input$grade1
+    ) 
+})
+
+plotdf1cum = reactive({ 
+    dplyr::filter(
+        educByAgeYear, 
+        year==input$year
+    ) |>
+    dplyr::mutate(gradecat=factor(gradecat))
+})
+
+output$plotByYear = renderPlot({
+    ggplot2::ggplot(plotdf1()) +
+    ggplot2::geom_line(aes(x=age, y=n, linetype=dataset))
+})
+
+output$plotByYearGrade = renderPlot({
+    ggplot2::ggplot(plotdf1cum()) +
+    ggplot2::geom_line(aes(x=age, y=cumn, color=gradecat, linetype=dataset))
+})
+
+```
+
+
+## Age Profile by Birth Year
+
+```{r}
+#| panel: sidebar
+
+selectInput('birth_year',  'Birth Year',  birth_years,  selected=1990)
+selectInput('grade2', 'Grade', grades, selected=grades[1])
+```
+
+
+```{r}
+#| panel: fill
+
+plotOutput('plotByBirthYear')
+plotOutput('plotByBirthYearGrade')
+```
+
+```{r}
+#| context: server
+
+library(ggplot2)
+
+plotdf2 = reactive({ 
+    dplyr::filter(
+        educByAgeBCoh, 
+        doby==input$birth_year, 
+        gradecat==input$grade2
+    ) 
+})
+
+plotdf2cum = reactive({ 
+    dplyr::filter(
+        educByAgeBCoh, 
+        doby==input$birth_year
+    ) |>
+    dplyr::mutate(gradecat=factor(gradecat))
+})
+
+output$plotByBirthYear = renderPlot({
+    ggplot2::ggplot(plotdf2()) +
+    ggplot2::geom_line(aes(x=age, y=n, linetype=dataset))
+})
+
+output$plotByBirthYearGrade = renderPlot({
+    ggplot2::ggplot(plotdf2cum()) +
+    ggplot2::geom_line(aes(x=age, y=cumn, color=gradecat, linetype=dataset))
+})
+
+```
+
+
+## Annual Data by Age
+
+```{r}
+#| panel: sidebar
+
+selectInput('age',    'Age',   ages,   selected=ages[1])
+selectInput('grade3', 'Grade', grades, selected=grades[1])
+```
+
+
+```{r}
+#| panel: fill
+
+plotOutput('plotByAge')
+plotOutput('plotByAgeGrade')
+```
+
+```{r}
+#| context: server
+
+library(ggplot2)
+
+plotdf3 = reactive({ 
+    dplyr::filter(
+        educByAgeYear, 
+        age==input$age, 
+        gradecat==input$grade3
+    ) 
+})
+
+plotdf3cum = reactive({ 
+    dplyr::filter(
+        educByAgeYear, 
+        age==input$age
+    ) |>
+    dplyr::mutate(gradecat=factor(gradecat))
+})
+
+output$plotByAge = renderPlot({
+    ggplot2::ggplot(plotdf3()) +
+    ggplot2::geom_line(aes(x=year, y=n, linetype=dataset))
+})
+
+output$plotByAgeGrade = renderPlot({
+    ggplot2::ggplot(plotdf3cum()) +
+    ggplot2::geom_line(aes(x=year, y=cumn, color=gradecat, linetype=dataset))
+})
+
+```
+
+:::
