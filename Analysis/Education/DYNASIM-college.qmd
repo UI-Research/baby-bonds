@@ -39,7 +39,10 @@ keep_cols = c(
   paste0('WEDSTATE', first_year:last_year)
 )
 
+fehdfs = list()
+
 ```
+
 
 ```{r}
 #| label: read-feh0
@@ -52,7 +55,7 @@ fehdir0       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/
 fehfile0      = paste0(fehdir0, "dynasipp_person_even.dat")
 codebookfile0 = paste0(fehdir0, "codebook_2100ds.sipp2006")
 fehdf0        = read_feh(codebookfile0, fehfile0, columns=keep_cols)
-fehdf0        = feh_wide_to_long(fehdf0)
+fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset="FEH0")
 ```
 
 ```{r}
@@ -62,11 +65,11 @@ fehdf0        = feh_wide_to_long(fehdf0)
 #| cache-vars: fehdf1
 #| output: false
 
-fehdir1       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/baseline_new_college_v2/"
+fehdir1       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/baseline_new_college_v3/"
 fehfile1      = paste0(fehdir1, "dynasipp_person_even.dat")
 codebookfile1 = paste0(fehdir1, "codebook_2100ds.sipp2006")
 fehdf1        = read_feh(codebookfile1, fehfile1, columns=keep_cols)
-fehdf1        = feh_wide_to_long(fehdf1)
+fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf1) |> mutate(dataset="FEH1")
 ```
 ```{r}
 #| label: read-feh2
@@ -74,12 +77,13 @@ fehdf1        = feh_wide_to_long(fehdf1)
 #| cache: true
 #| cache-vars: fehdf2
 #| output: false
+#| eval: false
 
 fehdir2       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/baseline_new_college_v3/"
 fehfile2      = paste0(fehdir2, "dynasipp_person_even.dat")
 codebookfile2 = paste0(fehdir2, "codebook_2100ds.sipp2006")
 fehdf2        = read_feh(codebookfile2, fehfile2, columns=keep_cols)
-fehdf2        = feh_wide_to_long(fehdf2)
+fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf2) |> mutate(dataset="FEH2")
 ```
 
 ```{r}
@@ -87,11 +91,7 @@ fehdf2        = feh_wide_to_long(fehdf2)
 #| cache: true
 #| cache-vars: fehdf1
 
-fehdf = bind_rows(
-    mutate(fehdf0, dataset='FEH0'),
-    mutate(fehdf1, dataset='FEH1'),
-    mutate(fehdf2, dataset='FEH2')
-    ) |>
+fehdf = bind_rows(fehdfs) |>
     mutate(
         age = year-doby,
         sex = if_else(sex==1, "Men", "Women")
