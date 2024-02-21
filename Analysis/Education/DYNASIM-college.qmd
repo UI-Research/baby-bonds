@@ -172,13 +172,21 @@ tmpdf1 = fehdf |>
     count(age, sex, race, doby, gradecat, dataset, wt=weight) |>
     arrange(dataset, doby, sex, race, age, gradecat) |>
     group_by(dataset, doby, sex, race, age) |>
-    mutate(cumn = cumsum(n))
+    mutate(
+        cumn     = cumsum(n),
+        share    = n/sum(n),
+        cumshare = cumsum(share)
+    )
 
 # By age, birth year, race, and "all" sexes
 tmpdf2 = tmpdf1 |> 
     group_by(dataset, doby, race, age, gradecat) |>
     summarise(n = sum(n), cumn = sum(cumn)) |>
-    mutate(sex="All")
+    mutate(
+        sex="All",
+        share    = n/sum(n),
+        cumshare = cumsum(share)
+    )
 
 tmpdf2b = bind_rows(tmpdf1, tmpdf2)
 
@@ -186,7 +194,11 @@ tmpdf2b = bind_rows(tmpdf1, tmpdf2)
 tmpdf3 = tmpdf2b |> 
     group_by(dataset, doby, sex, age, gradecat) |>
     summarise(n = sum(n), cumn = sum(cumn)) |>
-    mutate(race="All")
+    mutate(
+        race="All",
+        share    = n/sum(n),
+        cumshare = cumsum(share)
+        )
 
 educByAgeBCohSexRace = bind_rows(tmpdf2b, tmpdf3)
 ```
@@ -414,4 +426,44 @@ output$plotByYearRace = renderPlot({
 
 ## Age Profile by Race
 
+```{r}
+#| panel: sidebar
+
+selectInput('birth_year2',  'Birth Year',  birth_years,  selected=1990)
+```
+
+
+```{r}
+#| panel: fill
+
+plotOutput('plotByBirthYearRace')
+```
+
+```{r}
+#| context: server
+
+library(ggplot2)
+
+plotdf5 = reactive({ 
+    dplyr::filter(
+        educByAgeBCohSexRace, 
+        doby==input$birth_year2,
+        sex==input$sex,
+        gradecat==input$grade
+    )
+})
+
+output$plotByBirthYearRace = renderPlot({
+    plotdf5() |>
+        ggplot2::ggplot() +
+        ggplot2::geom_line(aes(
+            x=age, 
+            y=!!sym(out2var(input$outcome, FALSE)), 
+            color=race, 
+            linetype=dataset
+            ))
+})
+
+
+```
 :::
