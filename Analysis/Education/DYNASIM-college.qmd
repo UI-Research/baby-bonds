@@ -11,6 +11,8 @@ server: shiny
 ---
 
 ```{r}
+#| context: setup
+
 library(Hmisc)
 library(tidyverse)
 #library(urbnthemes)
@@ -29,6 +31,7 @@ birth_years = 1980:2000
 ages   = 16:40
 grades = 12:16
 sexes = c("All", "Men", "Women")
+races = c("All", "Black", "Hispanic", "White")
 
 keep_cols = c(
   'PERNUM',
@@ -97,39 +100,63 @@ fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf2) |> mutate(dataset="FEH2")
 fehdf = bind_rows(fehdfs) |>
     mutate(
         age = year-doby,
-        sex = if_else(sex==1, "Men", "Women")
+        sex = if_else(sex==1, "Men", "Women"),
+        race= case_when(
+            1014<=ethncty & ethncty<=1020       ~ 'Hispanic', 
+            2014<=ethncty & ethncty<=2020       ~ 'Hispanic', 
+            3014<=ethncty & ethncty<=3020       ~ 'Hispanic', 
+            4014<=ethncty & ethncty<=4020       ~ 'Hispanic',
+            1000<=ethncty & ethncty<=1099       ~ 'White',
+            2000<=ethncty & ethncty<=2099       ~ 'Black',
+            3000<=ethncty & ethncty<=3099       ~ 'Other',
+            4000<=ethncty & ethncty<=4099       ~ 'Asian'
+        )
     ) |>
-    filter(age>=16, gradecat>=12)
+    filter(age>=16, gradecat>=12, race %in% races)
 
-# By Age, year, and sex
+# By Age, year, race, and sex
 tmpdf1 = fehdf |> 
     filter(age %in% ages, year %in% years, gradecat %in% grades) |>
-    count(age, sex, year, gradecat, dataset) |>
-    arrange(dataset, year, sex, age, gradecat) |>
-    group_by(dataset, year, sex, age) |>
+    count(age, sex, race, year, gradecat, dataset) |>
+    arrange(dataset, year, sex, race, age, gradecat) |>
+    group_by(dataset, year, sex, race, age) |>
     mutate(cumn = cumsum(n))
 
 tmpdf2 = tmpdf1 |> 
-    group_by(dataset, year, age, gradecat) |>
+    group_by(dataset, year, race, age, gradecat) |>
     summarise(n = sum(n), cumn = sum(cumn)) |>
     mutate(sex="All")
 
-educByAgeYearSex = bind_rows(tmpdf1, tmpdf2)
+tmpdf2b = bind_rows(tmpdf1, tmpdf2)
 
-# By Age, birth year, and sex
+tmpdf3 = tmpdf2b |> 
+    group_by(dataset, year, sex, age, gradecat) |>
+    summarise(n = sum(n), cumn = sum(cumn)) |>
+    mutate(race="All")
+
+educByAgeYearSexRace = bind_rows(tmpdf2b, tmpdf3)
+
+# By Age, birth year, race, and sex
 tmpdf1 = fehdf |> 
     filter(age %in% ages, doby %in% birth_years, gradecat %in% grades) |>
-    count(age, sex, doby, gradecat, dataset) |>
-    arrange(dataset, doby, sex, age, gradecat) |>
-    group_by(dataset, doby, sex, age) |>
+    count(age, sex, race, doby, gradecat, dataset) |>
+    arrange(dataset, doby, sex, race, age, gradecat) |>
+    group_by(dataset, doby, sex, race, age) |>
     mutate(cumn = cumsum(n))
 
 tmpdf2 = tmpdf1 |> 
-    group_by(dataset, doby, age, gradecat) |>
+    group_by(dataset, doby, race, age, gradecat) |>
     summarise(n = sum(n), cumn = sum(cumn)) |>
     mutate(sex="All")
 
-educByAgeBCohSex = bind_rows(tmpdf1, tmpdf2)
+tmpdf2b = bind_rows(tmpdf1, tmpdf2)
+
+tmpdf3 = tmpdf2b |> 
+    group_by(dataset, doby, sex, age, gradecat) |>
+    summarise(n = sum(n), cumn = sum(cumn)) |>
+    mutate(race="All")
+
+educByAgeBCohSexRace = bind_rows(tmpdf2b, tmpdf3)
 ```
 
 
@@ -137,8 +164,9 @@ educByAgeBCohSex = bind_rows(tmpdf1, tmpdf2)
 #| panel: input
 #| layout-ncol: 3
 
-selectInput('grade', 'Grade', grades, selected=grades[1])
+selectInput('grade', 'Grade', grades, selected=16)
 selectInput('sex',   'Sex',   sexes,  selected=sexes[1])
+selectInput('race',  'Race',  races,  selected=races[1])
 
 ```
 
@@ -149,7 +177,7 @@ selectInput('sex',   'Sex',   sexes,  selected=sexes[1])
 ```{r}
 #| panel: sidebar
 
-selectInput('year',  'Year',  years,  selected=years[2])
+selectInput('year',  'Year',  years,  selected=2030)
 ```
 
 
@@ -163,34 +191,27 @@ plotOutput('plotByYearGrade')
 ```{r}
 #| context: server
 
-library(ggplot2)
-
 plotdf1 = reactive({ 
     dplyr::filter(
-        educByAgeYearSex, 
-        year==input$year, 
-        gradecat==input$grade,
-        sex==input$sex
-    ) 
-})
-
-plotdf1cum = reactive({ 
-    dplyr::filter(
-        educByAgeYearSex, 
+        educByAgeYearSexRace, 
         year==input$year,
-        sex==input$sex
-    ) |>
-    dplyr::mutate(gradecat=factor(gradecat))
+        sex==input$sex,
+        race==input$race
+    )
 })
 
 output$plotByYear = renderPlot({
-    ggplot2::ggplot(plotdf1()) +
-    ggplot2::geom_line(aes(x=age, y=n, linetype=dataset))
+    plotdf1() |>
+        filter(gradecat==input$grade) |>
+        ggplot2::ggplot() +
+        ggplot2::geom_line(aes(x=age, y=n, linetype=dataset))
 })
 
 output$plotByYearGrade = renderPlot({
-    ggplot2::ggplot(plotdf1cum()) +
-    ggplot2::geom_line(aes(x=age, y=cumn, color=gradecat, linetype=dataset))
+    plotdf1() |>
+        mutate(gradecat=factor(gradecat)) |>
+        ggplot2::ggplot() +
+        ggplot2::geom_line(aes(x=age, y=cumn, color=gradecat, linetype=dataset))
 })
 
 ```
@@ -219,30 +240,25 @@ library(ggplot2)
 
 plotdf2 = reactive({ 
     dplyr::filter(
-        educByAgeBCohSex, 
-        doby==input$birth_year, 
-        gradecat==input$grade,
-        sex==input$sex
-    ) 
-})
-
-plotdf2cum = reactive({ 
-    dplyr::filter(
-        educByAgeBCohSex, 
+        educByAgeBCohSexRace, 
         doby==input$birth_year,
-        sex==input$sex
-    ) |>
-    dplyr::mutate(gradecat=factor(gradecat))
+        sex==input$sex,
+        race==input$race
+    )
 })
 
 output$plotByBirthYear = renderPlot({
-    ggplot2::ggplot(plotdf2()) +
-    ggplot2::geom_line(aes(x=age, y=n, linetype=dataset))
+    plotdf2() |>
+        filter(gradecat==input$grade) |>
+        ggplot2::ggplot() +
+        ggplot2::geom_line(aes(x=age, y=n, linetype=dataset))
 })
 
 output$plotByBirthYearGrade = renderPlot({
-    ggplot2::ggplot(plotdf2cum()) +
-    ggplot2::geom_line(aes(x=age, y=cumn, color=gradecat, linetype=dataset))
+    plotdf2() |>
+        mutate(gradecat=factor(gradecat)) |>
+        ggplot2::ggplot() +
+        ggplot2::geom_line(aes(x=age, y=cumn, color=gradecat, linetype=dataset))
 })
 
 ```
@@ -253,7 +269,7 @@ output$plotByBirthYearGrade = renderPlot({
 ```{r}
 #| panel: sidebar
 
-selectInput('age',    'Age',   ages,   selected=ages[1])
+selectInput('age',    'Age',   ages,   selected=35)
 ```
 
 
@@ -271,30 +287,25 @@ library(ggplot2)
 
 plotdf3 = reactive({ 
     dplyr::filter(
-        educByAgeYearSex, 
-        age==input$age, 
-        gradecat==input$grade,
-        sex==input$sex
-    ) 
-})
-
-plotdf3cum = reactive({ 
-    dplyr::filter(
-        educByAgeYearSex, 
+        educByAgeYearSexRace, 
         age==input$age,
-        sex==input$sex
-    ) |>
-    dplyr::mutate(gradecat=factor(gradecat))
+        sex==input$sex,
+        race==input$race
+    )
 })
 
 output$plotByAge = renderPlot({
-    ggplot2::ggplot(plotdf3()) +
-    ggplot2::geom_line(aes(x=year, y=n, linetype=dataset))
+    plotdf3() |>
+        filter(gradecat==input$grade) |>
+        ggplot2::ggplot() +
+        ggplot2::geom_line(aes(x=year, y=n, linetype=dataset))
 })
 
 output$plotByAgeGrade = renderPlot({
-    ggplot2::ggplot(plotdf3cum()) +
-    ggplot2::geom_line(aes(x=year, y=cumn, color=gradecat, linetype=dataset))
+    plotdf3() |>
+        mutate(gradecat=factor(gradecat)) |>
+        ggplot2::ggplot() +
+        ggplot2::geom_line(aes(x=year, y=cumn, color=gradecat, linetype=dataset))
 })
 
 ```
