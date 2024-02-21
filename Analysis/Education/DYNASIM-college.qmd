@@ -18,6 +18,9 @@ library(tidyverse)
 
 source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
 
+#obs = 50000
+obs = NA
+
 first_year= 2006
 last_year = 2040
 
@@ -51,10 +54,10 @@ fehdfs = list()
 #| cache-vars: fehdf0
 #| output: false
 
-fehdir0       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/baseline/"
+fehdir0       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/base/"
 fehfile0      = paste0(fehdir0, "dynasipp_person_even.dat")
 codebookfile0 = paste0(fehdir0, "codebook_2100ds.sipp2006")
-fehdf0        = read_feh(codebookfile0, fehfile0, columns=keep_cols)
+fehdf0        = read_feh(codebookfile0, fehfile0, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset="FEH0")
 ```
 
@@ -65,31 +68,31 @@ fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset="FEH0")
 #| cache-vars: fehdf1
 #| output: false
 
-fehdir1       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/baseline_new_college_v3/"
+fehdir1       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/base_v3/"
 fehfile1      = paste0(fehdir1, "dynasipp_person_even.dat")
 codebookfile1 = paste0(fehdir1, "codebook_2100ds.sipp2006")
-fehdf1        = read_feh(codebookfile1, fehfile1, columns=keep_cols)
+fehdf1        = read_feh(codebookfile1, fehfile1, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf1) |> mutate(dataset="FEH1")
 ```
+
 ```{r}
 #| label: read-feh2
 #| context: data
 #| cache: true
 #| cache-vars: fehdf2
 #| output: false
-#| eval: false
 
-fehdir2       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/baseline_new_college_v3/"
+
+fehdir2       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/base_v4/"
 fehfile2      = paste0(fehdir2, "dynasipp_person_even.dat")
 codebookfile2 = paste0(fehdir2, "codebook_2100ds.sipp2006")
-fehdf2        = read_feh(codebookfile2, fehfile2, columns=keep_cols)
+fehdf2        = read_feh(codebookfile2, fehfile2, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf2) |> mutate(dataset="FEH2")
 ```
 
 ```{r}
 #| context: data
 #| cache: true
-#| cache-vars: fehdf1
 
 fehdf = bind_rows(fehdfs) |>
     mutate(
@@ -98,19 +101,44 @@ fehdf = bind_rows(fehdfs) |>
     ) |>
     filter(age>=16, gradecat>=12)
 
-educByAgeYear = fehdf |> 
+# By Age, year, and sex
+tmpdf1 = fehdf |> 
     filter(age %in% ages, year %in% years, gradecat %in% grades) |>
-    count(age, year, gradecat, dataset) |>
-    arrange(dataset, year, age, gradecat) |>
-    group_by(dataset, year, age) |>
+    count(age, sex, year, gradecat, dataset) |>
+    arrange(dataset, year, sex, age, gradecat) |>
+    group_by(dataset, year, sex, age) |>
     mutate(cumn = cumsum(n))
 
-educByAgeBCoh = fehdf |> 
+tmpdf2 = tmpdf1 |> 
+    group_by(dataset, year, age, gradecat) |>
+    summarise(n = sum(n), cumn = sum(cumn)) |>
+    mutate(sex="All")
+
+educByAgeYearSex = bind_rows(tmpdf1, tmpdf2)
+
+# By Age, birth year, and sex
+tmpdf1 = fehdf |> 
     filter(age %in% ages, doby %in% birth_years, gradecat %in% grades) |>
-    count(age, doby, gradecat, dataset) |>
-    arrange(dataset, doby, age, gradecat) |>
-    group_by(dataset, doby, age) |>
+    count(age, sex, doby, gradecat, dataset) |>
+    arrange(dataset, doby, sex, age, gradecat) |>
+    group_by(dataset, doby, sex, age) |>
     mutate(cumn = cumsum(n))
+
+tmpdf2 = tmpdf1 |> 
+    group_by(dataset, doby, age, gradecat) |>
+    summarise(n = sum(n), cumn = sum(cumn)) |>
+    mutate(sex="All")
+
+educByAgeBCohSex = bind_rows(tmpdf1, tmpdf2)
+```
+
+
+```{r}
+#| panel: input
+#| layout-ncol: 3
+
+selectInput('grade', 'Grade', grades, selected=grades[1])
+selectInput('sex',   'Sex',   sexes,  selected=sexes[1])
 
 ```
 
@@ -122,8 +150,6 @@ educByAgeBCoh = fehdf |>
 #| panel: sidebar
 
 selectInput('year',  'Year',  years,  selected=years[2])
-selectInput('grade1', 'Grade', grades, selected=grades[1])
-selectInput('sex1', 'Sex', sexes, selected=sexes[1])
 ```
 
 
@@ -141,16 +167,18 @@ library(ggplot2)
 
 plotdf1 = reactive({ 
     dplyr::filter(
-        educByAgeYear, 
+        educByAgeYearSex, 
         year==input$year, 
-        gradecat==input$grade1
+        gradecat==input$grade,
+        sex==input$sex
     ) 
 })
 
 plotdf1cum = reactive({ 
     dplyr::filter(
-        educByAgeYear, 
-        year==input$year
+        educByAgeYearSex, 
+        year==input$year,
+        sex==input$sex
     ) |>
     dplyr::mutate(gradecat=factor(gradecat))
 })
@@ -174,7 +202,6 @@ output$plotByYearGrade = renderPlot({
 #| panel: sidebar
 
 selectInput('birth_year',  'Birth Year',  birth_years,  selected=1990)
-selectInput('grade2', 'Grade', grades, selected=grades[1])
 ```
 
 
@@ -192,16 +219,18 @@ library(ggplot2)
 
 plotdf2 = reactive({ 
     dplyr::filter(
-        educByAgeBCoh, 
+        educByAgeBCohSex, 
         doby==input$birth_year, 
-        gradecat==input$grade2
+        gradecat==input$grade,
+        sex==input$sex
     ) 
 })
 
 plotdf2cum = reactive({ 
     dplyr::filter(
-        educByAgeBCoh, 
-        doby==input$birth_year
+        educByAgeBCohSex, 
+        doby==input$birth_year,
+        sex==input$sex
     ) |>
     dplyr::mutate(gradecat=factor(gradecat))
 })
@@ -225,7 +254,6 @@ output$plotByBirthYearGrade = renderPlot({
 #| panel: sidebar
 
 selectInput('age',    'Age',   ages,   selected=ages[1])
-selectInput('grade3', 'Grade', grades, selected=grades[1])
 ```
 
 
@@ -243,16 +271,18 @@ library(ggplot2)
 
 plotdf3 = reactive({ 
     dplyr::filter(
-        educByAgeYear, 
+        educByAgeYearSex, 
         age==input$age, 
-        gradecat==input$grade3
+        gradecat==input$grade,
+        sex==input$sex
     ) 
 })
 
 plotdf3cum = reactive({ 
     dplyr::filter(
-        educByAgeYear, 
-        age==input$age
+        educByAgeYearSex, 
+        age==input$age,
+        sex==input$sex
     ) |>
     dplyr::mutate(gradecat=factor(gradecat))
 })
