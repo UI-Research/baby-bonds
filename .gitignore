@@ -20,3 +20,4 @@
 .Rproj.user
 !*.csv
 NLSY/NLSY-college-finance_imp.csv
+*_cache/
