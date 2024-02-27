@@ -83,8 +83,7 @@ min_age = 16
 educ_cats = c(
     "0-11th grades", 
     "HS degree", 
-    "Some college/No Degree", 
-    "Associate's Degree", 
+    "Some college", 
     "Bachelor's Degree or More"
 ) 
 
@@ -105,9 +104,8 @@ dyn_long <- read_rds('../data/dynasim_output_long.Rds')|>
                case_when(
                   gradecat %in% 0:11 ~ educ_cats[1],
                   gradecat == 12 ~  educ_cats[2], 
-                  gradecat == 13 ~ educ_cats[3],
-                  gradecat %in% c(14,15) ~ educ_cats[4],
-                  TRUE ~ educ_cats[5]
+                  gradecat %in% c(13, 14,15) ~ educ_cats[3],
+                  TRUE ~ educ_cats[4]
                )), 
            race_eth_cat = as.factor(
                case_when(
@@ -151,9 +149,8 @@ asec_df_long <- asec_df_long2 |>
                case_when(
                   EDUC >= 0 & EDUC < 70 ~ educ_cats[1],
                   EDUC  %in% c(70, 71, 72, 73) ~  educ_cats[2],  
-                  EDUC %in% c(80, 81) ~ educ_cats[3],
-                  EDUC %in% c(90, 91, 92, 100) ~ educ_cats[4],
-                  TRUE ~ educ_cats[5]
+                  EDUC %in% c(80, 81, 90, 91, 92, 100) ~ educ_cats[3],
+                  TRUE ~ educ_cats[4]
                )),
            race_eth_cat = as.factor(
               case_when(
@@ -221,7 +218,7 @@ plot_educ_by_educ <- function(eductab)
 
 ::: panel-tabset
 ```{r sex, results='asis'}
-res = purrr::map_chr(educ_cats[2:5], plot_educ_by_educ) #Dropping the less than HS category 
+res = purrr::map_chr(educ_cats[2:4], plot_educ_by_educ) #Dropping the less than HS category 
 cat(res, sep='\n')
 ```
 :::
@@ -255,7 +252,7 @@ plot_educ_by_educ <- function(eductab)
 
 ::: panel-tabset
 ```{r re, results='asis'}
-res = purrr::map_chr(educ_cats[2:5], plot_educ_by_educ) #Dropping the less than HS category 
+res = purrr::map_chr(educ_cats[2:4], plot_educ_by_educ) #Dropping the less than HS category 
 cat(res, sep='\n')
 ```
 :::
@@ -288,7 +285,7 @@ plot_educ_by_educ <- function(eductab)
 
 ::: panel-tabset
 ```{r results='asis'}
-res = purrr::map_chr(educ_cats[2:5], plot_educ_by_educ) #Dropping the less than HS category 
+res = purrr::map_chr(educ_cats[2:4], plot_educ_by_educ) #Dropping the less than HS category 
 cat(res, sep='\n')
 ```
 :::
