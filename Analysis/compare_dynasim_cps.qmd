@@ -1,0 +1,294 @@
+---
+title: "compare_dynasim_cps"
+format:
+  html:
+    embed-resources: true
+editor: visual
+execute: 
+  echo: false
+  warning: false
+fig-cap-location: top
+toc: true
+toc-expand: true
+---
+
+###Packages
+
+```{r}
+library(Hmisc)
+library(tidyverse)
+library(margins)
+library(scales)
+library(ggridges)
+library(modelsummary)
+library(urbnthemes)
+library(haven)
+library(purrr)
+set_urbn_defaults(style = "print")
+```
+
+###Read in DYNASIM output
+
+```{r}
+#| label: read-base-feh
+#| cache: true
+#| cache-vars: dyndf
+
+# source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
+# 
+# pidx = read_csv(paste0(here::here(), "/pindex.csv"))
+# widx = read_csv(paste0(here::here(), "/windex.csv"))
+# pwidx = left_join(pidx, widx, by='year')
+# 
+# yob = 1990
+# pidx1958 = pidx |> filter(year==1958) |> select(pindex) |> pull()
+# last_year = 2060
+# keep_cols = c(
+#   'PERNUM', 
+#   'DOBY', 
+#   'SEX', 
+#   'ETHNCTY', 
+#   paste0('GRADECAT', 2006:last_year),
+#   paste0('NONHOUSW', 2006:last_year),
+#   paste0('EARNINGS', 2006:last_year),
+#   paste0('SPOUSERN', 2006:last_year),
+#   paste0('WEDSTATE', 1951:last_year)
+#   )
+
+```
+
+```{r}
+# fehdir = "S:/damir/run_1004/"
+# fehfile <- paste0(fehdir, "dynasipp_person_even.dat")
+# codebookfile = paste0(fehdir, "codebook_2100ds.sipp2006")
+# dyndf = read_feh(codebookfile, fehfile, columns=keep_cols) 
+# 
+# # Wide to long format
+# df = feh_wide_to_long(dyndf)
+# write_rds(df, '../data/dynasim_output_long.Rds')
+```
+
+###Read in CPS ASEC
+
+```{r}
+asec_df_long2 <- read_rds('../data/asec_longitudinal.Rds')
+
+```
+
+### Cleaning for Viz
+
+```{r}
+# Defining Parameters 
+min_age = 16
+educ_cats = c(
+    "0-11th grades", 
+    "HS degree", 
+    "Some college/No Degree", 
+    "Associate's Degree", 
+    "Bachelor's Degree", 
+    "More than Bachelor's"
+) 
+
+age_cats =  c("16-20",
+              "21-25",
+              "26-35",
+              "36-45",
+              "46-55",
+              "56-65",
+              "Over 65")
+
+# Creating comparable educational categories, race/ethnicity (possibly age too)
+dyn_long <- read_rds('../data/dynasim_output_long.Rds')|>
+    mutate(age=year-doby,
+           weight = 1)|>
+    filter(!is.na(gradecat), age > min_age)|> # note: 50% of gradecat missing
+     mutate(educ_cat = as.factor(
+               case_when(
+                  gradecat %in% 0:11 ~ educ_cats[1],
+                  gradecat == 12 ~  educ_cats[2], 
+                  gradecat == 13 ~ educ_cats[3],
+                  gradecat %in% c(14,15) ~ educ_cats[4],
+                  gradecat == 16 ~ educ_cats[5],
+                  TRUE ~ educ_cats[6]
+               )), 
+           race_eth_cat = as.factor(
+               case_when(
+                ethncty %in% 4000:4999 ~ "Asian",
+                ethncty %in% 2000:2999 ~ "Black",
+                ethncty %in% c(1014, 1020, 2014, 2020, 3014, 3020, 4014, 4020) ~ "Hispanic",   
+                ethncty %in% 1000:1999 ~ "White",
+                  TRUE ~ "Other"
+               )),
+           age_cat = as.factor(
+               case_when(
+                  age < 21 ~ age_cats[1],
+                  age < 26 ~ age_cats[2],
+                  age < 36 ~ age_cats[3],
+                  age < 46 ~ age_cats[4],
+                  age < 56 ~ age_cats[5],
+                  age < 66 ~ age_cats[6],
+                   TRUE ~ age_cats[7]
+               )),
+            sex_cat = as.factor(
+               case_when(
+                  sex == 1 ~ "Male",
+                  TRUE ~ "Female"
+               )))
+
+#Adjusting ordering of categorical variables for plotting
+dyn_long$educ_cat <- factor(dyn_long$educ_cat, levels = educ_cats)
+
+dyn_long$age_cat <- factor(dyn_long$age_cat, levels = age_cats)
+
+# Missings in CPS ASEC - about 24% excluded
+# length(asec_df_long2$EDUC[asec_df_long2$EDUC==1])/nrow(asec_df_long2)
+# length(asec_df_long2$EDUC[asec_df_long2$EDUC==999])/nrow(asec_df_long2)
+
+asec_df_long <- asec_df_long2 |>
+    filter(EDUC != 999 & EDUC != 1)|> #excluding missings, blanks or NIUs
+    filter(AGE > min_age)|>
+    rename(weight = ASECWT, sex_cat = SEX)|>
+    mutate(
+        educ_cat = as.factor(
+               case_when(
+                  EDUC >= 0 & EDUC < 70 ~ educ_cats[1],
+                  EDUC  %in% c(70, 71, 72, 73) ~  educ_cats[2],  
+                  EDUC %in% c(80, 81) ~ educ_cats[3],
+                  EDUC %in% c(90, 91, 92, 100) ~ educ_cats[4],
+                  EDUC %in% c(110,111) ~ educ_cats[5],
+                  TRUE ~ educ_cats[6]
+               )),
+           race_eth_cat = as.factor(
+              case_when(
+                  HISPAN != 0 ~ "Hispanic",
+                  RACE == 100 ~ "White",
+                  RACE == 200 ~ "Black",
+                  RACE == 651 ~ "Asian",
+                  TRUE ~ "Other"
+               )),
+            age_cat = as.factor(
+               case_when(
+                  AGE < 21 ~ age_cats[1],
+                  AGE < 26 ~ age_cats[2],                  
+                  AGE < 36 ~ age_cats[3],
+                  AGE < 46 ~ age_cats[4],
+                  AGE < 56 ~ age_cats[5],
+                  AGE < 66 ~ age_cats[6],
+                   TRUE ~ age_cats[7]
+               )))
+
+# Adjusting ordering of categorical variables for plotting
+asec_df_long$educ_cat <- factor(asec_df_long$educ_cat, levels = educ_cats)
+
+asec_df_long$age_cat <- factor(asec_df_long$age_cat, levels = age_cats)
+
+# Cleaning column names to match format of DYNASIM output
+asec_df_long <- janitor::clean_names(asec_df_long)
+
+plot_df = bind_rows(
+  select(asec_df_long, year, race_eth_cat, age_cat, sex_cat, educ_cat, weight) |> mutate(dataset='CPS ASEC'),
+  select(dyn_long, year, race_eth_cat, age_cat, sex_cat, educ_cat, weight) |> mutate(dataset='DYNASIM'))
+
+
+```
+
+### Plots
+By sex
+```{r}
+# Sex
+
+plot_educ_by_educ <- function(eductab)
+{
+  knitr::knit_child(text = c(
+    "#### `r eductab`",
+    "",
+    "```{r}",
+    "#| echo: false",
+    "plot_df %>%",
+    "  count(year, sex_cat, educ_cat, dataset, wt = weight) %>% ",
+    "  mutate(`Relative Freq` = n/sum(n), .by = c('year', 'sex_cat', 'dataset')) %>% ",
+    "  filter(educ_cat==eductab) %>%",
+    "  ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +",
+    "  facet_wrap(~sex_cat, scales='free') +",
+    "  theme(legend.position = 'bottom')",
+    "```",
+    ""
+  ), envir = environment(), quiet = TRUE)
+
+}
+
+```
+
+::: panel-tabset
+```{r results='asis'}
+res = purrr::map_chr(educ_cats, plot_educ_by_educ)
+cat(res, sep='\n')
+```
+:::
+
+
+By race and ethnicity
+```{r}
+# Race and Ethnicity
+
+plot_educ_by_educ <- function(eductab)
+{
+  knitr::knit_child(text = c(
+    "#### `r eductab`",
+    "",
+    "```{r}",
+    "#| echo: false",
+    "plot_df %>%",
+    "  count(year, race_eth_cat, educ_cat, dataset, wt = weight) %>% ",
+    "  mutate(`Relative Freq` = n/sum(n), .by = c('year', 'race_eth_cat', 'dataset')) %>% ",
+    "  filter(educ_cat==eductab) %>%",
+    "  ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +",
+    "  facet_wrap(~race_eth_cat, scales='free') +",
+    "  theme(legend.position = 'bottom')",
+    "```",
+    ""
+  ), envir = environment(), quiet = TRUE)
+
+}
+
+```
+
+::: panel-tabset
+```{r results='asis'}
+res = purrr::map_chr(educ_cats, plot_educ_by_educ)
+cat(res, sep='\n')
+```
+:::
+
+By age category
+```{r}
+# Age
+
+plot_educ_by_educ <- function(eductab)
+{
+  knitr::knit_child(text = c(
+    "#### `r eductab`",
+    "",
+    "```{r}",
+    "#| echo: false",
+    "plot_df %>%",
+    "  count(year, age_cat, educ_cat, dataset, wt = weight) %>% ",
+    "  mutate(`Relative Freq` = n/sum(n), .by = c('year', 'age_cat', 'dataset')) %>% ",
+    "  filter(educ_cat==eductab) %>%",
+    "  ggplot(aes(x=year, y=`Relative Freq`, color=dataset)) + geom_line() +",
+    "  facet_wrap(~age_cat, scales='free') +",
+    "  theme(legend.position = 'bottom')",
+    "```",
+    ""
+  ), envir = environment(), quiet = TRUE)
+
+}
+
+```
+
+::: panel-tabset
+```{r results='asis'}
+res = purrr::map_chr(educ_cats, plot_educ_by_educ)
+cat(res, sep='\n')
+```
+:::
