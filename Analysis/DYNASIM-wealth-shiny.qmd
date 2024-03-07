@@ -23,7 +23,8 @@ set_urbn_defaults(style = "print")
 source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
 
 pidx = read_csv(paste0(here::here(), "/pindex.csv"))
-widx = read_csv(paste0(here::here(), "/windex.csv"))
+widx = read_csv(paste0(here::here(), "/windex.csv")) |>
+    mutate(windex=windex*1000)
 pwidx = left_join(pidx, widx, by='year')
 
 yob = 1990
@@ -36,6 +37,7 @@ keep_cols = c(
   'ETHNCTY', 
   'YEARDIED', 
   paste0('NONHOUSW', 2006:last_year),
+  paste0('HOUSINGW', 2006:last_year),
   paste0('EARNINGS', 2006:last_year),
   paste0('SPOUSERN', 2006:last_year),
   paste0('WEDSTATE', 1951:last_year)
@@ -48,27 +50,30 @@ keep_cols = c(
 ```{r}
 #| label: read-new-feh
 #| context: data
-#| cache: true
+#| cache: false
 #| echo: false
 #| output: false
 
-fehdir        = "C:/Users/dcosic/Documents/Dynasim/Dynasim-core/run/"
-fehfile       = paste0(fehdir, "dynasipp_person_even.dat")
-codebookfile  = paste0(fehdir, "codebook_2100ds.sipp2006")
-dyndf         = read_feh(codebookfile, fehfile, columns=keep_cols)
+fehdir        = "C:/Users/dcosic/Dynasim/Dynasim-wealth/Dynasim-core/run/output/output2/"
+dyndf         = read_feh(fehdir, columns=keep_cols)
 
 # Read coefficients for the financial wealth equation
-text = grep('^\\d.+', readLines(paste0(fehdir, 'coefs/NONHWLTH_COEFS.CSV')), value=TRUE)
+text = grep('^\\d.+', readLines("C:/Users/dcosic/Dynasim/Dynasim-wealth/Dynasim-core/run/coefs/NONHWLTH_COEFS.CSV"), value=TRUE)
 fwlth_coefs = read.csv(textConnection(text), header=FALSE) |>
-  rename(num=1, varname=2, icat1=3, icat2=4, icat3=5, icat4=6)
+    rename(num=1, varname=2, icat1=3, icat2=4, icat3=5, icat4=6) |>
+    mutate(
+        varname=gsub("'","",varname),
+        varname=str_trim(tolower(varname))
+    ) |> 
+    select(-num) |>
+    pivot_longer(starts_with('icat'), names_to='icat', names_prefix='icat', values_to='coef') |>
+    mutate(icat = as.integer(icat)) 
+#|>    pivot_wider(id_cols=icat, names_from=varname, values_from=coef)
 
 # Read covariates in the financial wealth equation
 fehwlthx = read_csv(paste0(fehdir, 'nonhwlth_dump.csv')) |>
-    rename_with(tolower) 
-
-# TODO: 
-# Multiply covariates by coefficients
-# as.matrix(wlthx[1:3,]) * fwlth_coefs$icat1
+    rename_with(tolower) |>
+    mutate(ywealth=ywealth+0.342)
 
 feh_to_long = function(data)
 {
@@ -77,9 +82,9 @@ feh_to_long = function(data)
       rename_with(tolower) |> 
       filter(doby==yob) |>
       pivot_longer(
-          matches('nonhousw.*|earnings.*|spousern.*|wedstate.*'), 
+          matches('nonhousw.*|housingw.*|earnings.*|spousern.*|wedstate.*'), 
           names_to=c('.value', 'year'), 
-          names_pattern='(nonhousw|earnings|spousern|wedstate)(\\d+)'
+          names_pattern='(nonhousw|housingw|earnings|spousern|wedstate)(\\d+)'
       ) |>
       mutate(
         year=as.integer(year),
@@ -97,8 +102,10 @@ feh_to_long = function(data)
           earnings      = earnings / pidx1958 * pindex,
           spousern      = spousern / pidx1958 * pindex,
           famearn       = earnings+spousern,
-          finwealth_ae  = finwealth,
-          finwealth     = finwealth * windex
+          finwealth_ae  = (finwealth) / 10000 + 0.342,
+          finwealth     = finwealth_ae * windex,
+          housingw_ae   = housingw / 10000,
+          housingw      = housingw * windex
           )
   return(df)
 }
@@ -108,34 +115,39 @@ fehdf = feh_to_long(dyndf)
 sasdf = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/earn_wealth.csv") |>
       rename_with(tolower) |>
       filter(doby==yob) |>
+      left_join(pwidx, by="year") |>
       group_by(pernum) |>
       rename(finwealth=fwealth) |>
       mutate(
         age=year-doby,
-        age_died = dody-doby
+        age_died = dody-doby,
+        finwealth_ae = finwealth/windex
         ) |>
       filter(age_died >=65, age<=65, age>=20)
 
 sasresidf = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/resid_wealth.csv") |>
     rename_with(tolower) |>
-    pivot_longer(-pernum, names_to = 'year', names_prefix = 'noiseew', values_to = 'noise_ew') |>
+    pivot_longer(-c(pernum, erroruw), names_to = 'year', names_prefix = 'noiseew', values_to = 'ynoisecy') |>
     mutate(year=as.integer(year))
 
 saswlthx = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/wlthx.csv") |>
     rename_with(tolower) |>
+    rename(year=currentyear) |>
+    left_join(sasresidf, by=c("pernum","year")) |>
     mutate(
-        age         = currentyear-doby,
+        age         = year-doby,
         icat        = case_when(
             age<=50 & mstatus==1 ~ 1,
             age<=50 & mstatus >1 ~ 2,
             age >50 & mstatus==1 ~ 3,
             age >50 & mstatus >1 ~ 4
         ),
+        ywealth     = wlthyy,
         #ylogwlth 
         #ynoisein
         #ynoisecy
         #ypsidoff
-        intercpt    = intercpt,
+        intercpt    = if_else(icat %in% c(1,2), intercpt, 0),
         cpveavg     = if_else(icat == 3, hrsfpven, 0),
         pcpveavg    = case_when(icat %in% c(1,2) ~ pcpvent, icat == 4 ~ hrshpven),
         #spveavg not used
@@ -176,6 +188,8 @@ saswlthx = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/wlthx
         pernum,
         age,
         icat,
+        ywealth,
+        ynoisecy,
         intercpt,
         cpveavg,
         pcpveavg,
@@ -215,10 +229,10 @@ saswlthx = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/wlthx
     
 common_pernums = intersect(unique(fehdf$pernum), unique(sasdf$pernum))
 
-wlthvars=c('pernum', 'age', 'finwealth')
+wlthvars=c('pernum', 'age', 'finwealth', 'finwealth_ae','housingw','earnings','spousern')
 wlthdf = bind_rows(
-  fehdf |> filter(pernum %in% common_pernums) |> select(all_of(wlthvars)) |> mutate(dataset='FEH'),
-  sasdf |> filter(pernum %in% common_pernums) |> select(all_of(wlthvars)) |> mutate(dataset='SAS')
+  fehdf |> filter(pernum %in% common_pernums) |> select(any_of(wlthvars)) |> mutate(dataset='FEH'),
+  sasdf |> filter(pernum %in% common_pernums) |> select(any_of(wlthvars)) |> mutate(dataset='SAS')
 )
 
 xvars = names(fehwlthx)[-(1:2)]
@@ -228,6 +242,24 @@ wlthx = bind_rows(
   saswlthx |> filter(pernum %in% common_pernums) |> mutate(dataset='SAS')
 )
 
+common_xvars = intersect(intersect(names(fehwlthx), names(saswlthx)), unique(fwlth_coefs$varname))
+
+for(i in 1:4) {
+    tmpdf = wlthx |> filter(icat==i)
+    x = as.matrix( tmpdf |> select(all_of(common_xvars))) 
+    beta = (fwlth_coefs |> filter(icat==i) |> filter(varname %in% common_xvars) |> select(coef) |> pull())
+    xb = as.data.frame(t(t(x)*beta))
+    xb['pernum'] = tmpdf$pernum
+    xb['age'] = tmpdf$age
+    xb['dataset'] = tmpdf$dataset
+    xb['icat'] = i
+    if(i==1) {
+        wlthxb = xb        
+    }
+    else {
+        wlthxb = bind_rows(wlthxb, xb)
+    }
+}
 ```
 
 
@@ -235,7 +267,8 @@ wlthx = bind_rows(
 
 ```{r}
 selectInput('perid', 'Person ID', c("Mean", as.character(sort(common_pernums))))
-#selectInput('perid', 'Person ID', sort(common_pernums))
+
+selectInput('yvar', 'Outcome', wlthvars[-(1:2)])
 
 selectInput('xvar', 'X Variable', xvars)
 
@@ -251,18 +284,21 @@ plotOutput("fwealthIndPlot")
 plotOutput("xvarPlot")
 ```
 
+```{r}
+plotOutput("xbetaPlot")
+```
 
 ```{r}
 #| context: server
 
-ageint = 27:65
+ageint = 25:65
 
 plotdf1 <- reactive({
     if(input$perid == 'Mean') {
         wlthdf |>
             dplyr::filter(age %in% ageint) |>
             group_by(age, dataset) |>
-            summarise(finwealth = mean(finwealth))
+            summarise("{input$yvar}" := mean(.data[[input$yvar]], na.rm = TRUE))
     }
     else {
         dplyr::filter(wlthdf, pernum==input$perid, age %in% ageint)
@@ -274,21 +310,43 @@ plotdf2 <- reactive({
         wlthx |>
             dplyr::filter(age %in% ageint) |>
             group_by(age, dataset) |>
-            summarise("{input$xvar}" := mean(.data[[input$xvar]]))
+            summarise("{input$xvar}" := mean(.data[[input$xvar]], na.rm = TRUE))
     }
     else {
         dplyr::filter(wlthx, pernum==input$perid, age %in% ageint)
     }
 })
 
+plotdf3 <- reactive({
+    if(input$xvar %in% names(wlthxb)) {
+        if(input$perid == 'Mean') {
+            wlthxb |>
+                dplyr::filter(age %in% ageint) |>
+                group_by(age, dataset) |>
+                summarise("{input$xvar}" := mean(.data[[input$xvar]], na.rm = TRUE))
+        }
+        else {
+            dplyr::filter(wlthxb, pernum==input$perid, age %in% ageint)
+        }
+    }
+})
+
+
 output$fwealthIndPlot = renderPlot({
    ggplot(plotdf1()) +
-     geom_line(aes(x=age, y=finwealth, color=dataset))
+     geom_line(aes(x=age, y=!!sym(input$yvar), color=dataset))
 })
 
 output$xvarPlot = renderPlot({
    ggplot(plotdf2()) +
      geom_line(aes(x=age, y=!!sym(input$xvar), color=dataset))
+})
+
+output$xbetaPlot = renderPlot({
+    if(input$xvar %in% names(plotdf3())) {
+       ggplot(plotdf3()) +
+         geom_line(aes(x=age, y=!!sym(input$xvar), color=dataset))
+    }
 })
 
 ```
