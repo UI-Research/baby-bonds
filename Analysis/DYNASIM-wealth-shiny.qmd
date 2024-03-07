@@ -50,7 +50,7 @@ keep_cols = c(
 ```{r}
 #| label: read-new-feh
 #| context: data
-#| cache: false
+#| cache: true
 #| echo: false
 #| output: false
 
@@ -224,7 +224,10 @@ saswlthx = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/wlthx
         widowed,
         hagewid,
         hagenmar
-    )    
+    ) |>
+    mutate(
+        ynoisecy = if_else(age>=51, 0, ynoisecy)
+    )
 
     
 common_pernums = intersect(unique(fehdf$pernum), unique(sasdf$pernum))
@@ -350,3 +353,4 @@ output$xbetaPlot = renderPlot({
 })
 
 ```
+
