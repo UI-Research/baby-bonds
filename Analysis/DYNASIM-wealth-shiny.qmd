@@ -45,17 +45,12 @@ keep_cols = c(
 
 ```
 
-
-
 ```{r}
-#| label: read-new-feh
+#| label: read-coefs
 #| context: data
 #| cache: true
 #| echo: false
 #| output: false
-
-fehdir        = "C:/Users/dcosic/Dynasim/Dynasim-wealth/Dynasim-core/run/output/output2/"
-dyndf         = read_feh(fehdir, columns=keep_cols)
 
 # Read coefficients for the financial wealth equation
 text = grep('^\\d.+', readLines("C:/Users/dcosic/Dynasim/Dynasim-wealth/Dynasim-core/run/coefs/NONHWLTH_COEFS.CSV"), value=TRUE)
@@ -68,49 +63,48 @@ fwlth_coefs = read.csv(textConnection(text), header=FALSE) |>
     select(-num) |>
     pivot_longer(starts_with('icat'), names_to='icat', names_prefix='icat', values_to='coef') |>
     mutate(icat = as.integer(icat)) 
-#|>    pivot_wider(id_cols=icat, names_from=varname, values_from=coef)
+
+```
+
+```{r}
+#| label: read-feh1
+#| context: data
+#| cache: true
+#| echo: false
+#| output: false
+
+fehdir1        = "C:/Users/dcosic/Dynasim/Dynasim-wealth/Dynasim-core/run/output/output2/"
+dyndf1         = read_feh(fehdir1, columns=keep_cols)
 
 # Read covariates in the financial wealth equation
-fehwlthx = read_csv(paste0(fehdir, 'nonhwlth_dump.csv')) |>
+fehwlthx1 = read_csv(paste0(fehdir1, 'nonhwlth_dump.csv')) |>
+    rename_with(tolower) |>
+    mutate(ywealth=ywealth+0.342)
+```
+
+```{r}
+#| label: read-feh2
+#| context: data
+#| cache: true
+#| echo: false
+#| output: false
+
+fehdir2        = "C:/Users/dcosic/Dynasim/Dynasim-wealth/Dynasim-core/run/output/output5/"
+dyndf2         = read_feh(fehdir2, columns=keep_cols)
+
+# Read covariates in the financial wealth equation
+fehwlthx2 = read_csv(paste0(fehdir2, 'nonhwlth_dump.csv')) |>
     rename_with(tolower) |>
     mutate(ywealth=ywealth+0.342)
 
-feh_to_long = function(data)
-{
+```
 
-  df = data |> 
-      rename_with(tolower) |> 
-      filter(doby==yob) |>
-      pivot_longer(
-          matches('nonhousw.*|housingw.*|earnings.*|spousern.*|wedstate.*'), 
-          names_to=c('.value', 'year'), 
-          names_pattern='(nonhousw|housingw|earnings|spousern|wedstate)(\\d+)'
-      ) |>
-      mutate(
-        year=as.integer(year),
-        age=as.integer(year-doby),
-        age_died = as.integer(yeardied-doby)
-        ) |>
-      filter(year>=yob, age_died >=65, age<=65, age>=20) |>
-      rename(finwealth=nonhousw)
-
-  
-  df = left_join(df, pwidx, by="year")
-  
-  df = df |>
-      mutate(
-          earnings      = earnings / pidx1958 * pindex,
-          spousern      = spousern / pidx1958 * pindex,
-          famearn       = earnings+spousern,
-          finwealth_ae  = (finwealth) / 10000 + 0.342,
-          finwealth     = finwealth_ae * windex,
-          housingw_ae   = housingw / 10000,
-          housingw      = housingw * windex
-          )
-  return(df)
-}
-
-fehdf = feh_to_long(dyndf)
+```{r}
+#| label: read-sas
+#| context: data
+#| cache: true
+#| echo: false
+#| output: false
 
 sasdf = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/earn_wealth.csv") |>
       rename_with(tolower) |>
@@ -229,23 +223,68 @@ saswlthx = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/wlthx
         ynoisecy = if_else(age>=51, 0, ynoisecy)
     )
 
+```
+
+
+
+```{r}
+#| label: make-data
+#| context: data
+#| cache: false
+#| echo: false
+#| output: false
+
+feh_to_long = function(data)
+{
+
+  df = data |> 
+      feh_wide_to_long() |> 
+      filter(doby==yob) |>
+      mutate(
+        age=as.integer(year-doby),
+        age_died = as.integer(yeardied-doby)
+        ) |>
+      filter(year>=yob, age_died >=65, age<=65, age>=20) |>
+      rename(finwealth=nonhousw)
+
+  df = left_join(df, pwidx, by="year")
+  
+  df = df |>
+      mutate(
+          earnings      = earnings / pidx1958 * pindex,
+          spousern      = spousern / pidx1958 * pindex,
+          famearn       = earnings+spousern,
+          finwealth_ae  = (finwealth) / 10000 + 0.342,
+          finwealth     = finwealth_ae * windex,
+          housingw_ae   = housingw / 10000,
+          housingw      = housingw * windex
+          )
+  return(df)
+}
+
+fehdf1 = feh_to_long(dyndf1)
+fehdf2 = feh_to_long(dyndf2)
+
+
     
-common_pernums = intersect(unique(fehdf$pernum), unique(sasdf$pernum))
+common_pernums = intersect(unique(fehdf1$pernum), unique(sasdf$pernum))
 
 wlthvars=c('pernum', 'age', 'finwealth', 'finwealth_ae','housingw','earnings','spousern')
 wlthdf = bind_rows(
-  fehdf |> filter(pernum %in% common_pernums) |> select(any_of(wlthvars)) |> mutate(dataset='FEH'),
-  sasdf |> filter(pernum %in% common_pernums) |> select(any_of(wlthvars)) |> mutate(dataset='SAS')
+  fehdf1 |> filter(pernum %in% common_pernums) |> select(any_of(wlthvars)) |> mutate(dataset='FEH1'),
+  fehdf2 |> filter(pernum %in% common_pernums) |> select(any_of(wlthvars)) |> mutate(dataset='FEH2'),
+  sasdf  |> filter(pernum %in% common_pernums) |> select(any_of(wlthvars)) |> mutate(dataset='SAS')
 )
 
-xvars = names(fehwlthx)[-(1:2)]
+xvars = names(fehwlthx1)[-(1:2)]
 
 wlthx = bind_rows(
-  fehwlthx |> filter(pernum %in% common_pernums) |> mutate(dataset='FEH'),
-  saswlthx |> filter(pernum %in% common_pernums) |> mutate(dataset='SAS')
+  fehwlthx1 |> filter(pernum %in% common_pernums) |> mutate(dataset='FEH1'),
+  fehwlthx2 |> filter(pernum %in% common_pernums) |> mutate(dataset='FEH2'),
+  saswlthx  |> filter(pernum %in% common_pernums) |> mutate(dataset='SAS')
 )
 
-common_xvars = intersect(intersect(names(fehwlthx), names(saswlthx)), unique(fwlth_coefs$varname))
+common_xvars = intersect(intersect(names(fehwlthx1), names(saswlthx)), unique(fwlth_coefs$varname))
 
 for(i in 1:4) {
     tmpdf = wlthx |> filter(icat==i)
