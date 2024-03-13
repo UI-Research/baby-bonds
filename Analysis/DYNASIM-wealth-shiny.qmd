@@ -20,6 +20,9 @@ library(modelsummary)
 library(urbnthemes)
 set_urbn_defaults(style = "print")
 
+show_xb = TRUE
+wlth_offset = 0.
+
 source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
 
 pidx = read_csv(paste0(here::here(), "/pindex.csv"))
@@ -40,7 +43,8 @@ keep_cols = c(
   paste0('HOUSINGW', 2006:last_year),
   paste0('EARNINGS', 2006:last_year),
   paste0('SPOUSERN', 2006:last_year),
-  paste0('WEDSTATE', 1951:last_year)
+  paste0('WEDSTATE', 1951:last_year),
+  paste0('SPOUSID',  1951:last_year)
   )
 
 ```
@@ -73,30 +77,41 @@ fwlth_coefs = read.csv(textConnection(text), header=FALSE) |>
 #| echo: false
 #| output: false
 
-fehdir1        = "C:/Users/dcosic/Dynasim/Dynasim-wealth/Dynasim-core/run/output/output2/"
+#fehdir1        = "C:/Users/dcosic/Dynasim/Dynasim-wealth/Dynasim-core/run/output/output2/"
+fehdir1        = "X:/FEHOutput/run_01006/base_v7/"
 dyndf1         = read_feh(fehdir1, columns=keep_cols)
 
 # Read covariates in the financial wealth equation
-fehwlthx1 = read_csv(paste0(fehdir1, 'nonhwlth_dump.csv')) |>
-    rename_with(tolower) |>
-    mutate(ywealth=ywealth+0.342)
+
+xbfile1 = paste0(fehdir1, 'nonhwlth_dump.csv')
+if( file.exists(xbfile1) ) {
+    fehwlthx1 = read_csv(xbfile1) |>
+        rename_with(tolower) |>
+        mutate(ywealth=ywealth+wlth_offset)
+} else {
+    show_xb = FALSE
+}
 ```
 
 ```{r}
 #| label: read-feh2
 #| context: data
-#| cache: true
+#| cache: false
 #| echo: false
 #| output: false
 
-fehdir2        = "C:/Users/dcosic/Dynasim/Dynasim-wealth/Dynasim-core/run/output/output5/"
+fehdir2        = "X:/FEHOutput/run_01006/base_v8/"
 dyndf2         = read_feh(fehdir2, columns=keep_cols)
 
 # Read covariates in the financial wealth equation
-fehwlthx2 = read_csv(paste0(fehdir2, 'nonhwlth_dump.csv')) |>
-    rename_with(tolower) |>
-    mutate(ywealth=ywealth+0.342)
-
+xbfile2 = paste0(fehdir2, 'nonhwlth_dump.csv')
+if( file.exists(xbfile2) ) {
+    fehwlthx2 = read_csv(paste0(fehdir2, 'nonhwlth_dump.csv')) |>
+        rename_with(tolower) |>
+        mutate(ywealth=ywealth+wlth_offset)
+} else {
+    show_xb = FALSE
+}
 ```
 
 ```{r}
@@ -117,7 +132,9 @@ sasdf = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/earn_wea
         age_died = dody-doby,
         finwealth_ae = finwealth/windex
         ) |>
-      filter(age_died >=65, age<=65, age>=20)
+      filter(age_died >=65, age<=65, age>=20) |>
+      select(-age_died)
+    
 
 sasresidf = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/resid_wealth.csv") |>
     rename_with(tolower) |>
@@ -245,7 +262,8 @@ feh_to_long = function(data)
         age_died = as.integer(yeardied-doby)
         ) |>
       filter(year>=yob, age_died >=65, age<=65, age>=20) |>
-      rename(finwealth=nonhousw)
+      rename(finwealth=nonhousw) |>
+      select(-age_died)
 
   df = left_join(df, pwidx, by="year")
   
@@ -254,10 +272,10 @@ feh_to_long = function(data)
           earnings      = earnings / pidx1958 * pindex,
           spousern      = spousern / pidx1958 * pindex,
           famearn       = earnings+spousern,
-          finwealth_ae  = (finwealth) / 10000 + 0.342,
+          finwealth_ae  = (finwealth) / 10000 + wlth_offset,
           finwealth     = finwealth_ae * windex,
           housingw_ae   = housingw / 10000,
-          housingw      = housingw * windex
+          housingw      = housingw_ae * windex
           )
   return(df)
 }
@@ -276,30 +294,32 @@ wlthdf = bind_rows(
   sasdf  |> filter(pernum %in% common_pernums) |> select(any_of(wlthvars)) |> mutate(dataset='SAS')
 )
 
-xvars = names(fehwlthx1)[-(1:2)]
-
-wlthx = bind_rows(
-  fehwlthx1 |> filter(pernum %in% common_pernums) |> mutate(dataset='FEH1'),
-  fehwlthx2 |> filter(pernum %in% common_pernums) |> mutate(dataset='FEH2'),
-  saswlthx  |> filter(pernum %in% common_pernums) |> mutate(dataset='SAS')
-)
-
-common_xvars = intersect(intersect(names(fehwlthx1), names(saswlthx)), unique(fwlth_coefs$varname))
-
-for(i in 1:4) {
-    tmpdf = wlthx |> filter(icat==i)
-    x = as.matrix( tmpdf |> select(all_of(common_xvars))) 
-    beta = (fwlth_coefs |> filter(icat==i) |> filter(varname %in% common_xvars) |> select(coef) |> pull())
-    xb = as.data.frame(t(t(x)*beta))
-    xb['pernum'] = tmpdf$pernum
-    xb['age'] = tmpdf$age
-    xb['dataset'] = tmpdf$dataset
-    xb['icat'] = i
-    if(i==1) {
-        wlthxb = xb        
-    }
-    else {
-        wlthxb = bind_rows(wlthxb, xb)
+if( show_xb ) {
+    xvars = names(fehwlthx2)[-(1:2)]
+    
+    wlthx = bind_rows(
+      fehwlthx1 |> filter(pernum %in% common_pernums) |> mutate(dataset='FEH1'),
+      fehwlthx2 |> filter(pernum %in% common_pernums) |> mutate(dataset='FEH2'),
+      saswlthx  |> filter(pernum %in% common_pernums) |> mutate(dataset='SAS')
+    )
+    
+    common_xvars = intersect(intersect(names(fehwlthx2), names(saswlthx)), unique(fwlth_coefs$varname))
+    
+    for(i in 1:4) {
+        tmpdf = wlthx |> filter(icat==i)
+        x = as.matrix( tmpdf |> select(all_of(common_xvars))) 
+        beta = (fwlth_coefs |> filter(icat==i) |> filter(varname %in% common_xvars) |> select(coef) |> pull())
+        xb = as.data.frame(t(t(x)*beta))
+        xb['pernum'] = tmpdf$pernum
+        xb['age'] = tmpdf$age
+        xb['dataset'] = tmpdf$dataset
+        xb['icat'] = i
+        if(i==1) {
+            wlthxb = xb        
+        }
+        else {
+            wlthxb = bind_rows(wlthxb, xb)
+        }
     }
 }
 ```
@@ -308,11 +328,14 @@ for(i in 1:4) {
 # {.sidebar}
 
 ```{r}
-selectInput('perid', 'Person ID', c("Mean", as.character(sort(common_pernums))))
+selectInput('perid', 'Person ID', 
+            c("Mean", "1st quartile", "Median", "3rd quartile", "Mean change", as.character(sort(common_pernums))))
 
 selectInput('yvar', 'Outcome', wlthvars[-(1:2)])
 
-selectInput('xvar', 'X Variable', xvars)
+if(show_xb) {
+    selectInput('xvar', 'X Variable', xvars)
+}
 
 ```
 
@@ -323,11 +346,15 @@ plotOutput("fwealthIndPlot")
 ```
 
 ```{r}
-plotOutput("xvarPlot")
+if(show_xb) {
+    plotOutput("xvarPlot")
+}
 ```
 
 ```{r}
-plotOutput("xbetaPlot")
+if(show_xb) {
+    plotOutput("xbetaPlot")
+}
 ```
 
 ```{r}
@@ -341,6 +368,32 @@ plotdf1 <- reactive({
             dplyr::filter(age %in% ageint) |>
             group_by(age, dataset) |>
             summarise("{input$yvar}" := mean(.data[[input$yvar]], na.rm = TRUE))
+    }
+    else if(input$perid == '1st quartile') {
+        wlthdf |>
+            dplyr::filter(age %in% ageint) |>
+            group_by(age, dataset) |>
+            summarise("{input$yvar}" := quantile(.data[[input$yvar]], probs=.25, na.rm = TRUE))
+    }
+    else if(input$perid == 'Median') {
+        wlthdf |>
+            dplyr::filter(age %in% ageint) |>
+            group_by(age, dataset) |>
+            summarise("{input$yvar}" := median(.data[[input$yvar]], na.rm = TRUE))
+    }
+    else if(input$perid == '3rd quartile') {
+        wlthdf |>
+            dplyr::filter(age %in% ageint) |>
+            group_by(age, dataset) |>
+            summarise("{input$yvar}" := quantile(.data[[input$yvar]], probs=.75, na.rm = TRUE))
+    }
+    else if(input$perid == 'Mean change') {
+        wlthdf |>
+            dplyr::filter(age %in% ageint) |>
+            group_by(age, dataset) |>
+            summarise(tmp = mean(.data[[input$yvar]], na.rm = TRUE)) |>
+            group_by(dataset) |>
+            mutate("{input$yvar}" := tmp/lag(tmp)-1) |> select(-tmp)
     }
     else {
         dplyr::filter(wlthdf, pernum==input$perid, age %in% ageint)
