@@ -15,8 +15,8 @@ server: shiny
 
 library(Hmisc)
 library(tidyverse)
-#library(urbnthemes)
-#set_urbn_defaults(style = "print")
+library(urbnthemes)
+set_urbn_defaults(style = "print")
 
 source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
 
@@ -24,10 +24,10 @@ source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
 obs = NA
 weight = 2537
 first_year= 2006
-last_year = 2040
+last_year = 2060
 
 years  = first_year:last_year
-birth_years = 1980:2000
+birth_years = 1980:2040
 ages   = 16:40
 grades = 12:16
 sexes = c("All", "Men", "Women")
@@ -67,13 +67,11 @@ out2var = function(outcome, cumulative=FALSE)
 #| label: read-feh0
 #| context: data
 #| cache: true
-#| cache-vars: fehdf0
+#| echo: false
 #| output: false
 
-fehdir0       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/base/"
-fehfile0      = paste0(fehdir0, "dynasipp_person_even.dat")
-codebookfile0 = paste0(fehdir0, "codebook_2100ds.sipp2006")
-fehdf0        = read_feh(codebookfile0, fehfile0, columns=keep_cols, obs_count=obs)
+fehdir0        = "X:/FEHOutput/run_01006/base_v8/"
+fehdf0         = read_feh(fehdir0, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset="FEH0")
 ```
 
@@ -81,13 +79,11 @@ fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset="FEH0")
 #| label: read-feh1
 #| context: data
 #| cache: true
-#| cache-vars: fehdf1
+#| echo: false
 #| output: false
 
-fehdir1       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/base_v3/"
-fehfile1      = paste0(fehdir1, "dynasipp_person_even.dat")
-codebookfile1 = paste0(fehdir1, "codebook_2100ds.sipp2006")
-fehdf1        = read_feh(codebookfile1, fehfile1, columns=keep_cols, obs_count=obs)
+fehdir1        = "X:/FEHOutput/run_01006/base_v10/"
+fehdf1         = read_feh(fehdir1, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf1) |> mutate(dataset="FEH1")
 ```
 
@@ -95,20 +91,19 @@ fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf1) |> mutate(dataset="FEH1")
 #| label: read-feh2
 #| context: data
 #| cache: true
-#| cache-vars: fehdf2
+#| eval: true
+#| echo: false
 #| output: false
 
 
-fehdir2       = "C:/Users/DCosic/Documents/Dynasim-add-college/Dynasim-core/run/output/base_v4/"
-fehfile2      = paste0(fehdir2, "dynasipp_person_even.dat")
-codebookfile2 = paste0(fehdir2, "codebook_2100ds.sipp2006")
-fehdf2        = read_feh(codebookfile2, fehfile2, columns=keep_cols, obs_count=obs)
+fehdir2        = "X:/FEHOutput/run_01006/base_v11/"
+fehdf2         = read_feh(fehdir2, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf2) |> mutate(dataset="FEH2")
 ```
 
 ```{r}
 #| context: data
-#| cache: true
+#| cache: false
 
 fehdf = bind_rows(fehdfs) |>
     mutate(
@@ -132,8 +127,9 @@ fehdf = bind_rows(fehdfs) |>
 tmpdf1 = fehdf |> 
     filter(age %in% ages, year %in% years, gradecat %in% grades) |>
     count(age, sex, race, year, gradecat, dataset, wt=weight) |>
-    arrange(dataset, year, sex, race, age, gradecat) |>
     group_by(dataset, year, sex, race, age) |>
+    complete(gradecat=12:16, fill=list(n=0)) |>
+    arrange(dataset, year, sex, race, age, gradecat) |>
     mutate(
         cumn     = cumsum(n),
         share    = n/sum(n),
@@ -166,12 +162,19 @@ tmpdf3 = tmpdf2b |>
 
 educByAgeYearSexRace = bind_rows(tmpdf2b, tmpdf3)
 
+stopifnot(dim(educByAgeYearSexRace |> 
+    arrange(dataset, year, sex, race, age, gradecat) |> 
+    group_by(dataset, year, sex, race, age) |> 
+    mutate(testcumn=cumsum(n), diff=testcumn-cumn) |> 
+    filter(diff>0))[1] == 0)
+
 # By age, birth year, race, and sex
 tmpdf1 = fehdf |> 
     filter(age %in% ages, doby %in% birth_years, gradecat %in% grades) |>
     count(age, sex, race, doby, gradecat, dataset, wt=weight) |>
-    arrange(dataset, doby, sex, race, age, gradecat) |>
     group_by(dataset, doby, sex, race, age) |>
+    complete(gradecat=12:16, fill=list(n=0)) |>
+    arrange(dataset, doby, sex, race, age, gradecat) |>
     mutate(
         cumn     = cumsum(n),
         share    = n/sum(n),
@@ -201,6 +204,13 @@ tmpdf3 = tmpdf2b |>
         )
 
 educByAgeBCohSexRace = bind_rows(tmpdf2b, tmpdf3)
+
+stopifnot(dim(educByAgeBCohSexRace |> 
+    arrange(dataset, doby, sex, race, age, gradecat) |> 
+    group_by(dataset, doby, sex, race, age) |> 
+    mutate(testcumn=cumsum(n), diff=testcumn-cumn) |> 
+    filter(diff>0))[1] == 0)
+
 ```
 
 
