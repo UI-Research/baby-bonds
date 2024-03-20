@@ -3,6 +3,8 @@
 # Read the raw data
 nlsydf = readRDS(paste0(here::here(), "/NLSY/NLSY-college-finance.rds"))
 
+# Imputed data file
+nlsy_imp_file = paste0(here::here(), '/NLSY/imputed_data.csv')
 
 #' Returns the NLSY dataframe with basic demographic information
 #'
@@ -38,6 +40,7 @@ nlsy_get_base_df = function()
 
     basedf = basedf |>
         mutate(
+            sex = droplevels(sex),
             race = droplevels(race),
             has_retsav = case_when(
                 has_retsav=='YES' ~ 1,
@@ -934,5 +937,34 @@ nlsy_make_spell_df = function(spell_type='all')
     }
 
     return(colenrdf)
+}
+
+nlsy_get_imputed = function()
+{
+    df = readr::read_csv(nlsy_imp_file)
+
+    df |> mutate(
+        mom_educ = factor(mom_educ, levels=nlsy_get_educ5_levels(), ordered=TRUE),
+        dad_educ = factor(dad_educ, levels=nlsy_get_educ5_levels(), ordered=TRUE),
+    )
+}
+
+nlsy_encode_parents_educ = function(mom_ed, dad_ed, encoding='max')
+{
+    if(encoding=='max') {
+        return(pmax({{mom_ed}}, {{dad_ed}}))
+    }
+    else if(encoding=='college') {
+        return(factor(
+            as.integer({{mom_ed}} >= 'College degree') +
+            as.integer({{dad_ed}} >= 'College degree'),
+            labels=c("No college", "One college diploma", "Two college diplomas"),
+            ordered = TRUE
+            )
+        )
+    }
+    else {
+        stop("Unknown ecoding of parents education", encoding)
+    }
 }
 

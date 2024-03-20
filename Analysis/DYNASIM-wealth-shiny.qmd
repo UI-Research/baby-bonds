@@ -1,0 +1,196 @@
+---
+title: "DYNASIM Wealth Interactive"
+format: dashboard
+server: shiny
+---
+
+```{r}
+#| echo: false
+#| output: false
+#| context: setup
+
+
+library(Hmisc)
+library(tidyverse)
+library(margins)
+library(scales)
+library(ggridges)
+library(modelsummary)
+library(urbnthemes)
+set_urbn_defaults(style = "print")
+
+source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
+
+pidx = read_csv(paste0(here::here(), "/pindex.csv"))
+widx = read_csv(paste0(here::here(), "/windex.csv"))
+pwidx = left_join(pidx, widx, by='year')
+
+yob = 1990
+pidx1958 = pidx |> filter(year==1958) |> select(pindex) |> pull()
+last_year = 2060
+keep_cols = c(
+  'PERNUM', 
+  'DOBY', 
+  'SEX', 
+  'ETHNCTY', 
+  'YEARDIED', 
+  paste0('NONHOUSW', 2006:last_year),
+  paste0('EARNINGS', 2006:last_year),
+  paste0('SPOUSERN', 2006:last_year),
+  paste0('WEDSTATE', 1951:last_year)
+  )
+
+```
+
+
+
+```{r}
+#| label: read-new-feh
+#| context: data
+#| cache: true
+#| echo: false
+#| output: false
+
+fehdir        = "C:/Users/dcosic/Documents/Dynasim/Dynasim-core/run/"
+fehfile       = paste0(fehdir, "dynasipp_person_even.dat")
+codebookfile  = paste0(fehdir, "codebook_2100ds.sipp2006")
+dyndf         = read_feh(codebookfile, fehfile, columns=keep_cols)
+
+# Read coefficients for the financial wealth equation
+text = grep('^\\d.+', readLines(paste0(fehdir, 'coefs/NONHWLTH_COEFS.CSV')), value=TRUE)
+fwlth_coefs = read.csv(textConnection(text), header=FALSE) |>
+  rename(num=1, varname=2, icat1=3, icat2=4, icat3=5, icat4=6)
+
+# Read covariates in the financial wealth equation
+wlthx = read_csv(paste0(fehdir, 'nonhwlth_dump.csv')) |>
+    rename_with(tolower) 
+
+# TODO: 
+# Select a subset of covariates we're interested in
+# Multiply covariates by coefficients
+# as.matrix(wlthx[1:3,]) * fwlth_coefs$icat1
+
+feh_to_long = function(data)
+{
+
+  df = data |> 
+      rename_with(tolower) |> 
+      filter(doby==yob) |>
+      pivot_longer(
+          matches('nonhousw.*|earnings.*|spousern.*|wedstate.*'), 
+          names_to=c('.value', 'year'), 
+          names_pattern='(nonhousw|earnings|spousern|wedstate)(\\d+)'
+      ) |>
+      mutate(
+        year=as.integer(year),
+        age=as.integer(year-doby),
+        age_died = as.integer(yeardied-doby)
+        ) |>
+      filter(year>=yob, age_died >=65, age<=65, age>=20) |>
+      rename(finwealth=nonhousw)
+
+  
+  df = left_join(df, pwidx, by="year")
+  
+  df = df |>
+      mutate(
+          earnings      = earnings / pidx1958 * pindex,
+          spousern      = spousern / pidx1958 * pindex,
+          famearn       = earnings+spousern,
+          finwealth_ae  = finwealth,
+          finwealth     = finwealth * windex
+          )
+  return(df)
+}
+
+fehdf = feh_to_long(dyndf)
+
+sasdf = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/earn_wealth.csv") |>
+      rename_with(tolower) |>
+      filter(doby==yob) |>
+      group_by(pernum) |>
+      rename(finwealth=fwealth) |>
+      mutate(
+        age=year-doby,
+        age_died = dody-doby
+        ) |>
+      filter(age_died >=65, age<=65, age>=20)
+
+sasresidf = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/resid_wealth.csv") |>
+    rename_with(tolower) |>
+    pivot_longer(-pernum, names_to = 'year', names_prefix = 'noiseew', values_to = 'noise_ew') |>
+    mutate(year=as.integer(year))
+
+saswlthx = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/wlthx.csv") |>
+    rename_with(tolower) |>
+    mutate(
+        age=currentyear-doby,
+        icat = case_when(
+            age<=50 & mstatus==1 ~ 1,
+            age<=50 & mstatus >1 ~ 2,
+            age>=51 & mstatus==1 ~ 3,
+            age>=51 & mstatus >1 ~ 4
+        ))
+# |>
+#    select(pernum, age, icat, wlth=wlthYY, intercpt, cpveavg,  pcpveavg=pcpvent)
+# TODO: Rename SAS covariates using names from FEH equation
+#           "spveavg"  "hmeavg5"  "yrsabove" "fyrsabov"
+#  "buyhome5" "sldhome5" "hagesl30" "hagesl35" "hagesl40" "hagesl45" "hagesl50" "hagesl55" "hb35to39" "hb45to44" "hb45to49" "hb50to54" "hb55to59" "hb59to69"
+#  "hageownr" "hagerent" "hagemale" "hageblck" "hagehisp" "hagedrop" "hagecoll" "hageself" "hagessid" "hagepoor" "hagedc"   "hagedb"   "hagenkid" "hageyrwd"
+#  "sageself" "sagedrop" "sagecoll" "widowed"  "hagewid"  "hagenmar" "erroruw"  "errorew"  "fracvar")
+
+common_pernums = intersect(unique(fehdf$pernum), unique(sasdf$pernum))
+
+wlthvars=c('pernum', 'age', 'finwealth')
+wlthdf = bind_rows(
+  fehdf |> filter(pernum %in% common_pernums) |> select(all_of(wlthvars)) |> mutate(dataset='FEH'),
+  sasdf |> filter(pernum %in% common_pernums) |> select(all_of(wlthvars)) |> mutate(dataset='SAS')
+)
+
+xvars = names(wlthx)[-(1:2)]
+```
+
+# {.sidebar}
+
+```{r}
+selectInput('perid', 'Person ID', sort(common_pernums))
+
+selectInput('xvar', 'X Variable', xvars)
+
+```
+
+# Column
+
+```{r}
+plotOutput("fwealthIndPlot")
+```
+
+```{r}
+plotOutput("xvarPlot")
+```
+
+
+```{r}
+#| context: server
+
+ageint = 27:65
+
+plotdf1 <- reactive({
+  dplyr::filter(wlthdf, pernum==input$perid, age %in% ageint)
+})
+
+plotdf2 <- reactive({
+  dplyr::filter(wlthx, pernum==input$perid, age %in% ageint)
+})
+
+output$fwealthIndPlot = renderPlot({
+   ggplot(plotdf1()) +
+     geom_line(aes(x=age, y=finwealth, color=dataset))
+})
+
+output$xvarPlot = renderPlot({
+   ggplot(plotdf2()) +
+     geom_line(aes(x=age, y=!!sym(input$xvar)))
+})
+
+```

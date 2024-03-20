@@ -1,0 +1,391 @@
+---
+title: "Wealth Simulation in DYNASIM"
+format:
+  html:
+    embed-resources: true
+editor: visual
+execute: 
+  echo: false
+  warning: false
+fig-cap-location: top
+toc: true
+toc-expand: true
+---
+
+```{r}
+library(Hmisc)
+library(tidyverse)
+library(margins)
+library(scales)
+library(ggridges)
+library(modelsummary)
+library(urbnthemes)
+set_urbn_defaults(style = "print")
+
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#
+#   IMPORTANT: THIS DOCUMENT REQUIRES RreadFEH
+#
+#   Clone repo https://github.com/UI-Research/RreadFEH
+#   into your local Baby-bonds copy as a top-level folder.
+#
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+source(paste0(here::here(), "RreadFEH/R/read_feh.R"))
+
+pidx = read_csv(paste0(here::here(), "/pindex.csv"))
+widx = read_csv(paste0(here::here(), "/windex.csv"))
+pwidx = left_join(pidx, widx, by='year')
+
+yob = 1990
+pidx1958 = pidx |> filter(year==1958) |> select(pindex) |> pull()
+last_year = 2060
+keep_cols = c(
+  'PERNUM', 
+  'DOBY', 
+  'SEX', 
+  'ETHNCTY', 
+  'YEARDIED', 
+  paste0('NONHOUSW', 2006:last_year),
+  paste0('EARNINGS', 2006:last_year),
+  paste0('SPOUSERN', 2006:last_year),
+  paste0('WEDSTATE', 1951:last_year)
+  )
+
+```
+
+```{r}
+#| label: read-base-feh
+#| cache: true
+#| cache-vars: dyndf
+
+fehdir = "S:/damir/run_1004/"
+fehfile <- paste0(fehdir, "dynasipp_person_even.dat")
+codebookfile = paste0(fehdir, "codebook_2100ds.sipp2006")
+dyndf = read_feh(codebookfile, fehfile, columns=keep_cols)
+```
+
+```{r}
+#| label: read-new-feh
+#| cache: true
+#| cache-vars: dyndf2
+
+fehdir2 = "C:/Users/dcosic/Documents/Dynasim/Dynasim-core/run/"
+fehfile2 <- paste0(fehdir2, "dynasipp_person_even.dat")
+codebookfile2 = paste0(fehdir2, "codebook_2100ds.sipp2006")
+dyndf2 = read_feh(codebookfile2, fehfile2, columns=keep_cols)
+
+wlthx2 = read_csv(paste0(fehdir2, 'nonhwlth_dump.csv')) |>
+    rename_with(tolower) 
+
+```
+
+```{r}
+#| label: read-sas-data
+
+sasdf = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/earn_wealth.csv") |>
+      rename_with(tolower)
+
+sasresidf = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/resid_wealth.csv") |>
+    rename_with(tolower) |>
+    pivot_longer(-pernum, names_to = 'year', names_prefix = 'noiseew', values_to = 'noise_ew') |>
+    mutate(year=as.integer(year))
+
+```
+
+```{r}
+
+
+feh_to_long = function(data)
+{
+
+  df = data |> 
+      rename_with(tolower) |> 
+      filter(doby==yob) |>
+      pivot_longer(
+          matches('nonhousw.*|earnings.*|spousern.*|wedstate.*'), 
+          names_to=c('.value', 'year'), 
+          names_pattern='(nonhousw|earnings|spousern|wedstate)(\\d+)'
+      ) |>
+      mutate(year=as.integer(year)) |>
+      rename(finwealth=nonhousw) |>
+      filter(year>=yob)
+  
+  
+  df = left_join(df, pwidx, by="year")
+  
+  df = df |>
+      mutate(
+          earnings      = earnings / pidx1958 * pindex,
+          spousern      = spousern / pidx1958 * pindex,
+          famearn       = earnings+spousern,
+          finwealth_ae  = finwealth,
+          finwealth     = finwealth * windex
+          )
+  return(df)
+}
+
+df = feh_to_long(dyndf)
+df2 = feh_to_long(dyndf2)
+```
+
+```{r}
+
+plot_df = bind_rows(
+  select(df, year, finwealth) |> mutate(dataset='FEH1'),
+  select(df2, year, finwealth) |> mutate(dataset='FEH2'),
+  select(sasdf, year, finwealth=fwealth) |> mutate(dataset='SAS')
+)
+
+plot_df |>
+  filter(year %in% c(2010,2020,2030,2040,2050,2060)) |>
+  ggplot() +
+  stat_ecdf(aes(x=log(finwealth), color=dataset), geom="step") +
+  facet_wrap(~year)
+
+plot_df |>
+  group_by(year, dataset) |>
+  summarise(finwealth=mean(finwealth)) |>
+  ggplot() +
+  geom_line(aes(x=year,y=finwealth,color=dataset))
+
+plot_df |>
+  group_by(year, dataset) |>
+  summarise(finwealth=sd(finwealth)) |>
+  ggplot() +
+  geom_line(aes(x=year,y=finwealth,color=dataset))
+  
+```
+
+```{r}
+#| label: fig-finwealth1
+#| layout: [[1,1,1]]
+#| fig-cap: "Financial wealth over a lifetime for people born in 1990. (Source: DYNASIM4 Run1004 FEH.)"
+#| fig-subcap: 
+#|  - "All observations"
+#|  - "Wealth less than $10M"
+#|  - "Wealth less than $1M"
+
+plot_df = df |>
+  group_by(pernum) |>
+  mutate(
+    age=as.integer(year-doby),
+    age_died = as.integer(yeardied-doby)
+    ) |>
+  filter(age_died >=65, age<=65, age>=20)
+
+plot_df |>
+  ggplot() +
+  geom_line(aes(x=age, y=finwealth, group=pernum), color="grey") +
+  xlab("Age") + ylab("Financial wealth (nominal dollars)")
+
+plot_df |>
+  filter(finwealth<1e7) |>
+  ggplot() +
+  geom_line(aes(x=age, y=finwealth, group=pernum), color="grey") +
+  xlab("Age") + ylab("Financial wealth (nominal dollars)")
+
+plot_df |>
+  filter(finwealth<1e6) |>
+  ggplot() +
+  geom_line(aes(x=age, y=finwealth, group=pernum), color="grey") +
+  xlab("Age") + ylab("Financial wealth (nominal dollars)")
+```
+
+```{r}
+
+wlthx_pernums = wlthx2 |> select(pernum) |> pull() |> unique()
+dfpernums = df |> select(pernum) |> pull() |> unique()
+wlth27_pernum = filter(wlthx2,age==27) |> select(pernum) |> pull() |> unique()
+common_pernums = intersect(wlth27_pernum, dfpernums)
+```
+
+```{r}
+
+perid = common_pernums[1]
+filter(wlthx2, pernum==perid)
+
+inddf = df2 |>
+  filter(pernum==perid) |>
+  mutate(
+    age=as.integer(year-doby),
+    age_died = as.integer(yeardied-doby)
+    ) |>
+  filter(age_died >=65, age<=65, age>=20)
+
+inddf = left_join(
+  inddf,
+  filter(wlthx2, pernum==perid),
+  by=c('pernum','age')
+)
+```
+
+```{r}
+inddf |>
+  ggplot() +
+    geom_line(aes(x=age, y=finwealth))
+
+```
+
+```{r}
+inddf |>
+  ggplot() +
+    geom_line(aes(x=age, y=exp(ylogwlth)))
+
+```
+
+```{r}
+inddf |>
+  ggplot() +
+    geom_line(aes(x=age, y=icat))
+
+```
+
+```{r}
+inddf |>
+  ggplot() +
+    geom_line(aes(x=age, y=ynoisein))
+
+```
+
+```{r}
+
+left_join(
+  inddf |>
+    rename(FEH=ynoisecy),
+  sasresidf |> 
+    filter(pernum==perid) |> 
+    rename(SAS=noise_ew),
+  by='year'
+) |>
+  select(age, FEH, SAS) |>
+  pivot_longer(-age, names_to = "dataset", values_to = "noise_ew") |>
+  ggplot() +
+    geom_line(aes(x=age, y=noise_ew, color=dataset))
+
+```
+
+```{r}
+#| label: fig-finwealth2
+#| layout: [[1,1,1]]
+#| fig-cap: "Financial wealth over a lifetime for people born in 1990. (Source: DYNASIM4 Run1004 FEH.)"
+#| fig-subcap: 
+#|  - "All observations"
+#|  - "Wealth less than $10M"
+#|  - "Wealth less than $1M"
+
+plot_df = df2 |>
+  group_by(pernum) |>
+  mutate(
+    age=as.integer(year-doby),
+    age_died = as.integer(yeardied-doby)
+    ) |>
+  filter(age_died >=65, age<=65, age>=20)
+
+plot_df |>
+  ggplot() +
+  geom_line(aes(x=age, y=finwealth, group=pernum), color="grey") +
+  xlab("Age") + ylab("Financial wealth (nominal dollars)")
+
+plot_df |>
+  filter(finwealth<1e7) |>
+  ggplot() +
+  geom_line(aes(x=age, y=finwealth, group=pernum), color="grey") +
+  xlab("Age") + ylab("Financial wealth (nominal dollars)")
+
+plot_df |>
+  filter(finwealth<1e6) |>
+  ggplot() +
+  geom_line(aes(x=age, y=finwealth, group=pernum), color="grey") +
+  xlab("Age") + ylab("Financial wealth (nominal dollars)")
+```
+
+```{r}
+#| label: fig-finwealth1-sas
+#| layout: [[1,1,1]]
+#| fig-cap: "Financial wealth over a lifetime for people born in 1990. (Source: DYNASIM4 Run1004 Postprocessing.)"
+#| fig-subcap: 
+#|  - "All observations"
+#|  - "Wealth less than $100K"
+#|  - "Wealth less than $50K"
+
+yob = 1990
+plot_df = sasdf |>
+  filter(doby==yob) |>
+  group_by(pernum) |>
+  rename(finwealth=fwealth) |>
+  mutate(
+    age=year-doby,
+    age_died = dody-doby
+    ) |>
+  filter(age_died >=65, age<=65, age>=20)
+
+plot_df |>
+  ggplot() +
+  geom_line(aes(x=age, y=finwealth, group=pernum), color="grey") +
+  xlab("Age") + ylab("Financial wealth (nominal dollars)")
+
+plot_df |>
+  filter(finwealth<1e7) |>
+  ggplot() +
+  geom_line(aes(x=age, y=finwealth, group=pernum), color="grey") +
+  xlab("Age") + ylab("Financial wealth (nominal dollars)")
+
+plot_df |>
+  filter(finwealth<1e6) |>
+  ggplot() +
+  geom_line(aes(x=age, y=finwealth, group=pernum), color="grey") +
+  xlab("Age") + ylab("Financial wealth (nominal dollars)")
+```
+
+```{r}
+#| label: fig-dfinwealth-earnings1
+#| fig-cap: "A change in financial wealth and combined annual earnings for people born in 1990. (Source: DYNASIM4 Run1004 FEH.)"
+
+yob = 1990
+plot_df = df |>
+  filter(doby == yob) |>
+  group_by(pernum) |>
+  mutate(
+    age=year-doby,
+    age_died = yeardied-doby,
+    dfinwealth = finwealth-lag(finwealth),
+    age50plus = factor(if_else(age>=50,1,0), labels=c("Younger than 50", "Age 50 and older"))
+    ) |>
+  filter(age_died >=65, age<=65, age>=20)
+
+plot_df |>
+    filter(earnings < 5e6) |>
+    ggplot() +
+    geom_point(aes(x=earnings, y=dfinwealth), size=.5) +
+    facet_wrap(~age50plus) +
+    xlab("Family earnings (nominal dollars)") +
+    ylab("Change in financial wealth (nominal dollars)")
+
+```
+
+```{r}
+#| label: fig-dfinwealth-earnings1-sas
+#| fig-cap: "A change in financial wealth and combined annual earnings for people born in 1990. (Source: DYNASIM4 Run1004 Postprocessing.)"
+
+
+plot_df = sasdf |>
+  group_by(pernum) |>
+  rename(finwealth=fwealth) |>
+  mutate(
+    age=year-doby,
+    age_died = dody-doby,
+    age50plus = factor(if_else(age>=50,1,0), labels=c("Younger than 50", "Age 50 and older")),
+    dfinwealth = finwealth-lag(finwealth)
+    ) |>
+  filter(age_died >=65, age<=65, age>=20)
+
+plot_df |>
+    filter(earn < 5e6, abs(dfinwealth)<5e7) |>
+    ggplot() +
+    geom_point(aes(x=earn, y=dfinwealth), size=.5) +
+    facet_wrap(~age50plus) +
+    xlab("Family earnings (nominal dollars)") +
+    ylab("Change in financial wealth (nominal dollars)")
+
+```
