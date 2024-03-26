@@ -67,11 +67,11 @@ test |>
 
 From `mice` package documentation:
 
-1.  First, we should decide whether the missing at random (MAR) assumption (Rubin 1976) is plausible. The MAR assumption is a suitable starting point in many practical cases, but there are also cases where the assumption is suspect. Schafer (1997, pp. 20–23) provides a good set of practical examples. MICE can handle both MAR and missing not at random (MNAR). Multiple imputation under MNAR requires additional modeling assumptions that influence the generated imputations. There are many ways to do this. We refer to Section 6.2 for an example of how that could be realized.
+1.  First, we should decide whether the missing at random (MAR) assumption (Rubin 1976) is plausible. The MAR assumption is a suitable starting point in many practical cases, but there are also cases where the assumption is suspect. Schafer (1997, pp. 20--23) provides a good set of practical examples. MICE can handle both MAR and missing not at random (MNAR). Multiple imputation under MNAR requires additional modeling assumptions that influence the generated imputations. There are many ways to do this. We refer to Section 6.2 for an example of how that could be realized.
 2.  The second choice refers to the form of the imputation model. The form encompasses both the structural part and the assumed error distribution. Within MICE the form needs to be specified for each incomplete column in the data. The choice will be steered by the scale of the dependent variable (i.e., the variable to be imputed), and preferably incorporates knowledge about the relation between the variables. Section 3.2 describes the possibilities within mice 2.9.
 3.  Our third choice concerns the set of variables to include as predictors into the imputation model. The general advice is to include as many relevant variables as possible including their interactions (Collins et al. 2001). This may however lead to unwieldy model specifications that could easily get out of hand. Section 3.3 describes the facilities within mice 2.9 for selecting the predictor set.
 4.  The fourth choice is whether we should impute variables that are functions of other (incomplete) variables. Many data sets contain transformed variables, sum scores, interaction variables, ratios, and so on. It can be useful to incorporate the transformed variables into the multiple imputation algorithm. Section 3.4 describes how mice 2.9 deals with this situation using passive imputation.
-5.  The fifth choice concerns the order in which variables should be imputed. Several strategies are possible, each with their respective pro’s and cons. Section 3.6 shows how the visitation scheme of the MICE algorithm within mice 2.9 is under control of the user
+5.  The fifth choice concerns the order in which variables should be imputed. Several strategies are possible, each with their respective pro's and cons. Section 3.6 shows how the visitation scheme of the MICE algorithm within mice 2.9 is under control of the user
 6.  The sixth choice concerns the setup of the starting imputations and the number of iterations. The convergence of the MICE algorithm can be monitored in many ways. Section 4.3 outlines some techniques in mice 2.9 that assist in this task.
 7.  The seventh choice is m, the number of multiply imputed data sets. Setting m too low may result in large simulation error, especially if the fraction of missing information is high.
 
@@ -323,7 +323,6 @@ final_long |>
 
 ```
 
-
 ## Distribution Plots for Dad Education (non-imputed and imputed)
 
 ```{r}
@@ -396,6 +395,7 @@ ggplot(final_long, aes(x=pincome, y=pnetworth, color = imputation)) +
     facet_wrap(~imputation, scales="free")
 
 ```
+
 # Imputation of Retirement Savings
 
 ```{r}
@@ -471,8 +471,6 @@ knitr::kable(meth)
 knitr::kable(predM)
 ```
 
-
-
 ## Distribution Plots for Retirement Savings (non-imputed and imputed)
 
 ```{r}
@@ -506,6 +504,7 @@ ggplot(rs_final_long, aes(x=retsav, y=pnetworth, color = imputation)) +
     facet_wrap(~imputation, scales="free")
 
 ```
+
 ```{r}
 #| label: save-results
 
@@ -537,7 +536,6 @@ plotdf |>
 
 ```
 
-
 ```{r}
 #| label: fig-density-pnetworth2
 #| fig-cap: "Distribution of parental networth and networth without retirement savings"
@@ -548,7 +546,6 @@ plotdf |> select(pnetworth1=pnetworth, pnetworth2) |>
   geom_density(aes(x=value, color=name))
 
 ```
-
 
 ```{r}
 #| label: fig-density-pnetworth2-by_race
@@ -561,4 +558,3 @@ plotdf |> select(race_eth, pnetworth1=pnetworth, pnetworth2) |>
   geom_density(aes(x=value, color=name)) +
   facet_wrap(~race_eth)
 ```
-
