@@ -161,8 +161,16 @@ nlsy_get_col_stat_annual_df = function()
 }
 
 #' Returns college enrollment status in the fall semester
-nlsy_get_col_stat_fall_df = function()
+nlsy_get_col_stat_fall_df = function(edlevel='college')
 {
+    stopifnot(edlevel %in% c('college', 'gradsch'))
+
+    colstat_txt = list(
+        college=c("Enrolled in 2-year college",
+                  "Enrolled in 4-year college"),
+        gradsch=c('Enrolled in Graduate program')
+    )
+
     data = nlsydf |>
         select(
             id =        "PUBID_1997",
@@ -177,11 +185,7 @@ nlsy_get_col_stat_fall_df = function()
         mutate(
             year=as.integer(year),
             month=as.integer(month),
-            in_college=as.integer(college_status %in%
-                                      c("Enrolled in 2-year college",
-                                        "Enrolled in 4-year college")
-            ),
-            in_gradsch=as.integer(college_status == 'Enrolled in Graduate program')
+            in_college=as.integer(college_status %in% colstat_txt[[edlevel]]),
         )
 
     data = data |>
@@ -685,6 +689,38 @@ nlsy_make_spell_df = function(spell_type='all')
             select(all_of(keep_vars), matches('.+Grad')) |>
             filter(!is.na(spGrad))
     }
+
+    return(colenrdf)
+}
+
+nlsy_make_gradsch_spell_df = function()
+{
+    colstdf = left_join(
+        nlsy_get_col_stat_fall_df('gradsch'),
+        nlsy_get_highest_grade_completed_df(),
+        by=c('id', 'year')
+    )
+
+    colenrdf = colstdf |>
+        filter(year>=hs_grad_year) |>
+        nlsy_add_colgradyr() |>
+        group_by(id) |>
+        filter(year>=colgradyr)
+
+    colenrdf = colenrdf |>
+        group_by(id) |>
+        mutate(
+            maxcy = max(hcyc, na.rm = TRUE),
+            enryr = if_else(enrolled, year, NA),
+            enryr = min(enryr, na.rm = TRUE),
+            enryr = if_else(enryr==Inf, NA, enryr),
+            comp6th = if_else(hcyc>=6, 1, 0, 0),
+            comp6th = max(comp6th),
+            tEnroll = if_else(year==enryr & comp6th==1, 1, 0, 0)
+        ) |>
+        filter(is.na(enryr) | year<=enryr) |>
+        mutate(timeEnroll  = year-colgradyr) |>
+        select(id, year, tEnroll, timeEnroll)
 
     return(colenrdf)
 }
