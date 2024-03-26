@@ -13,18 +13,34 @@ widx1997 = (widx |> filter(year==1997) |> select(windex) |> pull()) * 1000
 #'
 dyn_get_sexrace_names = function(data)
 {
-    return(data |>
-        mutate(
-            sexrace=str_trunc(
-                toupper(
-                    paste0(
-                        str_trunc(as.character(sex),1,ellipsis=''),
-                        race)),
-                8,
-                ellipsis='')
+
+    columns = colnames(data)
+    res = NULL
+
+    if( 'sex' %in% columns & 'race' %in% columns ) {
+        res = data |>
+            mutate(
+                sexrace=str_trunc(
+                    toupper(
+                        paste0(
+                            str_trunc(as.character(sex),1,ellipsis=''),
+                            race)),
+                    8,
+                    ellipsis='')
+                ) |>
+            pull(sexrace)
+    }
+    else if( 'sex' %in% columns ) {
+        res = data |>
+            mutate(
+                sexrace=str_pad(
+                    toupper(as.character(sex)),
+                    8,
+                    side='right')
             ) |>
-        pull(sexrace)
-    )
+            pull(sexrace)
+    }
+    return(res)
 }
 
 
