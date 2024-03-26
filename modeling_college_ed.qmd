@@ -1052,6 +1052,7 @@ graddf |>
     
 
 ```
+
 ```{r}
 #| label: est-grad-simple-models
 
@@ -1108,6 +1109,7 @@ coefs[['colgrad']] = list(
 coefs2 = dyn_uniformize_coef(coefs)
 res = map(coefs2, \(x) dyn_write_coef_file(x$df, x$filename, x$description))
 
+
 ```
 
 @tbl-grad-marginal shows average marginal effects of parental networth on the likelihood of graduating from college. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of graduation from college.
@@ -1143,6 +1145,160 @@ estdf |>
     facet_grid(rows=vars(sex), cols=vars(race)) +
     xlab('Years since senior year') +
     ylab('Likelihood of college graduation')
+
+
+```
+
+# Graduate School
+
+```{r}
+#| label: make-gsenrdf
+##| cache: true
+
+
+gsenrdf = nlsy_make_gradsch_spell_df() |>
+    select(id, timeEnroll, tEnroll) |>
+    inner_join(
+        basedf,
+        by='id'
+    )
+
+
+```
+
+```{r}
+#| label: fig-gsenrol-hazard
+#| fig-cap: "Hazard function for graduate school enrollment by race, sex and year since the graduation from college."
+
+
+plotdf = gsenrdf |>
+    group_by(timeEnroll, race, sex) |>
+    summarise(tEnroll=weighted.mean(tEnroll, wt))
+
+ggplot(plotdf) +
+    geom_line(aes(x=timeEnroll, y=tEnroll, color=race)) +
+    facet_grid(~sex) +
+    xlab('Years') +
+    ylab('Likelihood of grad-school enrollment')
+
+```
+
+```{r}
+#| label: est-gsgrad-simple-models1
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = gsenrdf |>
+    mutate(
+        yearf=factor(pmin(timeEnroll,4)),
+        pnetworth=dyn_wealth_xform(pnetworth, type=opt_wealth_xform)
+    )
+
+gsmodel_covars = c("yearf", "race", "asian", "pnetworth", "pared")
+
+gsmodel_formula = as.formula(paste("tEnroll ~ ", paste(gsmodel_covars, collapse = " + ")))
+
+# Estimate one model for each sex-race combination
+estdf = estdf |>
+    group_by(sex) |>
+    nest() |>
+    mutate(mods = map(
+        data, \(x) glm(
+            gsmodel_formula, 
+            data=x, 
+            family=binomial)
+        )
+    ) |>
+    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
+    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
+```
+
+```{r}
+#| label: tbl-gsenrol-simple-mod-est1
+#| tbl-cap: "Estimated coefficients for the model of graduate school enrollment"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex))
+models = estdf$mods
+names(models) = dyn_get_sexrace_names(estdf)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_rename=coef_rename
+#             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x)
+             )
+
+# Dataframe with coefficients
+res_colenr = dyn_coef_to_df(models, sig_level=opt_sig_level)
+
+gscoefs = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_gs_enr.csv",
+    description = 'Coefficients for grad school enrollment model.'
+)
+
+
+
+```
+
+```{r}
+#| label: est-gsgrad-simple-models2
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = gsenrdf |>
+    mutate(
+        yearf=factor(pmin(timeEnroll,4)),
+        pnetworth=dyn_wealth_xform(pnetworth, type=opt_wealth_xform)
+    )
+
+gsmodel_covars = c("yearf", "asian", "pnetworth", "pared")
+
+gsmodel_formula = as.formula(paste("tEnroll ~ ", paste(gsmodel_covars, collapse = " + ")))
+
+# Estimate one model for each sex-race combination
+estdf = estdf |>
+    group_by(sex, race) |>
+    nest() |>
+    mutate(mods = map(
+        data, \(x) glm(
+            gsmodel_formula, 
+            data=x, 
+            family=binomial)
+        )
+    ) |>
+    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
+    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
+```
+
+```{r}
+#| label: tbl-gsenrol-simple-mod-est2
+#| tbl-cap: "Estimated coefficients for the model of graduate school enrollment"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+models = estdf$mods
+names(models) = dyn_get_sexrace_names(estdf)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_rename=coef_rename
+#             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x)
+             )
+
+# Dataframe with coefficients
+res_colenr = dyn_coef_to_df(models, sig_level=opt_sig_level)
+
+gscoefs = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_gs_enr.csv",
+    description = 'Coefficients for grad school enrollment model.'
+)
+
 
 
 ```
