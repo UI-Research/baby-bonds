@@ -289,16 +289,21 @@ nlsy_get_marstat_df = function()
         complete(year=1997:2019) |>
         fill(mar_status, .direction = "downup") |>
     #Counting missings:sum(is.na(data))/12 = 181.25 out of 8984 in nlsydf
-        mutate(mar_status = case_when(
-            is.na(mar_status) ~ 'Never Married, Not Cohabitating',
-            TRUE ~ mar_status)
+        mutate(mar_status = if_else(
+            is.na(mar_status),
+            'Never Married, Not Cohabitating',
+            mar_status
+            )
          ) |>
         mutate(
-            single=as.integer(mar_status == 'Never Married, Not Cohabitating'),
-            cohabitating=as.integer(mar_status == 'Never Married, Cohabiting'),
-            married=as.integer(mar_status == 'Married'),
-            divorced=as.integer(mar_status == 'Divorced'),
-            widowed=as.integer(mar_status == 'Widowed')
+            mar_status = case_when(
+                mar_status == 'Never Married, Not Cohabitating' ~ 'Single',
+                mar_status == 'Never Married, Cohabiting'       ~ 'Cohabiting',
+                mar_status == 'Married'                         ~ 'Married',
+                mar_status == 'Divorced'                        ~ 'Divorced',
+                mar_status == 'Widowed'                         ~ 'Widowed',
+                TRUE                                            ~ 'Single'
+            )
         )|>
         select(-month)
 
@@ -351,11 +356,21 @@ nlsy_get_biochild_df = function()
                    TRUE ~ bio_child_nr)
         )|>
         mutate(bio_child = bio_child_hh + bio_child_nr)|>
-        select(-bio_child_nr, -bio_child_hh, -bio_child)
+        select(-bio_child_nr, -bio_child_hh)
 
-return(data)
+    return(data)
 }
 
+nlsy_get_imputed_income_wealth = function()
+{
+    iwdf = nlsy_get_income_wealth_df()
+    iwdf1 = nlsy_interp_inc_nw(iwdf)
+    iwdf2 = iwdf1 |>
+        group_by(id) |>
+        fill(income, networth, .direction='downup') |>
+        ungroup()
+    return(iwdf2)
+}
 
 #' Adds longitudinal income and wealth vars to the input dataset
 nlsy_get_income_wealth_df = function(){
@@ -393,6 +408,20 @@ nlsy_get_income_wealth_df = function(){
         complete(year = 1997:2019) |>
         filter(year <= 2019) |>
         ungroup()
+
+    # Can't interpolate for these IDs
+    missing_ids_income <- income_networth |>
+        summarize(income_na = sum(is.na(income)), .by='id') |>
+        filter(income_na >= 22) |>
+        pull(id)
+    missing_ids_nw <- income_networth |>
+        summarize(networth_na = sum(is.na(networth)), .by='id') |>
+        filter(networth_na >= 22) |>
+        pull(id)
+    missing_ids = c(missing_ids_income, missing_ids_nw)
+
+    income_networth = income_networth |>
+        filter(!(id %in% missing_ids))
 
     return(income_networth)
 
@@ -457,11 +486,7 @@ create_ts_by_id <- function(data, variable){
 #' @param method: A forecasting method, default's to Holt's Linear Trend
 #' @param variable: Either "income" or "networth"
 extrap_ts <- function(ts, start, end, variable, id, method=holt, min_len = 5){
-    # Return none if ID has fully missing info
-    if((variable == 'income' & id %in% missing_ids_income) |
-       (variable == 'networth' & id %in% missing_ids_nw)){
-        return(c())
-    }
+
     # Checks if the ts is sufficiently long enough to be forecasted
     if (length(na.omit(ts)) < min_len){
         return(c())
@@ -494,18 +519,14 @@ extrap_ts <- function(ts, start, end, variable, id, method=holt, min_len = 5){
 #' @param data: data frame with income, wealth by ID and year
 #' @param interp_type: Type of interpolation, either approx for linear or spline for nonlinear
 nlsy_interp_inc_nw <- function(data, interp_type=approx){
-    # Can't interpolate for these IDs
-    missing_ids_income <- data |> summarize(income_na = sum(is.na(income)), .by='id') |> filter(income_na >= 22) |> pull(id)
-    missing_ids_nw <- data |> summarize(networth_na = sum(is.na(networth)), .by='id') |> filter(networth_na >= 22) |> pull(id)
 
     interp_income_nw <- full_join(
         data |>
-            filter(!(id %in% missing_ids_income)) |>
             group_by(id) |>
             do(grouped_interpolate(., variable='income', interp_type=interp_type)) |>
+            mutate(income = pmax(0, income)) |>
             ungroup(),
         data |>
-            filter(!(id %in% missing_ids_nw)) |>
             group_by(id) |>
             do(grouped_interpolate(., variable='networth', interp_type=interp_type)) |>
             ungroup(),
@@ -531,8 +552,9 @@ nlsy_extrap_inc_nw <- function(data){
                income_extrap = pmap(list(ts_income, start_inc, end_inc, id), extrap_ts, variable='income'),
                networth_extrap = pmap(list(ts_networth, start_nw, end_nw, id), extrap_ts, variable='networth')
                ) |>
-        select(id, income_extrap, networth_extrap) |>
+        select(id, income=income_extrap, networth=networth_extrap) |>
         unnest(-id) |>
+        mutate(income = pmax(0, income)) |>
         ungroup()
     return(by_id_extrap |>
                 bind_cols(year = rep(1997:2019, length(unique(by_id_extrap$id)))))
@@ -704,10 +726,11 @@ nlsy_add_colgradyr = function(data)
 #'
 nlsy_make_spell_df = function(spell_type='all')
 {
-    colstdf =  left_join(nlsy_get_col_stat_fall_df(), nlsy_get_col_stat_fall_df(), by=c('id', 'year')) %>%
-        left_join(., nlsy_get_marstat_df(), by=c('id', 'year')) %>%
-        left_join(., nlsy_get_biochild_df(), by=c('id', 'year')
-    )
+    colstdf =  left_join(
+        nlsy_get_col_stat_fall_df(),
+        nlsy_get_highest_grade_completed_df(),
+        by=c('id', 'year')
+        )
 
     # Drop people whose information about college education is inconsistent
     # We also don't allow people who graduated in less than 4 years
@@ -973,7 +996,19 @@ nlsy_make_gradsch_spell_df = function()
         nlsy_get_col_stat_fall_df('gradsch'),
         nlsy_get_highest_grade_completed_df(),
         by=c('id', 'year')
-    )
+    ) |>
+        left_join(
+            nlsy_get_marstat_df(),
+            by=c('id', 'year')
+        ) |>
+        left_join(
+            nlsy_get_biochild_df(),
+            by=c('id', 'year')
+        ) |>
+        left_join(
+            nlsy_get_imputed_income_wealth(),
+            by=c('id', 'year')
+        )
 
     colenrdf = colstdf |>
         filter(year>=hs_grad_year) |>
@@ -994,7 +1029,7 @@ nlsy_make_gradsch_spell_df = function()
         ) |>
         filter(is.na(enryr) | year<=enryr) |>
         mutate(timeEnroll  = year-colgradyr) |>
-        select(id, year, tEnroll, timeEnroll)
+        select(id, year, tEnroll, timeEnroll, bio_child, mar_status, income, networth)
 
     return(colenrdf)
 }
