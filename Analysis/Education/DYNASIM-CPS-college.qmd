@@ -1,0 +1,547 @@
+---
+title: "DYNASIM College"
+format:
+  html:
+    page-layout: custom
+execute: 
+  echo: false
+  warning: false
+fig-cap-location: top
+server: shiny
+---
+
+```{r}
+#| context: setup
+
+library(Hmisc)
+library(ipumsr)
+library(tidyverse)
+library(tidyquant)
+library(urbnthemes)
+set_urbn_defaults(style = "print", 
+                  base_size=11,
+                  base_line_size = 1
+                  )
+
+source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
+
+#obs = 50000
+obs = NA
+weight = 2537
+first_year= 2006
+last_year = 2060
+
+years  = first_year:last_year
+birth_years = 1980:2040
+ages   = 20:40
+grades = 12:16
+sexes = c("All", "Men", "Women")
+races = c("All", "Black", "Hispanic", "White")
+
+keep_cols = c(
+  'PERNUM',
+  'DOBY',
+  'SEX',
+  'ETHNCTY',
+  'SCHOOLST',
+  'YEARDIED', 
+  paste0('GRADECAT', first_year:last_year),
+  paste0('EARNINGS', first_year:last_year),
+  paste0('WEDSTATE', first_year:last_year)
+)
+
+fehdfs = list()
+
+outcomes = c('N'='n', 'Share'="share")
+
+out2var = function(outcome, cumulative=FALSE)
+{
+    stopifnot(outcome %in% names(outcomes))
+    res = outcomes[outcome]
+    if(cumulative) {
+        res = paste0("cum", res)
+    }
+    return(res)
+}
+
+educ_cats = c(
+    "Less Than High School",
+    "High School", 
+    "Some College", 
+    "Bachelor's Degree", 
+    "Graduate School"
+)
+
+race_cats = c(
+    "Asian",
+    "Black",
+    "Hispanic",
+    "White",
+    "Other"
+)
+
+educs = educ_cats[2:5]
+```
+
+
+```{r}
+#| label: read-feh0
+#| context: data
+#| cache: true
+#| cache.lazy: false
+#| echo: false
+#| output: false
+
+fehdir0        = "X:/FEHOutput/run_01006/base_v16/"
+fehdf0         = read_feh(fehdir0, columns=keep_cols, obs_count=obs)
+fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset="FEH0")
+```
+
+```{r}
+#| label: read-cps
+#| context: data
+#| cache: true
+#| cache.lazy: false
+#| echo: false
+#| output: false
+
+cpsdf <- read_rds(paste0(here::here(), '/data/asec_longitudinal.Rds'))
+
+cpsdf = cpsdf |> 
+    rename_all(tolower) |>
+    filter(educ!=0, educ!=999, age %in% ages) |>
+    mutate(
+        race = case_when(
+            hispan != 0 ~ race_cats[3],
+            race == 100 ~ race_cats[4],
+            race == 200 ~ race_cats[2],
+            race == 651 ~ race_cats[1],
+            TRUE        ~ race_cats[5]
+            ),
+        sex = if_else(sex=='Male', 'Men', 'Women'),
+        educ = as.integer(educ/10),
+        educ = case_when(
+            educ<=6            ~ educ_cats[1],
+            educ==7            ~ educ_cats[2],
+            8<=educ & educ<=10 ~ educ_cats[3],
+            educ==11           ~ educ_cats[4],
+            educ>=12           ~ educ_cats[5],
+            TRUE               ~ NA
+        ),
+        doby = year-age,
+        dataset = "CPS"
+    ) |>
+    filter(educ %in% educ_cats[2:5], race %in% races) |>
+    select(year, age, doby, race, sex, educ, weight=asecwt, dataset)
+
+```
+
+
+```{r}
+#| context: data
+#| cache: false
+
+fehdf = bind_rows(fehdfs) |>
+    mutate(
+        age = year-doby,
+        sex = if_else(sex==1, "Men", "Women"),
+        race= case_when(
+            1014<=ethncty & ethncty<=1020       ~ race_cats[3], 
+            2014<=ethncty & ethncty<=2020       ~ race_cats[3], 
+            3014<=ethncty & ethncty<=3020       ~ race_cats[3], 
+            4014<=ethncty & ethncty<=4020       ~ race_cats[3],
+            1000<=ethncty & ethncty<=1099       ~ race_cats[4],
+            2000<=ethncty & ethncty<=2099       ~ race_cats[2],
+            3000<=ethncty & ethncty<=3099       ~ race_cats[5],
+            4000<=ethncty & ethncty<=4099       ~ race_cats[1]
+        ),
+        educ = case_when(
+            gradecat<=11                ~ educ_cats[1],
+            gradecat==12                ~ educ_cats[2],
+            13<=gradecat & gradecat<=15 ~ educ_cats[3],
+            gradecat==16                ~ educ_cats[4],
+            gradecat>=17                ~ educ_cats[5],
+            TRUE                        ~ NA
+        ),
+        weight=weight
+    ) |>
+    filter(educ %in% educ_cats[2:5], race %in% races, age %in% ages) |>
+    select(year, age, doby, race, sex, educ, weight, dataset)
+
+fehdf = bind_rows(
+    fehdf,
+    cpsdf
+) |>
+    mutate(
+        race = factor(race, levels=race_cats),
+        educ = factor(educ, levels=educ_cats)
+    )
+```
+
+
+
+
+```{r}
+#| context: data
+#| cache: false
+
+
+# By age, year, race, and sex
+tmpdf1 = fehdf |> 
+    filter(year %in% years) |>
+    count(age, sex, race, year, educ, dataset, wt=weight) |>
+    group_by(dataset, year, sex, race, age) |>
+    complete(educ=educ_cats[2:5], fill=list(n=0)) |>
+    mutate(educ=factor(educ, levels=educ_cats[2:5], ordered=TRUE)) |>
+    arrange(dataset, year, sex, race, age, educ) |>
+    mutate(
+        cumn     = cumsum(n),
+        share    = n/sum(n),
+        cumshare = cumsum(share)
+    )
+
+# By age, year, race, and "all" sexes
+tmpdf2 = tmpdf1 |> 
+    group_by(dataset, year, race, age, educ) |>
+    summarise(n = sum(n), cumn = sum(cumn)) |>
+    group_by(dataset, year, race, age) |>
+    mutate(
+        sex="All",
+        share    = n/sum(n),
+        cumshare = cumsum(share)
+    )
+
+tmpdf2b = bind_rows(tmpdf1, tmpdf2)
+
+# By age, year, sex, and "all" races
+tmpdf3 = tmpdf2b |> 
+    group_by(dataset, year, sex, age, educ) |>
+    summarise(n = sum(n), cumn = sum(cumn)) |>
+    group_by(dataset, year, sex, age) |>
+    mutate(
+        race="All",
+        share    = n/sum(n),
+        cumshare = cumsum(share)
+        )
+
+educByAgeYearSexRace = bind_rows(tmpdf2b, tmpdf3)
+
+stopifnot(dim(educByAgeYearSexRace |> 
+    arrange(dataset, year, sex, race, age, educ) |> 
+    group_by(dataset, year, sex, race, age) |> 
+    mutate(testcumn=cumsum(n), diff=testcumn-cumn) |> 
+    filter(abs(diff)>1e-5))[1] == 0)
+
+# By age, birth year, race, and sex
+tmpdf1 = fehdf |> 
+    filter(doby %in% birth_years) |>
+    count(age, sex, race, doby, educ, dataset, wt=weight) |>
+    group_by(dataset, doby, sex, race, age) |>
+    complete(educ=educ_cats[2:5], fill=list(n=0)) |>
+    mutate(educ=factor(educ, levels=educ_cats[2:5], ordered=TRUE)) |>
+    arrange(dataset, doby, sex, race, age, educ) |>
+    mutate(
+        cumn     = cumsum(n),
+        share    = n/sum(n),
+        cumshare = cumsum(share)
+    )
+
+# By age, birth year, race, and "all" sexes
+tmpdf2 = tmpdf1 |> 
+    group_by(dataset, doby, race, age, educ) |>
+    summarise(n = sum(n), cumn = sum(cumn)) |>
+    mutate(
+        sex="All",
+        share    = n/sum(n),
+        cumshare = cumsum(share)
+    )
+
+tmpdf2b = bind_rows(tmpdf1, tmpdf2)
+
+# By age, birth year, sex, and "all" races
+tmpdf3 = tmpdf2b |> 
+    group_by(dataset, doby, sex, age, educ) |>
+    summarise(n = sum(n), cumn = sum(cumn)) |>
+    mutate(
+        race="All",
+        share    = n/sum(n),
+        cumshare = cumsum(share)
+        )
+
+educByAgeBCohSexRace = bind_rows(tmpdf2b, tmpdf3)
+
+stopifnot(dim(educByAgeBCohSexRace |> 
+    arrange(dataset, doby, sex, race, age, educ) |> 
+    group_by(dataset, doby, sex, race, age) |> 
+    mutate(testcumn=cumsum(n), diff=testcumn-cumn) |> 
+    filter(abs(diff)>1e-5))[1] == 0)
+
+```
+
+# DYNASIM
+
+```{r}
+#| panel: input
+#| layout-ncol: 3
+
+selectInput('educ',    'Education',   educs,           selected=educs[3])
+selectInput('sex',     'Sex',         sexes,           selected=sexes[1])
+selectInput('race',    'Race',        races,           selected=races[1])
+selectInput('outcome', 'Outcome',     names(outcomes), selected=names(outcomes)[1])
+selectInput('ma_n',    'MA Window',   c(1,3,5,7,9),    selected=5)
+
+```
+
+::: {.panel-tabset}
+
+## Age Profile by Year
+
+```{r}
+#| panel: sidebar
+
+selectInput('year',  'Year',  years,  selected=2020)
+```
+
+
+```{r}
+#| panel: fill
+
+plotOutput('plotByYear')
+plotOutput('plotByYearEduc')
+```
+
+```{r}
+#| context: server
+
+plotdf1 = reactive({ 
+    dplyr::filter(
+        educByAgeYearSexRace, 
+        year==input$year,
+        sex==input$sex,
+        race==input$race
+    )
+})
+
+output$plotByYear = renderPlot({
+    plotdf1() |>
+        filter(educ==input$educ) |>
+        ggplot2::ggplot(aes(
+            x=age, 
+            y=!!sym(out2var(input$outcome, FALSE)), 
+            linetype=dataset
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
+})
+
+output$plotByYearEduc = renderPlot({
+    plotdf1() |>
+        ggplot2::ggplot(aes(
+            x=age, 
+            y=!!sym(out2var(input$outcome, TRUE)), 
+            color=educ, 
+            linetype=dataset
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
+})
+
+```
+
+
+## Age Profile by Birth Year
+
+```{r}
+#| panel: sidebar
+
+selectInput('birth_year',  'Birth Year',  birth_years,  selected=1990)
+```
+
+
+```{r}
+#| panel: fill
+
+plotOutput('plotByBirthYear')
+plotOutput('plotByBirthYearEduc')
+```
+
+```{r}
+#| context: server
+
+library(ggplot2)
+
+plotdf2 = reactive({ 
+    dplyr::filter(
+        educByAgeBCohSexRace, 
+        doby==input$birth_year,
+        sex==input$sex,
+        race==input$race
+    )
+})
+
+output$plotByBirthYear = renderPlot({
+    plotdf2() |>
+        filter(educ==input$educ) |>
+        ggplot2::ggplot(aes(
+            x=age, 
+            y=!!sym(out2var(input$outcome, FALSE)), 
+            linetype=dataset
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
+})
+
+output$plotByBirthYearEduc = renderPlot({
+    plotdf2() |>
+        ggplot2::ggplot(aes(
+            x=age, 
+            y=!!sym(out2var(input$outcome, TRUE)), 
+            color=educ, 
+            linetype=dataset
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
+})
+
+```
+
+
+## Annual Data by Age
+
+```{r}
+#| panel: sidebar
+
+selectInput('age1',    'Age',   ages,   selected=35)
+```
+
+
+```{r}
+#| panel: fill
+
+plotOutput('plotByAge')
+plotOutput('plotByAgeEduc')
+```
+
+```{r}
+#| context: server
+
+library(ggplot2)
+
+plotdf3 = reactive({ 
+    dplyr::filter(
+        educByAgeYearSexRace, 
+        age==as.integer(input$age1),
+        sex==input$sex,
+        race==input$race
+    )
+    # |>
+    # arrange(dataset, sex, race, age, year) |>
+    # group_by(dataset, sex, race, age) |>
+    # mutate(share=(share+stats::lag(share)+stats::lag(share,2)+stats::lag(share,3))/4)
+})
+
+output$plotByAge = renderPlot({
+    plotdf3() |>
+        filter(educ==input$educ) |>
+        ggplot2::ggplot(aes(
+            x=year, 
+            y=!!sym(out2var(input$outcome, FALSE)), 
+            linetype=dataset
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
+})
+
+output$plotByAgeEduc = renderPlot({
+    plotdf3() |>
+        ggplot2::ggplot(aes(
+            x=year, 
+            y=!!sym(out2var(input$outcome, TRUE)), 
+            color=educ, 
+            linetype=dataset)) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
+})
+
+```
+
+## Annual Data by Race
+
+```{r}
+#| panel: sidebar
+
+selectInput('age2',    'Age',   ages,   selected=35)
+```
+
+
+```{r}
+#| panel: fill
+
+plotOutput('plotByYearRace')
+```
+
+```{r}
+#| context: server
+
+library(ggplot2)
+
+plotdf4 = reactive({ 
+    dplyr::filter(
+        educByAgeYearSexRace, 
+        age==as.integer(input$age2),
+        sex==input$sex,
+        educ==input$educ
+    )
+})
+
+output$plotByYearRace = renderPlot({
+    plotdf4() |>
+        ggplot2::ggplot(aes(
+            x=year, 
+            y=!!sym(out2var(input$outcome, FALSE)), 
+            color=race, 
+            linetype=dataset
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
+})
+
+
+```
+
+## Age Profile by Race
+
+```{r}
+#| panel: sidebar
+
+selectInput('birth_year2',  'Birth Year',  birth_years,  selected=1990)
+```
+
+
+```{r}
+#| panel: fill
+
+plotOutput('plotByBirthYearRace')
+```
+
+```{r}
+#| context: server
+
+library(ggplot2)
+
+plotdf5 = reactive({ 
+    dplyr::filter(
+        educByAgeBCohSexRace, 
+        doby==input$birth_year2,
+        sex==input$sex,
+        educ==input$educ
+    )
+})
+
+output$plotByBirthYearRace = renderPlot({
+    plotdf5(aes(
+            x=age, 
+            y=!!sym(out2var(input$outcome, FALSE)), 
+            color=race, 
+            linetype=dataset
+            )) |>
+        ggplot2::ggplot() +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
+})
+
+
+```
+:::
