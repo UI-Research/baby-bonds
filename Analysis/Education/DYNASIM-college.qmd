@@ -15,8 +15,12 @@ server: shiny
 
 library(Hmisc)
 library(tidyverse)
+library(tidyquant)
 library(urbnthemes)
-set_urbn_defaults(style = "print")
+set_urbn_defaults(style = "print", 
+                  base_size=11,
+                  base_line_size = 1
+                  )
 
 source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
 
@@ -29,7 +33,7 @@ last_year = 2060
 years  = first_year:last_year
 birth_years = 1980:2040
 ages   = 16:40
-grades = 12:16
+grades = 12:18
 sexes = c("All", "Men", "Women")
 races = c("All", "Black", "Hispanic", "White")
 
@@ -67,6 +71,7 @@ out2var = function(outcome, cumulative=FALSE)
 #| label: read-feh0
 #| context: data
 #| cache: true
+#| cache.lazy: false
 #| echo: false
 #| output: false
 
@@ -79,10 +84,11 @@ fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset="FEH0")
 #| label: read-feh1
 #| context: data
 #| cache: true
+#| cache.lazy: false
 #| echo: false
 #| output: false
 
-fehdir1        = "X:/FEHOutput/run_01006/base_v10/"
+fehdir1        = "X:/FEHOutput/run_01006/base_v16/"
 fehdf1         = read_feh(fehdir1, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf1) |> mutate(dataset="FEH1")
 ```
@@ -90,13 +96,13 @@ fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf1) |> mutate(dataset="FEH1")
 ```{r}
 #| label: read-feh2
 #| context: data
-#| cache: true
-#| eval: true
+#| cache: false
+#| cache.lazy: false
 #| echo: false
 #| output: false
 
 
-fehdir2        = "X:/FEHOutput/run_01006/base_v11/"
+fehdir2        = "X:/FEHOutput/run_01006/base_v17/"
 fehdf2         = read_feh(fehdir2, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf2) |> mutate(dataset="FEH2")
 ```
@@ -128,7 +134,7 @@ tmpdf1 = fehdf |>
     filter(age %in% ages, year %in% years, gradecat %in% grades) |>
     count(age, sex, race, year, gradecat, dataset, wt=weight) |>
     group_by(dataset, year, sex, race, age) |>
-    complete(gradecat=12:16, fill=list(n=0)) |>
+    complete(gradecat=grades, fill=list(n=0)) |>
     arrange(dataset, year, sex, race, age, gradecat) |>
     mutate(
         cumn     = cumsum(n),
@@ -173,7 +179,7 @@ tmpdf1 = fehdf |>
     filter(age %in% ages, doby %in% birth_years, gradecat %in% grades) |>
     count(age, sex, race, doby, gradecat, dataset, wt=weight) |>
     group_by(dataset, doby, sex, race, age) |>
-    complete(gradecat=12:16, fill=list(n=0)) |>
+    complete(gradecat=grades, fill=list(n=0)) |>
     arrange(dataset, doby, sex, race, age, gradecat) |>
     mutate(
         cumn     = cumsum(n),
@@ -213,15 +219,20 @@ stopifnot(dim(educByAgeBCohSexRace |>
 
 ```
 
+# DYNASIM
 
 ```{r}
 #| panel: input
 #| layout-ncol: 3
 
-selectInput('grade',   'Grade',   grades,          selected=16)
-selectInput('sex',     'Sex',     sexes,           selected=sexes[1])
-selectInput('race',    'Race',    races,           selected=races[1])
-selectInput('outcome', 'Outcome', names(outcomes), selected=names(outcomes)[1])
+form = c("Value", "Diff")
+
+selectInput('grade',   'Grade',       grades,          selected=16)
+selectInput('sex',     'Sex',         sexes,           selected=sexes[1])
+selectInput('race',    'Race',        races,           selected=races[1])
+selectInput('outcome', 'Outcome',     names(outcomes), selected=names(outcomes)[1])
+selectInput('ma_n',    'MA Window',   c(1,3,5,7,9),    selected=5)
+selectInput('form',    'Form',        form,            selected=form[1])
 
 ```
 
@@ -258,24 +269,24 @@ plotdf1 = reactive({
 output$plotByYear = renderPlot({
     plotdf1() |>
         filter(gradecat==input$grade) |>
-        ggplot2::ggplot() +
-        ggplot2::geom_line(aes(
+        ggplot2::ggplot(aes(
             x=age, 
             y=!!sym(out2var(input$outcome, FALSE)), 
             linetype=dataset
-            ))
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
 })
 
 output$plotByYearGrade = renderPlot({
     plotdf1() |>
         mutate(gradecat=factor(gradecat)) |>
-        ggplot2::ggplot() +
-        ggplot2::geom_line(aes(
+        ggplot2::ggplot(aes(
             x=age, 
             y=!!sym(out2var(input$outcome, TRUE)), 
             color=gradecat, 
             linetype=dataset
-            ))
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
 })
 
 ```
@@ -314,24 +325,24 @@ plotdf2 = reactive({
 output$plotByBirthYear = renderPlot({
     plotdf2() |>
         filter(gradecat==input$grade) |>
-        ggplot2::ggplot() +
-        ggplot2::geom_line(aes(
+        ggplot2::ggplot(aes(
             x=age, 
             y=!!sym(out2var(input$outcome, FALSE)), 
             linetype=dataset
-            ))
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
 })
 
 output$plotByBirthYearGrade = renderPlot({
     plotdf2() |>
         mutate(gradecat=factor(gradecat)) |>
-        ggplot2::ggplot() +
-        ggplot2::geom_line(aes(
+        ggplot2::ggplot(aes(
             x=age, 
             y=!!sym(out2var(input$outcome, TRUE)), 
             color=gradecat, 
             linetype=dataset
-            ))
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
 })
 
 ```
@@ -370,23 +381,23 @@ plotdf3 = reactive({
 output$plotByAge = renderPlot({
     plotdf3() |>
         filter(gradecat==input$grade) |>
-        ggplot2::ggplot() +
-        ggplot2::geom_line(aes(
+        ggplot2::ggplot(aes(
             x=year, 
             y=!!sym(out2var(input$outcome, FALSE)), 
             linetype=dataset
-            ))
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
 })
 
 output$plotByAgeGrade = renderPlot({
     plotdf3() |>
         mutate(gradecat=factor(gradecat)) |>
-        ggplot2::ggplot() +
-        ggplot2::geom_line(aes(
+        ggplot2::ggplot(aes(
             x=year, 
             y=!!sym(out2var(input$outcome, TRUE)), 
             color=gradecat, 
-            linetype=dataset))
+            linetype=dataset)) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
 })
 
 ```
@@ -422,13 +433,13 @@ plotdf4 = reactive({
 
 output$plotByYearRace = renderPlot({
     plotdf4() |>
-        ggplot2::ggplot() +
-        ggplot2::geom_line(aes(
+        ggplot2::ggplot(aes(
             x=year, 
             y=!!sym(out2var(input$outcome, FALSE)), 
             color=race, 
             linetype=dataset
-            ))
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
 })
 
 
@@ -465,13 +476,13 @@ plotdf5 = reactive({
 
 output$plotByBirthYearRace = renderPlot({
     plotdf5() |>
-        ggplot2::ggplot() +
-        ggplot2::geom_line(aes(
+        ggplot2::ggplot(aes(
             x=age, 
             y=!!sym(out2var(input$outcome, FALSE)), 
             color=race, 
             linetype=dataset
-            ))
+            )) +
+        tidyquant::geom_ma(n=as.integer(input$ma_n))
 })
 
 
