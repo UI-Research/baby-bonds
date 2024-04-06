@@ -106,7 +106,7 @@ opt_wealth_xform = 'log'
 opt_pared_code = 'max4'
 
 # Coefficients' significance level
-opt_sig_level = .1
+opt_sig_level = 1
 
 coefs = list(lin=list(), log=list())
 
@@ -211,6 +211,105 @@ nlsy_get_col_stat_annual_df() |>
 ```
 
 ```{r}
+
+
+
+plotdf = left_join(
+    nlsy_get_highest_grade_completed_df() |>
+        group_by(id) |> 
+        mutate(bs = if_else(hcyc>=4, 1, 0, 0)) |> 
+        summarize(bs=max(bs)) |> ungroup(),
+    basedf |>
+      select(id, pnetworth, pincome, race, wt) |>
+      mutate(pnetworth = dyn_wealth_xform(pnetworth, type='linear')) |>
+      filter(pnetworth>-10),
+    by='id'
+    ) |>
+    mutate(
+        pnwbin = cut(pnetworth, seq(-19,22), labels=as.character(seq(-18,22))),
+        pnwbin2 = cut(pnetworth, seq(-19,22), labels=as.character(seq(-18,22)), right=FALSE)
+        ) |>
+    filter(!is.na(pnwbin))
+
+```
+
+```{r}
+#| label: fig-colgrads-by-pnetworth-bin
+#| fig-cap: "The share of NLSY participants who graduated from 4-year college by binned parents' net worth"
+
+plotdf |>
+    mutate(N=n()) |>
+    group_by(pnwbin) |>
+    mutate(dens=n()/N) |>
+    summarise(bs = weighted.mean(bs, wt), dens=max(dens)) |>
+    ungroup() |>
+    ggplot() +
+    geom_col(aes(x=pnwbin, y=bs)) +
+    geom_line(aes(x=pnwbin, y=dens, group=1), color='black') +
+    xlab("Parents' networth (AWI)") +
+    ylab("Share college grads")
+```
+
+
+```{r}
+#| label: fig-pnetworth-hist
+#| fig-cap: "Histogram of parents' networth divided by the average wage"
+
+plotdf = right_join(
+    nlsy_get_col_stat_annual_df() |>
+        group_by(id) |>
+        summarise(evercol = max(colenr)),
+    basedf |>
+      select(id, pnetworth, pincome, race, wt) |>
+      mutate(pnetworth = dyn_wealth_xform(pnetworth, type='linear')) |>
+      filter(pnetworth>-10),
+    by='id'
+    ) |>
+    mutate(
+        pnwbin = cut(pnetworth, seq(-19,22), labels=as.character(seq(-18,22))),
+        pnwbin2 = cut(pnetworth, seq(-19,22), labels=as.character(seq(-18,22)), right=FALSE)
+        ) |>
+    filter(!is.na(pnwbin))
+
+plotdf |> ggplot() +
+    geom_histogram(aes(pnetworth, y=after_stat(density)), bins=41) +
+    xlab("Parents' networth (AWI)")
+```
+
+```{r}
+#| label: fig-ever-college-by-pnetworth-bin
+#| fig-cap: "The share of NLSY participants who attended college by binned parents' net worth"
+
+plotdf |>
+    mutate(N=n()) |>
+    group_by(pnwbin) |>
+    mutate(dens=n()/N) |>
+    summarise(evercol = weighted.mean(evercol, wt), dens=max(dens)) |>
+    ggplot() +
+    geom_col(aes(x=pnwbin, y=evercol)) +
+    geom_line(aes(x=pnwbin, y=dens, group=1), color='black') +
+    xlab("Parents' networth (AWI)") +
+    ylab("Share ever college")
+```
+
+
+```{r}
+#| label: fig-ever-college-by-pnetworth-bin-race
+#| fig-cap: "The share of NLSY participants who attended college by binned parents' net worth and race"
+
+plotdf |>
+    group_by(pnwbin, race) |>
+    summarise(evercol = weighted.mean(evercol, wt)) |>
+    ggplot() +
+    geom_col(aes(x=pnwbin, y=evercol), position=position_dodge()) +
+    xlab("Parents' networth (AWI)") +
+    ylab("Share ever college") +
+    facet_grid(rows=vars(race))
+
+
+```
+
+```{r}
 #| label: tbl-pnetworth
 #| tbl-cap: "Mean parents' networth (divided by the average wage index) by race"
 
@@ -218,10 +317,12 @@ knitr::kable(
 basedf |>
   select(id, pnetworth, race, wt) |>
   mutate(
-      pnetworth = dyn_wealth_xform(pnetworth, type='linear'),
-      pwealthpos  = dyn_wealth_xform(pnetworth, type='log+'),
-      pwealthneg  = dyn_wealth_xform(pnetworth, type='log-')
+      tmp=pnetworth,
+      pnetworth = dyn_wealth_xform(tmp, type='linear'),
+      pwealthpos  = dyn_wealth_xform(tmp, type='log+'),
+      pwealthneg  = dyn_wealth_xform(tmp, type='log-')
   ) |>
+  select(-tmp) |>
   filter(pnetworth>-20) |>
   group_by(race) |>
   summarize(across(c(pnetworth,pwealthpos,pwealthneg), ~ weighted.mean(.x, wt)))
@@ -1569,9 +1670,7 @@ estdf = gsenrdf |>
         pwealthneg  = dyn_wealth_xform(pnetworth, type='log-')
     )
 
-gsmodel_covars = c("yearf", "asian", "pwealthpos", "pwealthneg", "pared")
-
-gsmodel_formula = as.formula(paste("tEnroll ~ ", paste(gsmodel_covars, collapse = " + ")))
+gsmodel_formula = as.formula(paste("tEnroll ~ ", paste(model_covars2, collapse = " + ")))
 
 # Estimate one model for each sex-race combination
 estdf = estdf |>
