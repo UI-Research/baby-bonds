@@ -100,7 +100,7 @@ The proposed model of college education consists of four models:
 
 
 # Linear transformation of wealth (divided by average annual earnings)
-opt_wealth_xform = 'log'
+opt_wealth_xform = 'pwl'
 
 # Parents' education is encoded as the highest educational attainment of the two parents
 opt_pared_code = 'max4'
@@ -111,7 +111,7 @@ opt_sig_level = 1
 coefs = list(lin=list(), log=list())
 
 # These covariates are used in all regressions
-model_covars = c("yearf", "asian", "pnetworth", "asian*pnetworth", "pared", "asian*pared")
+model_covars = c("yearf", "asian", "pnwawi", "asian*pnwawi", "pared", "asian*pared")
 model_covars2 = c("yearf", "asian", "pwealthpos", "pwealthneg", "asian*pwealthpos", "asian*pwealthneg", "pared", "asian*pared")
 model_covars3 = c("yearf", "asian", "pnw1", "pnw2", "pnw3", "asian*pnw1", "asian*pnw2", "pnw3", "pared", "asian*pared")
 
@@ -335,6 +335,13 @@ pnw_make_logs = function(data)
   return(data)
 }
 
+pnw_make_lin = function(data)
+{
+  data = data |> mutate(
+      pnwawi  = dyn_wealth_xform(pnetworth, type='linear')
+  )
+  return(data)
+}
 
 
 knitr::kable(
@@ -342,7 +349,7 @@ basedf |>
   select(id, pnetworth, race, wt) |>
   pnw_make_3splines() |>
   pnw_make_logs() |>
-  mutate(pnwawi = dyn_wealth_xform(pnetworth, type='linear')) |>
+  pnw_make_lin() |>
   filter(pnwawi>-20) |>
   group_by(race) |>
   summarize(
@@ -374,6 +381,26 @@ tab_marg_effects = function(estdf, colnames)
     knitr::kable(df, digits=5)
 }
 
+estimate_model = function(data, yvar, covars, groups)
+{
+    
+    model_formula = as.formula(paste0(yvar, " ~ ", paste(covars, collapse = " + ")))
+    
+    # Estimate one model for each sex-race combination
+    data = data |>
+        group_by(pick({{groups}})) |>
+        nest() |>
+        mutate(
+            mods = map(data, \(x) glm(
+                model_formula, 
+                data=x, 
+                family=binomial)
+            )
+        ) |>
+        mutate(pred = map(mods, \(x) predict(x, type='response')))
+
+    return(data)        
+}
 
 ```
 
@@ -565,32 +592,8 @@ $$ \text{logit}(y_{it}^{(j)}) = \sum_{k=0}^T \alpha_k^{(j)} I(k=t) + \beta' x_i,
 # Create a factor year variable to use it as dummmies in regressions
 estdf = colenrdf |>
     filter(spEnroll==1) |>
-    mutate(
-        yearf=factor(pmin(timeEnroll,8)),
-        pnetworth=dyn_wealth_xform(pnetworth, type='linear')
-    )
-
-
-estimate_model = function(data, yvar, covars, groups)
-{
-    
-    model_formula = as.formula(paste0(yvar, " ~ ", paste(covars, collapse = " + ")))
-    
-    # Estimate one model for each sex-race combination
-    data = data |>
-        group_by(pick({{groups}})) |>
-        nest() |>
-        mutate(
-            mods = map(data, \(x) glm(
-                model_formula, 
-                data=x, 
-                family=binomial)
-            )
-        ) |>
-        mutate(pred = map(mods, \(x) predict(x, type='response')))
-
-    return(data)        
-}
+    mutate(yearf=factor(pmin(timeEnroll,8))) |>
+    pnw_make_lin()
 
 estdf = estdf |> estimate_model("tEnroll", model_covars, c(race, sex))
 
@@ -632,34 +635,77 @@ coefs[['lin']][['colenr']] = list(
 #| tbl-cap: "Marginal effects of parental networth"
 
 
-tab_marg_effects(estdf, "pnetworth")
+tab_marg_effects(estdf, "pnwawi")
 ```
 
 @fig-enr-simple-mod-pred shows hazard rates by sex and race predicted by the model, as well as the actual hazard rates from @fig-enrol-hazard.
 
 ```{r}
 #| label: fig-enr-simple-mod-pred
-#| fig-cap: 'Hazard rates for college enrollment after graduating from high school by sex and race, actual and predicted.'
+#| fig-cap: "Hazard rates for college enrollment after graduating from high school by sex and race, actual, predicted, and alternative with $100K more in parents' net-worth."
 
-estdf |>
-    select(sex, race, data, pred) |>
-    unnest(cols=c(data, pred)) |>
+
+add_alt_pred = function(estdf, dpnw, xform)
+{
+    df =estdf |> 
+        mutate(data2 = map(
+            data, 
+            ~mutate(.x, pnetworth=pnetworth+dpnw)
+            )
+        ) |> 
+        mutate(data2 = map(data2, xform)) |>
+        mutate(pred2 = map2(
+            mods,
+            data2,
+            ~predict(.x, newdata=.y, type="response")
+            )
+        )
+    return(df)
+}
+
+
+add_alt_pred(estdf, 1e5, pnw_make_lin) |>
+    select(sex, race, data, pred, pred2) |>
+    unnest(cols=c(data, pred, pred2)) |>
     group_by(timeEnroll, race, sex) |>
     summarise(
         tEnroll = weighted.mean(tEnroll, wt),
-        pred = weighted.mean(pred, wt)
+        pred = weighted.mean(pred, wt),
+        pred2 = weighted.mean(pred2, wt)
     ) |>
     rename(
-        `Actual`    = tEnroll,
-        `Predicted` = pred
+        `Actual`       = tEnroll,
+        `Predicted`    = pred,
+        `Alternative`  = pred2
         ) |>
-    pivot_longer(cols=c('Actual', 'Predicted')) |>
+    pivot_longer(cols=c('Actual', 'Predicted', 'Alternative')) |>
     ggplot() +
     geom_line(aes(x=timeEnroll, y=value, color=name)) +
     facet_grid(rows=vars(sex), cols=vars(race)) +
     xlab('Years since high-school graduation') +
     ylab('Likelihood of college enrollment')
 
+
+
+# estdf |>
+#     select(sex, race, data, pred) |>
+#     unnest(cols=c(data, pred)) |>
+#     group_by(timeEnroll, race, sex) |>
+#     summarise(
+#         tEnroll = weighted.mean(tEnroll, wt),
+#         pred = weighted.mean(pred, wt)
+#     ) |>
+#     rename(
+#         `Actual`    = tEnroll,
+#         `Predicted` = pred
+#         ) |>
+#     pivot_longer(cols=c('Actual', 'Predicted')) |>
+#     ggplot() +
+#     geom_line(aes(x=timeEnroll, y=value, color=name)) +
+#     facet_grid(rows=vars(sex), cols=vars(race)) +
+#     xlab('Years since high-school graduation') +
+#     ylab('Likelihood of college enrollment')
+# 
 
 ```
 
@@ -722,6 +768,33 @@ tab_marg_effects(estdf, c("pwealthpos", "pwealthneg"))
 ```
 
 
+```{r}
+#| label: fig-enr-simple2-mod-pred
+#| fig-cap: "Hazard rates for college enrollment after graduating from high school by sex and race, actual, predicted, and alternative with $100K more in parents' net-worth."
+
+add_alt_pred(estdf, 1e5, pnw_make_logs) |>
+    select(sex, race, data, pred, pred2) |>
+    unnest(cols=c(data, pred, pred2)) |>
+    group_by(timeEnroll, race, sex) |>
+    summarise(
+        tEnroll = weighted.mean(tEnroll, wt),
+        pred = weighted.mean(pred, wt),
+        pred2 = weighted.mean(pred2, wt)
+    ) |>
+    rename(
+        `Actual`       = tEnroll,
+        `Predicted`    = pred,
+        `Alternative`  = pred2
+        ) |>
+    pivot_longer(cols=c('Actual', 'Predicted', 'Alternative')) |>
+    ggplot() +
+    geom_line(aes(x=timeEnroll, y=value, color=name)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab('Years since high-school graduation') +
+    ylab('Likelihood of college enrollment')
+
+```
+
 ### College Enrollment with Piecewise-Linear Parents' Net-Worth
 
 In this variation, we use piecewise linear splines for parents' networth. @tbl-enroll3-simple-mod-est shows the estimated coefficients.
@@ -771,6 +844,34 @@ coefs[['pwl']][['colenr']] = list(
 #| tbl-cap: "Marginal effects of parental networth separate for negative and positive"
 
 tab_marg_effects(estdf, c("pnw1","pnw2","pnw3"))
+
+```
+
+```{r}
+#| label: fig-enr-simple3-mod-pred
+#| fig-cap: "Hazard rates for college enrollment after graduating from high school by sex and race, actual, predicted, and alternative with $100K more in parents' net-worth."
+
+
+add_alt_pred(estdf, 1e5, pnw_make_3splines) |>
+    select(sex, race, data, pred, pred2) |>
+    unnest(cols=c(data, pred, pred2)) |>
+    group_by(timeEnroll, race, sex) |>
+    summarise(
+        tEnroll = weighted.mean(tEnroll, wt),
+        pred = weighted.mean(pred, wt),
+        pred2 = weighted.mean(pred2, wt)
+    ) |>
+    rename(
+        `Actual`       = tEnroll,
+        `Predicted`    = pred,
+        `Alternative`  = pred2
+        ) |>
+    pivot_longer(cols=c('Actual', 'Predicted', 'Alternative')) |>
+    ggplot() +
+    geom_line(aes(x=timeEnroll, y=value, color=name)) +
+    facet_grid(rows=vars(sex), cols=vars(race)) +
+    xlab('Years since high-school graduation') +
+    ylab('Likelihood of college enrollment')
 
 ```
 
@@ -848,10 +949,8 @@ ggplot(plotdf) +
 # Create a factor year variable to use it as dummmies in regressions
 estdf = colenrdf |>
     filter(spEnroll==2) |>
-    mutate(
-        yearf=factor(pmin(timeEnroll,5)),
-        pnetworth=dyn_wealth_xform(pnetworth, type='linear')
-    )
+    mutate(yearf=factor(pmin(timeEnroll,5))) |>
+    pnw_make_lin()    
 
 estdf = estdf |> estimate_model("tEnroll", model_covars, c(race, sex))
 ```
@@ -891,7 +990,7 @@ coefs[['lin']][['colreenr']] = list(
 #| label: tbl-reenroll-marginal
 #| tbl-cap: "Marginal effects of parental networth on re-enrollment in college"
 
-tab_marg_effects(estdf, "pnetworth")
+tab_marg_effects(estdf, "pnwawi")
 ```
 
 
@@ -976,6 +1075,58 @@ tab_marg_effects(estdf, c("pwealthpos", "pwealthneg"))
 
 ```
 
+
+### Re-Enrollment with Piecewise-Linear Parents' Net-Worth
+
+```{r}
+#| label: est-reenrol3-models
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = colenrdf |>
+    filter(spEnroll==2) |>
+    mutate(yearf=factor(pmin(timeEnroll,5))) |>
+    pnw_make_3splines()
+
+estdf = estdf |> estimate_model("tEnroll", model_covars3, c(race, sex))
+
+```
+
+
+```{r}
+#| label: tbl-reenrol3-mod-est
+#| tbl-cap: "Estimated coefficients of the re-enrollment model with parental networth split into negative and positive terms"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+models = estdf$mods
+names(models) = dyn_get_sexrace_names(estdf)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x)
+             )
+
+# Dataframe with coefficients
+res_colreenr = dyn_coef_to_df(models)
+
+coefs[['pwl']][['colreenr']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_reenr.csv",
+    description = 'Coefficients for the model of re-enrolling into college after dropping out.'
+)
+
+```
+
+```{r}
+#| label: tbl-reenroll3-marginal
+#| tbl-cap: "Marginal effects of parental networth separate for negative and positive"
+
+tab_marg_effects(estdf, c("pnw1", "pnw2", "pnw3"))
+
+```
 
 ## Dropping out of College
 
@@ -1146,10 +1297,8 @@ estdf = dropdf |>
         by='id'
     ) |>
 #    filter(spDrop==1) |>
-    mutate(
-        yearf=factor(pmin(timeDrop,5)),
-        pnetworth=dyn_wealth_xform(pnetworth, type='linear')
-        )
+    mutate(yearf=factor(pmin(timeDrop,5))) |>
+    pnw_make_lin()
 
 estdf = estdf |> estimate_model("tDrop", model_covars, c(race, sex))
 
@@ -1187,7 +1336,7 @@ coefs[['lin']][['coldrop']] = list(
 #| label: tbl-drop-marginal
 #| tbl-cap: "Marginal effects of parental networth on dropping out of college"
 
-tab_marg_effects(estdf, "pnetworth")
+tab_marg_effects(estdf, "pnwawi")
 
 ```
 
@@ -1201,7 +1350,7 @@ estdf |>
     group_by(timeDrop, race, sex) |>
     summarise(
         tDrop = weighted.mean(tDrop, wt),
-        pred = weighted.mean(pred, wt)
+        pred  = weighted.mean(pred, wt)
     ) |>
     rename(
         `Actual`    = tDrop,
@@ -1277,6 +1426,62 @@ tab_marg_effects(estdf, c("pwealthpos", "pwealthneg"))
 
 ```
 
+
+### Dropping out of College with Piecewise-Linear Parents' Net-Worth
+
+```{r}
+#| label: est-simple-drop3-models
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = dropdf |>
+    filter(timeDrop>0) |>
+    inner_join(
+        basedf,
+        by='id'
+    ) |>
+    mutate(yearf=factor(pmin(timeDrop,5))) |>
+    pnw_make_3splines()
+
+estdf = estdf |> estimate_model("tDrop", model_covars3, c(race, sex))
+
+```
+
+```{r}
+#| label: tbl-drop-simple3-mod-est
+#| tbl-cap: "Estimated coefficients of the model of dropping out of college"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+models = estdf$mods
+names(models) = dyn_get_sexrace_names(estdf)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x))
+
+# Dataframe with coefficients
+res_coldrop = dyn_coef_to_df(models)
+
+coefs[['pwl']][['coldrop']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_drop.csv",
+    description = 'Coefficients for the model of dropping out of college.'
+)
+
+```
+
+```{r}
+#| label: tbl-drop3-marginal
+#| tbl-cap: "Marginal effects of parental networth on dropping out of college"
+
+tab_marg_effects(estdf, c("pnw1", "pnw2", "pnw3"))
+
+```
+
+
 ## Graduating from College
 
 ### College Graduation with Linear Parents' Net-Worth
@@ -1335,10 +1540,8 @@ graddf |>
 
 # Create a factor year variable to use it as dummmies in regressions
 estdf = graddf |>
-    mutate(
-        yearf=factor(pmin(timeGrad,4)),
-        pnetworth=dyn_wealth_xform(pnetworth, type='linear')
-    )
+    mutate(yearf=factor(pmin(timeGrad,4))) |>
+    pnw_make_lin()
 
 estdf = estdf |> estimate_model("tGrad", model_covars, c(race, sex))
 
@@ -1378,7 +1581,7 @@ coefs[['lin']][['colgrad']] = list(
 #| label: tbl-grad-marginal
 #| tbl-cap: "Marginal effects of parental networth on graduation from college"
 
-tab_marg_effects(estdf, "pnetworth")
+tab_marg_effects(estdf, "pnwawi")
 
 ```
 
@@ -1461,7 +1664,58 @@ tab_marg_effects(estdf, c("pwealthpos", "pwealthneg"))
 
 ```
 
-# Graduate School
+
+### College Graduation with Piecewise-Linear Parents' Net-Worth
+
+```{r}
+#| label: est-grad-simple3-models
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = graddf |>
+    mutate(yearf=factor(pmin(timeGrad,4))) |>
+    pnw_make_3splines()
+
+estdf = estdf |> estimate_model("tGrad", model_covars3, c(race, sex))
+
+```
+
+```{r}
+#| label: tbl-grad-simple3-mod-est
+#| tbl-cap: "Estimated coefficients of the college graduation model"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+models = estdf$mods
+names(models) = dyn_get_sexrace_names(estdf)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x))
+
+# Dataframe with coefficients
+res_colgrad = dyn_coef_to_df(models)
+
+coefs[['pwl']][['colgrad']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_grad.csv",
+    description = 'Coefficients for college graduation model.'
+)
+
+
+```
+
+```{r}
+#| label: tbl-grad3-marginal
+#| tbl-cap: "Marginal effects of parental networth on graduation from college"
+
+tab_marg_effects(estdf, c("pnw1", "pnw2", "pnw3"))
+
+```
+
+## Graduate School
 
 ```{r}
 #| label: make-gsenrdf
@@ -1494,26 +1748,25 @@ ggplot(plotdf) +
 
 ```
 
+### Graduate School by Gender
+
+
 ```{r}
-#| label: est-gsgrad-simple-models1
+#| label: est-gsgrad-bygender-models
 
 # Create a factor year variable to use it as dummmies in regressions
 estdf = gsenrdf |>
-    mutate(
-        yearf=factor(pmin(timeEnroll,4)),
-        pnetworth=dyn_wealth_xform(pnetworth, type='linear')
-    )
+    mutate(yearf=factor(pmin(timeEnroll,4))) |>
+    pnw_make_lin()
 
-gsmodel_covars = c("yearf", "race", "asian", "pnetworth", "pared")
+gsmodel_covars = c("yearf", "race", "asian", "pnwawi", "pared")
 
 estdf = estdf |> estimate_model("tEnroll", gsmodel_covars, c(sex))
 
 ```
 
-## Simple Model Estimated by Gender
-
 ```{r}
-#| label: tbl-gsenrol-simple-mod-est1
+#| label: tbl-gsenrol-bygender-mod-est
 #| tbl-cap: "Estimated coefficients for the model of graduate school enrollment"
 
 # Create a named list of models
@@ -1541,27 +1794,25 @@ modelsummary(models,
 ```
 
 
-## Simple Model Estimated by Gender and Race
+### Graduate School by Gender and Race
 
 
 ```{r}
-#| label: est-gsgrad-simple-models2
+#| label: est-gsgrad-simple-models
 
 # Create a factor year variable to use it as dummmies in regressions
 estdf = gsenrdf |>
-    mutate(
-        yearf=factor(pmin(timeEnroll,4)),
-        pnetworth=dyn_wealth_xform(pnetworth, type='linear')
-    )
-
-gsmodel_covars = c("yearf", "asian", "pnetworth", "pared")
+    mutate(yearf=factor(pmin(timeEnroll,4))) |>
+    pnw_make_lin()
+    
+gsmodel_covars = c("yearf", "asian", "pnwawi", "pared")
 
 estdf = estdf |> estimate_model("tEnroll", gsmodel_covars, c(race, sex))
 
 ```
 
 ```{r}
-#| label: tbl-gsenrol-simple-mod-est2
+#| label: tbl-gsenrol-simple-mod-est
 #| tbl-cap: "Estimated coefficients for the model of graduate school enrollment"
 
 # Create a named list of models
@@ -1619,15 +1870,15 @@ estdf |>
 #| label: tbl-gsenrol-marginal
 #| tbl-cap: "Marginal effects of parental networth on graduation from college"
 
-tab_marg_effects(estdf, c("pnetworth"))
+tab_marg_effects(estdf, c("pnwawi"))
 
 ```
 
-### Simple Model Estimated by Gender and Race, Alternative
+### Graduate School by Gender and Race with Logarithmic Parents' Wealth
 
 
 ```{r}
-#| label: est-gsgrad-simple-models3
+#| label: est-gsgrad-simple-models2
 
 # Create a factor year variable to use it as dummmies in regressions
 estdf = gsenrdf |>
@@ -1642,7 +1893,7 @@ estdf = estdf |> estimate_model("tEnroll", model_covars2, c(race, sex))
 ```
 
 ```{r}
-#| label: tbl-gsenrol-simple-mod-est3
+#| label: tbl-gsenrol-simple-mod-est2
 #| tbl-cap: "Estimated coefficients for the model of graduate school enrollment"
 
 # Create a named list of models
@@ -1678,7 +1929,59 @@ tab_marg_effects(estdf, c("pwealthpos", "pwealthneg"))
 ```
 
 
-## Model with Marital Status and Presence of Children Estimated by Gender and Race
+### Graduate School by Gender and Race with Piecewiase Linear Parents' Wealth
+
+
+```{r}
+#| label: est-gsgrad-simple-models3
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = gsenrdf |>
+    mutate(yearf=factor(pmin(timeEnroll,4))) |>
+    pnw_make_3splines()
+
+estdf = estdf |> estimate_model("tEnroll", model_covars3, c(race, sex))
+
+```
+
+```{r}
+#| label: tbl-gsenrol-simple-mod-est3
+#| tbl-cap: "Estimated coefficients for the model of graduate school enrollment"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+models = estdf$mods
+names(models) = dyn_get_sexrace_names(estdf)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_rename=coef_rename
+#             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x)
+             )
+
+# Dataframe with coefficients
+coefs[['pwl']][['gsenr']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_gsenr.csv",
+    description = 'Coefficients for grad school enrollment model.'
+)
+
+
+```
+
+```{r}
+#| label: tbl-gsenrol3-marginal
+#| tbl-cap: "Marginal effects of parental networth on graduation from college"
+
+tab_marg_effects(estdf, c("pnw1", "pnw2", "pnw3"))
+
+```
+
+
+### Model with Marital Status and Presence of Children Estimated by Gender and Race
 
 ```{r}
 #| label: est-gsgrad-simple-models4
@@ -1687,12 +1990,12 @@ tab_marg_effects(estdf, c("pwealthpos", "pwealthneg"))
 estdf = gsenrdf |>
     mutate(
         yearf=factor(pmin(timeEnroll,4)),
-        pnetworth=dyn_wealth_xform(pnetworth, type='linear'),
         has_child = as.integer(bio_child>0),
         has_partner = as.integer(mar_status %in% c('Married', 'Cohabiting'))
-    )
+    ) |>
+    pnw_make_lin()    
 
-gsmodel_covars = c("yearf", "asian", "pnetworth", "pared", "has_child", "has_partner")
+gsmodel_covars = c("yearf", "asian", "pnwawi", "pared", "has_child", "has_partner")
 
 estdf = estdf |> estimate_model("tEnroll", gsmodel_covars, c(race, sex))
 
@@ -1726,7 +2029,7 @@ modelsummary(models,
 
 ```
 
-## Model with Marital Status, Presence of Children, and Networth Estimated by Gender and Race
+### Model with Marital Status, Presence of Children, and Networth Estimated by Gender and Race
 
 ```{r}
 #| label: est-gsgrad-simple-models5
@@ -1736,16 +2039,16 @@ estdf = gsenrdf |>
     filter(!is.na(income), !is.na(networth)) |>
     mutate(
         yearf         = factor(pmin(timeEnroll,4)),
-        pnetworth     = dyn_wealth_xform(pnetworth, type='linear'),
         income        = dyn_wealth_xform(income, type='linear'),
         lincome       = lag(income),
         networth      = dyn_wealth_xform(networth, type='linear'),
         lnetworth     = lag(networth),
         has_child     = as.integer(bio_child>0),
         has_partner   = as.integer(mar_status %in% c('Married', 'Cohabiting'))
-    )
+    ) |>
+    pnw_make_lin()
 
-gsmodel_covars = c("yearf", "asian", "pnetworth", "pared", "has_child", "has_partner", "lnetworth*yearf")
+gsmodel_covars = c("yearf", "asian", "pnwawi", "pared", "has_child", "has_partner", "lnetworth*yearf")
 
 estdf = estdf |> estimate_model("tEnroll", gsmodel_covars, c(race, sex))
 
