@@ -570,20 +570,29 @@ estdf = colenrdf |>
         pnetworth=dyn_wealth_xform(pnetworth, type='linear')
     )
 
-model_formula = as.formula(paste("tEnroll ~ ", paste(model_covars, collapse = " + ")))
 
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(race, sex) |>
-    nest() |>
-    mutate(
-        mods = map(data, \(x) glm(
-            model_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
+estimate_model = function(data, yvar, covars, groups)
+{
+    
+    model_formula = as.formula(paste0(yvar, " ~ ", paste(covars, collapse = " + ")))
+    
+    # Estimate one model for each sex-race combination
+    data = data |>
+        group_by(pick({{groups}})) |>
+        nest() |>
+        mutate(
+            mods = map(data, \(x) glm(
+                model_formula, 
+                data=x, 
+                family=binomial)
+            )
+        ) |>
+        mutate(pred = map(mods, \(x) predict(x, type='response')))
+
+    return(data)        
+}
+
+estdf = estdf |> estimate_model("tEnroll", model_covars, c(race, sex))
 
 ```
 
@@ -671,24 +680,7 @@ estdf = colenrdf |>
         pwealthneg  = dyn_wealth_xform(pnetworth, type='log-')
     )
 
-model_formula = as.formula(paste("tEnroll ~ ", paste(model_covars2, collapse = " + ")))
-
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(race, sex) |>
-    nest() |>
-    mutate(
-        mods = map(data, \(x) glm(
-            model_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
-    # mutate(
-    #     margpos = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthpos"))),
-    #     margneg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthneg"))),
-    #     )
+estdf = estdf |> estimate_model("tEnroll", model_covars2, c(race, sex))
 
 ```
 
@@ -743,25 +735,7 @@ estdf = colenrdf |>
     mutate(yearf       = factor(pmin(timeEnroll,8))) |>
     pnw_make_3splines()
 
-model_formula = as.formula(paste("tEnroll ~ ", paste(model_covars3, collapse = " + ")))
-
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(race, sex) |>
-    nest() |>
-    mutate(
-        mods = map(data, \(x) glm(
-            model_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(
-        margpnw1 = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnw1"))),
-        margpnw2 = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnw2"))),
-        margpnw3 = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnw3")))
-        )
+estdf = estdf |> estimate_model("tEnroll", model_covars3, c(race, sex))
 
 ```
 
@@ -879,20 +853,7 @@ estdf = colenrdf |>
         pnetworth=dyn_wealth_xform(pnetworth, type='linear')
     )
 
-model_formula = as.formula(paste("tEnroll ~ ", paste(model_covars, collapse = " + ")))
-
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(race, sex) |>
-    nest() |>
-    mutate(
-        mods = map(data, \(x) glm(
-            model_formula, 
-            data=x,
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
+estdf = estdf |> estimate_model("tEnroll", model_covars, c(race, sex))
 ```
 
 ```{r}
@@ -974,20 +935,8 @@ estdf = colenrdf |>
         pwealthneg  = dyn_wealth_xform(pnetworth, type='log-')
     )
 
-model_formula = as.formula(paste("tEnroll ~ ", paste(model_covars2, collapse = " + ")))
+estdf = estdf |> estimate_model("tEnroll", model_covars2, c(race, sex))
 
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(race, sex) |>
-    nest() |>
-    mutate(
-        mods = map(data, \(x) glm(
-            model_formula, 
-            data=x,
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 
@@ -1202,20 +1151,8 @@ estdf = dropdf |>
         pnetworth=dyn_wealth_xform(pnetworth, type='linear')
         )
 
-model_formula = as.formula(paste("tDrop ~ ", paste(model_covars, collapse = " + ")))
+estdf = estdf |> estimate_model("tDrop", model_covars, c(race, sex))
 
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(race, sex) |>
-    nest() |>
-    mutate(
-        mods = map(data, \(x) glm(
-            model_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1301,20 +1238,8 @@ estdf = dropdf |>
         pwealthneg  = dyn_wealth_xform(pnetworth, type='log-')
         )
 
-model_formula = as.formula(paste("tDrop ~ ", paste(model_covars2, collapse = " + ")))
+estdf = estdf |> estimate_model("tDrop", model_covars2, c(race, sex))
 
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(race, sex) |>
-    nest() |>
-    mutate(
-        mods = map(data, \(x) glm(
-            model_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1415,20 +1340,8 @@ estdf = graddf |>
         pnetworth=dyn_wealth_xform(pnetworth, type='linear')
     )
 
-model_formula = as.formula(paste("tGrad ~ ", paste(model_covars, collapse = " + ")))
+estdf = estdf |> estimate_model("tGrad", model_covars, c(race, sex))
 
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(race, sex) |>
-    nest() |>
-    mutate(mods = map(
-        data, \(x) glm(
-            model_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1508,20 +1421,8 @@ estdf = graddf |>
         pwealthneg  = dyn_wealth_xform(pnetworth, type='log-')
     )
 
-model_formula = as.formula(paste("tGrad ~ ", paste(model_covars2, collapse = " + ")))
+estdf = estdf |> estimate_model("tGrad", model_covars2, c(race, sex))
 
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(race, sex) |>
-    nest() |>
-    mutate(mods = map(
-        data, \(x) glm(
-            model_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1605,21 +1506,8 @@ estdf = gsenrdf |>
 
 gsmodel_covars = c("yearf", "race", "asian", "pnetworth", "pared")
 
-gsmodel_formula = as.formula(paste("tEnroll ~ ", paste(gsmodel_covars, collapse = " + ")))
+estdf = estdf |> estimate_model("tEnroll", gsmodel_covars, c(sex))
 
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(sex) |>
-    nest() |>
-    mutate(mods = map(
-        data, \(x) glm(
-            gsmodel_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
 ```
 
 ## Simple Model Estimated by Gender
@@ -1668,20 +1556,8 @@ estdf = gsenrdf |>
 
 gsmodel_covars = c("yearf", "asian", "pnetworth", "pared")
 
-gsmodel_formula = as.formula(paste("tEnroll ~ ", paste(gsmodel_covars, collapse = " + ")))
+estdf = estdf |> estimate_model("tEnroll", gsmodel_covars, c(race, sex))
 
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(sex, race) |>
-    nest() |>
-    mutate(mods = map(
-        data, \(x) glm(
-            gsmodel_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1761,20 +1637,8 @@ estdf = gsenrdf |>
         pwealthneg  = dyn_wealth_xform(pnetworth, type='log-')
     )
 
-gsmodel_formula = as.formula(paste("tEnroll ~ ", paste(model_covars2, collapse = " + ")))
+estdf = estdf |> estimate_model("tEnroll", model_covars2, c(race, sex))
 
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(sex, race) |>
-    nest() |>
-    mutate(mods = map(
-        data, \(x) glm(
-            gsmodel_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1830,21 +1694,8 @@ estdf = gsenrdf |>
 
 gsmodel_covars = c("yearf", "asian", "pnetworth", "pared", "has_child", "has_partner")
 
-gsmodel_formula = as.formula(paste("tEnroll ~ ", paste(gsmodel_covars, collapse = " + ")))
+estdf = estdf |> estimate_model("tEnroll", gsmodel_covars, c(race, sex))
 
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(sex, race) |>
-    nest() |>
-    mutate(mods = map(
-        data, \(x) glm(
-            gsmodel_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
 ```
 
 ```{r}
@@ -1896,20 +1747,8 @@ estdf = gsenrdf |>
 
 gsmodel_covars = c("yearf", "asian", "pnetworth", "pared", "has_child", "has_partner", "lnetworth*yearf")
 
-gsmodel_formula = as.formula(paste("tEnroll ~ ", paste(gsmodel_covars, collapse = " + ")))
+estdf = estdf |> estimate_model("tEnroll", gsmodel_covars, c(race, sex))
 
-# Estimate one model for each sex-race combination
-estdf = estdf |>
-    group_by(sex, race) |>
-    nest() |>
-    mutate(mods = map(
-        data, \(x) glm(
-            gsmodel_formula, 
-            data=x, 
-            family=binomial)
-        )
-    ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
