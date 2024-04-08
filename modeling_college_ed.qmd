@@ -363,10 +363,14 @@ marginal_effects = function(model, data, variables)
 {
     return((summary(margins(model, data=data, variables=variables)))$AME)
 }
-
 tab_marg_effects = function(estdf, colnames)
 {
-    df = map(colnames, ~data.frame(estdf[[.x]])) |> map(~setNames(.x, dyn_get_sexrace_names(estdf))) |> bind_rows()
+    # Calculate marginal effects for each variable and for each group   
+    res = map(colnames, ~mutate(estdf, {{.x}} := map2(mods, data, \(x,y) marginal_effects(x, y, variables=.x))))
+    
+    # Pull all the marginal effects into one dataframe
+    df = map2(colnames, res, ~data.frame(.y[[.x]]) |> setNames(dyn_get_sexrace_names(estdf))) |> bind_rows()
+    
     knitr::kable(df, digits=5)
 }
 
@@ -579,9 +583,7 @@ estdf = estdf |>
             family=binomial)
         )
     ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
-
+    mutate(pred = map(mods, \(x) predict(x, type='response')))
 
 ```
 
@@ -620,7 +622,8 @@ coefs[['lin']][['colenr']] = list(
 #| label: tbl-enroll-marginal
 #| tbl-cap: "Marginal effects of parental networth"
 
-tab_marg_effects(estdf, "marg")
+
+tab_marg_effects(estdf, "pnetworth")
 ```
 
 @fig-enr-simple-mod-pred shows hazard rates by sex and race predicted by the model, as well as the actual hazard rates from @fig-enrol-hazard.
@@ -681,11 +684,11 @@ estdf = estdf |>
             family=binomial)
         )
     ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(
-        margpos = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthpos"))),
-        margneg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthneg"))),
-        )
+    mutate(pred = map(mods, \(x) predict(x, type='response')))
+    # mutate(
+    #     margpos = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthpos"))),
+    #     margneg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthneg"))),
+    #     )
 
 ```
 
@@ -720,7 +723,9 @@ coefs[['log']][['colenr']] = list(
 #| label: tbl-enroll2-marginal
 #| tbl-cap: "Marginal effects of parental networth separate for negative and positive"
 
-tab_marg_effects(estdf, c("margpos", "margneg"))
+
+
+tab_marg_effects(estdf, c("pwealthpos", "pwealthneg"))
 
 ```
 
@@ -791,7 +796,7 @@ coefs[['pwl']][['colenr']] = list(
 #| label: tbl-enroll3-marginal
 #| tbl-cap: "Marginal effects of parental networth separate for negative and positive"
 
-tab_marg_effects(estdf, c("margpnw1","margpnw2","margpnw3"))
+tab_marg_effects(estdf, c("pnw1","pnw2","pnw3"))
 
 ```
 
@@ -887,8 +892,7 @@ estdf = estdf |>
             family=binomial)
         )
     ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
+    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -926,7 +930,7 @@ coefs[['lin']][['colreenr']] = list(
 #| label: tbl-reenroll-marginal
 #| tbl-cap: "Marginal effects of parental networth on re-enrollment in college"
 
-tab_marg_effects(estdf, "marg")
+tab_marg_effects(estdf, "pnetworth")
 ```
 
 
@@ -983,11 +987,7 @@ estdf = estdf |>
             family=binomial)
         )
     ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(
-        margpos = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthpos"))),
-        margneg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthneg"))),
-        )
+    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 
@@ -1023,7 +1023,7 @@ coefs[['log']][['colreenr']] = list(
 #| label: tbl-reenroll2-marginal
 #| tbl-cap: "Marginal effects of parental networth separate for negative and positive"
 
-tab_marg_effects(estdf, c("margpos", "margneg"))
+tab_marg_effects(estdf, c("pwealthpos", "pwealthneg"))
 
 ```
 
@@ -1215,8 +1215,7 @@ estdf = estdf |>
             family=binomial)
         )
     ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
+    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1251,7 +1250,7 @@ coefs[['lin']][['coldrop']] = list(
 #| label: tbl-drop-marginal
 #| tbl-cap: "Marginal effects of parental networth on dropping out of college"
 
-tab_marg_effects(estdf, "marg")
+tab_marg_effects(estdf, "pnetworth")
 
 ```
 
@@ -1315,11 +1314,7 @@ estdf = estdf |>
             family=binomial)
         )
     ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(
-        margpos = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthpos"))),
-        margneg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthneg"))),
-        )
+    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1353,7 +1348,7 @@ coefs[['log']][['coldrop']] = list(
 #| label: tbl-drop2-marginal
 #| tbl-cap: "Marginal effects of parental networth on dropping out of college"
 
-tab_marg_effects(estdf, c("margpos", "margneg"))
+tab_marg_effects(estdf, c("pwealthpos", "pwealthneg"))
 
 ```
 
@@ -1433,8 +1428,7 @@ estdf = estdf |>
             family=binomial)
         )
     ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
+    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1471,7 +1465,7 @@ coefs[['lin']][['colgrad']] = list(
 #| label: tbl-grad-marginal
 #| tbl-cap: "Marginal effects of parental networth on graduation from college"
 
-tab_marg_effects(estdf, "marg")
+tab_marg_effects(estdf, "pnetworth")
 
 ```
 
@@ -1527,11 +1521,7 @@ estdf = estdf |>
             family=binomial)
         )
     ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(
-        margpos = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthpos"))),
-        margneg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthneg"))),
-        )
+    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1566,7 +1556,7 @@ coefs[['log']][['colgrad']] = list(
 #| label: tbl-grad2-marginal
 #| tbl-cap: "Marginal effects of parental networth on graduation from college"
 
-tab_marg_effects(estdf, c("margpos", "margneg"))
+tab_marg_effects(estdf, c("pwealthpos", "pwealthneg"))
 
 ```
 
@@ -1691,8 +1681,7 @@ estdf = estdf |>
             family=binomial)
         )
     ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(marg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnetworth"))))
+    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1754,7 +1743,7 @@ estdf |>
 #| label: tbl-gsenrol-marginal
 #| tbl-cap: "Marginal effects of parental networth on graduation from college"
 
-tab_marg_effects(estdf, c("marg"))
+tab_marg_effects(estdf, c("pnetworth"))
 
 ```
 
@@ -1785,11 +1774,7 @@ estdf = estdf |>
             family=binomial)
         )
     ) |>
-    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
-    mutate(
-        margpos = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthpos"))),
-        margneg = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pwealthneg"))),
-        )
+    mutate(pred = map(mods, \(x) predict(x, type='response')))
 ```
 
 ```{r}
@@ -1824,7 +1809,7 @@ coefs[['log']][['gsenr']] = list(
 #| label: tbl-gsenrol2-marginal
 #| tbl-cap: "Marginal effects of parental networth on graduation from college"
 
-tab_marg_effects(estdf, c("margpos", "margneg"))
+tab_marg_effects(estdf, c("pwealthpos", "pwealthneg"))
 
 ```
 
