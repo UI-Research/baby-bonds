@@ -3450,20 +3450,26 @@ window.Quarto = {
   <li><a href="#proposed-model" id="toc-proposed-model" class="nav-link" data-scroll-target="#proposed-model">Proposed Model</a>
   <ul class="collapse">
   <li><a href="#data-and-settings" id="toc-data-and-settings" class="nav-link" data-scroll-target="#data-and-settings">Data and Settings</a></li>
-  <li><a href="#enrollment" id="toc-enrollment" class="nav-link" data-scroll-target="#enrollment">Enrollment</a>
+  <li><a href="#college-enrollment-after-high-school-graduation" id="toc-college-enrollment-after-high-school-graduation" class="nav-link" data-scroll-target="#college-enrollment-after-high-school-graduation">College Enrollment After High-School Graduation</a>
   <ul class="collapse">
-  <li><a href="#enrollment-after-graduating-from-high-school" id="toc-enrollment-after-graduating-from-high-school" class="nav-link" data-scroll-target="#enrollment-after-graduating-from-high-school">Enrollment After Graduating from High School</a></li>
-  <li><a href="#enrollment-after-graduating-from-high-school-an-alternative" id="toc-enrollment-after-graduating-from-high-school-an-alternative" class="nav-link" data-scroll-target="#enrollment-after-graduating-from-high-school-an-alternative">Enrollment After Graduating from High School, an Alternative</a></li>
-  <li><a href="#enrollment-after-dropping-out-of-college" id="toc-enrollment-after-dropping-out-of-college" class="nav-link" data-scroll-target="#enrollment-after-dropping-out-of-college">Enrollment After Dropping out of College</a></li>
-  <li><a href="#enrollment-after-dropping-out-of-college-altenrative" id="toc-enrollment-after-dropping-out-of-college-altenrative" class="nav-link" data-scroll-target="#enrollment-after-dropping-out-of-college-altenrative">Enrollment After Dropping Out of College, Altenrative</a></li>
+  <li><a href="#college-enrollment-with-linear-parents-net-worth" id="toc-college-enrollment-with-linear-parents-net-worth" class="nav-link" data-scroll-target="#college-enrollment-with-linear-parents-net-worth">College Enrollment with Linear Parents’ Net-Worth</a></li>
+  <li><a href="#college-enrollment-with-logarithmic-parents-net-worth" id="toc-college-enrollment-with-logarithmic-parents-net-worth" class="nav-link" data-scroll-target="#college-enrollment-with-logarithmic-parents-net-worth">College Enrollment with Logarithmic Parents’ Net-Worth</a></li>
+  <li><a href="#college-enrollment-with-piecewise-linear-parents-net-worth" id="toc-college-enrollment-with-piecewise-linear-parents-net-worth" class="nav-link" data-scroll-target="#college-enrollment-with-piecewise-linear-parents-net-worth">College Enrollment with Piecewise-Linear Parents’ Net-Worth</a></li>
+  </ul></li>
+  <li><a href="#college-enrollment-after-dropping-out-of-college" id="toc-college-enrollment-after-dropping-out-of-college" class="nav-link" data-scroll-target="#college-enrollment-after-dropping-out-of-college">College Enrollment After Dropping out of College</a>
+  <ul class="collapse">
+  <li><a href="#re-enrollment-with-linear-parents-net-worth" id="toc-re-enrollment-with-linear-parents-net-worth" class="nav-link" data-scroll-target="#re-enrollment-with-linear-parents-net-worth">Re-Enrollment with Linear Parents’ Net-Worth</a></li>
+  <li><a href="#re-enrollment-with-logarithmic-parents-net-worth" id="toc-re-enrollment-with-logarithmic-parents-net-worth" class="nav-link" data-scroll-target="#re-enrollment-with-logarithmic-parents-net-worth">Re-Enrollment with Logarithmic Parents’ Net-Worth</a></li>
   </ul></li>
   <li><a href="#dropping-out-of-college" id="toc-dropping-out-of-college" class="nav-link" data-scroll-target="#dropping-out-of-college">Dropping out of College</a>
   <ul class="collapse">
-  <li><a href="#dropping-out-of-college-alternative" id="toc-dropping-out-of-college-alternative" class="nav-link" data-scroll-target="#dropping-out-of-college-alternative">Dropping Out of College, Alternative</a></li>
+  <li><a href="#dropping-out-of-college-with-linear-parents-net-worth" id="toc-dropping-out-of-college-with-linear-parents-net-worth" class="nav-link" data-scroll-target="#dropping-out-of-college-with-linear-parents-net-worth">Dropping out of College with Linear Parents’ Net-Worth</a></li>
+  <li><a href="#dropping-out-of-college-with-logarithmic-parents-net-worth" id="toc-dropping-out-of-college-with-logarithmic-parents-net-worth" class="nav-link" data-scroll-target="#dropping-out-of-college-with-logarithmic-parents-net-worth">Dropping out of College with Logarithmic Parents’ Net-Worth</a></li>
   </ul></li>
   <li><a href="#graduating-from-college" id="toc-graduating-from-college" class="nav-link" data-scroll-target="#graduating-from-college">Graduating from College</a>
   <ul class="collapse">
-  <li><a href="#graduating-from-college-alternative" id="toc-graduating-from-college-alternative" class="nav-link" data-scroll-target="#graduating-from-college-alternative">Graduating from College, Alternative</a></li>
+  <li><a href="#college-graduation-with-linear-parents-net-worth" id="toc-college-graduation-with-linear-parents-net-worth" class="nav-link" data-scroll-target="#college-graduation-with-linear-parents-net-worth">College Graduation with Linear Parents’ Net-Worth</a></li>
+  <li><a href="#college-graduation-with-logarithmic-parents-net-worth" id="toc-college-graduation-with-logarithmic-parents-net-worth" class="nav-link" data-scroll-target="#college-graduation-with-logarithmic-parents-net-worth">College Graduation with Logarithmic Parents’ Net-Worth</a></li>
   </ul></li>
   </ul></li>
   <li><a href="#graduate-school" id="toc-graduate-school" class="nav-link" data-scroll-target="#graduate-school">Graduate School</a>
@@ -3570,7 +3576,8 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># These covariates are used in all regressions</span></span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>model_covars <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;yearf&quot;</span>, <span class="st">&quot;asian&quot;</span>, <span class="st">&quot;pnetworth&quot;</span>, <span class="st">&quot;asian*pnetworth&quot;</span>, <span class="st">&quot;pared&quot;</span>, <span class="st">&quot;asian*pared&quot;</span>)</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>model_covars2 <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;yearf&quot;</span>, <span class="st">&quot;asian&quot;</span>, <span class="st">&quot;pwealthpos&quot;</span>, <span class="st">&quot;pwealthneg&quot;</span>, <span class="st">&quot;asian*pwealthpos&quot;</span>, <span class="st">&quot;asian*pwealthneg&quot;</span>, <span class="st">&quot;pared&quot;</span>, <span class="st">&quot;asian*pared&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>model_covars2 <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;yearf&quot;</span>, <span class="st">&quot;asian&quot;</span>, <span class="st">&quot;pwealthpos&quot;</span>, <span class="st">&quot;pwealthneg&quot;</span>, <span class="st">&quot;asian*pwealthpos&quot;</span>, <span class="st">&quot;asian*pwealthneg&quot;</span>, <span class="st">&quot;pared&quot;</span>, <span class="st">&quot;asian*pared&quot;</span>)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>model_covars3 <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;yearf&quot;</span>, <span class="st">&quot;asian&quot;</span>, <span class="st">&quot;pnw1&quot;</span>, <span class="st">&quot;pnw2&quot;</span>, <span class="st">&quot;pnw3&quot;</span>, <span class="st">&quot;asian*pnw1&quot;</span>, <span class="st">&quot;asian*pnw2&quot;</span>, <span class="st">&quot;pnw3&quot;</span>, <span class="st">&quot;pared&quot;</span>, <span class="st">&quot;asian*pared&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
 <div class="cell-output-display">
@@ -3669,28 +3676,44 @@ Table 1: Mean parents’ networth (divided by the average wage index) by race
 <tr class="header">
 <th style="text-align: left;" data-quarto-table-cell-role="th">race</th>
 <th style="text-align: right;" data-quarto-table-cell-role="th">pnetworth</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">pnwawi</th>
 <th style="text-align: right;" data-quarto-table-cell-role="th">pwealthpos</th>
 <th style="text-align: right;" data-quarto-table-cell-role="th">pwealthneg</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">pnw1</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">pnw2</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">pnw3</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Black</td>
+<td style="text-align: right;">35420.04</td>
 <td style="text-align: right;">1.291477</td>
 <td style="text-align: right;">-0.6059820</td>
 <td style="text-align: right;">-0.1738141</td>
+<td style="text-align: right;">1.291477</td>
+<td style="text-align: right;">1.357914</td>
+<td style="text-align: right;">0.4338595</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Hispanic</td>
+<td style="text-align: right;">46296.37</td>
 <td style="text-align: right;">1.688047</td>
 <td style="text-align: right;">-0.5044848</td>
 <td style="text-align: right;">-0.1442163</td>
+<td style="text-align: right;">1.688047</td>
+<td style="text-align: right;">1.735932</td>
+<td style="text-align: right;">0.6753040</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">White</td>
+<td style="text-align: right;">105495.43</td>
 <td style="text-align: right;">3.846548</td>
 <td style="text-align: right;">0.6252800</td>
 <td style="text-align: right;">-0.0763151</td>
+<td style="text-align: right;">3.846548</td>
+<td style="text-align: right;">3.922192</td>
+<td style="text-align: right;">2.0885117</td>
 </tr>
 </tbody>
 </table>
@@ -3702,10 +3725,10 @@ Table 1: Mean parents’ networth (divided by the average wage index) by race
 </div>
 </div>
 </section>
-<section id="enrollment" class="level2">
-<h2 class="anchored" data-anchor-id="enrollment">Enrollment</h2>
-<section id="enrollment-after-graduating-from-high-school" class="level3">
-<h3 class="anchored" data-anchor-id="enrollment-after-graduating-from-high-school">Enrollment After Graduating from High School</h3>
+<section id="college-enrollment-after-high-school-graduation" class="level2">
+<h2 class="anchored" data-anchor-id="college-enrollment-after-high-school-graduation">College Enrollment After High-School Graduation</h2>
+<section id="college-enrollment-with-linear-parents-net-worth" class="level3">
+<h3 class="anchored" data-anchor-id="college-enrollment-with-linear-parents-net-worth">College Enrollment with Linear Parents’ Net-Worth</h3>
 <p>The college enrollment model simulates enrollment into college for high-school graduates. To allow high-school graduates to take a break before enrolling into college, we need to model enrollment as a <em>survival model</em>, in which all high-school graduate who have not enrolled in college are at risk of enrolling in each year after graduating from high school for some number of years that we call <em>enrollment window</em>. The enrollment window in the current model is seven years.</p>
 <p>The data for estimating this model should have one observation per person per year. The time should be measured in years since the high-school graduation. The dependent variable should have value zero in years in which a person was not enrolled in college, and one in the year in which the person enrolled into college. For a person who enrolled in college, the year of enrollment would be the last year for that person in the dataset. A person who did not enroll during the enrollment window would have a zero for each year during that window.</p>
 <p>Note that a simpler way to implement this model would be as a one-shot logistic regression model that selects high-school graduates who enroll into college. Those who are not selected don’t get another opportunity. However, this model does not represent reality well because many people don’t enroll into college immediately after their high-school graduation (<a href="#fig-enrol-hazard" class="quarto-xref">Figure 7</a>). If this kind of model was calibrated to match the total enrollment, it would result in the average college graduation age that is younger than that in the population.</p>
@@ -4049,8 +4072,8 @@ Figure 10: Hazard rates for college enrollment after graduating from high schoo
 </div>
 </div>
 </section>
-<section id="enrollment-after-graduating-from-high-school-an-alternative" class="level3">
-<h3 class="anchored" data-anchor-id="enrollment-after-graduating-from-high-school-an-alternative">Enrollment After Graduating from High School, an Alternative</h3>
+<section id="college-enrollment-with-logarithmic-parents-net-worth" class="level3">
+<h3 class="anchored" data-anchor-id="college-enrollment-with-logarithmic-parents-net-worth">College Enrollment with Logarithmic Parents’ Net-Worth</h3>
 <p>In this variation, we use the logarithmic transformation for parents’ networth and we separate it in a positive and a negative term. For positive values of networth, the positive term equals the natural logarithm of networth and the negative term is zero. For negative values of networth, the positive term is zero and the negative term equals the natural logarithm of negative networth. <a href="#tbl-enrol2-simple-mod-est" class="quarto-xref">Table 4</a> shows the estimated coefficients.</p>
 <div class="cell">
 <div id="tbl-enrol2-simple-mod-est" class="cell quarto-float anchored">
@@ -4357,8 +4380,337 @@ Table 5: Marginal effects of parental networth separate for negative and positi
 </div>
 </div>
 </section>
-<section id="enrollment-after-dropping-out-of-college" class="level3">
-<h3 class="anchored" data-anchor-id="enrollment-after-dropping-out-of-college">Enrollment After Dropping out of College</h3>
+<section id="college-enrollment-with-piecewise-linear-parents-net-worth" class="level3">
+<h3 class="anchored" data-anchor-id="college-enrollment-with-piecewise-linear-parents-net-worth">College Enrollment with Piecewise-Linear Parents’ Net-Worth</h3>
+<p>In this variation, we use piecewise linear splines for parents’ networth. <strong>?@tbl-enrol3-simple-mod-est</strong> shows the estimated coefficients.</p>
+<div class="cell">
+<div id="tbl-enroll3-simple-mod-est" class="cell quarto-float anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-enroll3-simple-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table 6: Estimated coefficients for the model of college enrollment with parental networth split into negative an dpositive terms
+</figcaption>
+<div aria-describedby="tbl-enroll3-simple-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="table do-not-create-environment cell table-sm table-striped small" data-quarto-postprocess="true">
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th"></th>
+<th style="text-align: center;" data-quarto-table-cell-role="th">FBLACK</th>
+<th style="text-align: center;" data-quarto-table-cell-role="th"> FHISPANI</th>
+<th style="text-align: center;" data-quarto-table-cell-role="th"> FWHITE</th>
+<th style="text-align: center;" data-quarto-table-cell-role="th">MBLACK</th>
+<th style="text-align: center;" data-quarto-table-cell-role="th"> MHISPANI</th>
+<th style="text-align: center;" data-quarto-table-cell-role="th"> MWHITE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: center;">−0.082</td>
+<td style="text-align: center;">−0.434***</td>
+<td style="text-align: center;">−0.420*</td>
+<td style="text-align: center;">−1.153***</td>
+<td style="text-align: center;">−0.903***</td>
+<td style="text-align: center;">−1.037***</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Year1</td>
+<td style="text-align: center;">−1.613***</td>
+<td style="text-align: center;">−1.195***</td>
+<td style="text-align: center;">−2.052***</td>
+<td style="text-align: center;">−1.285***</td>
+<td style="text-align: center;">−1.201***</td>
+<td style="text-align: center;">−2.100***</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Year2</td>
+<td style="text-align: center;">−2.371***</td>
+<td style="text-align: center;">−2.174***</td>
+<td style="text-align: center;">−3.089***</td>
+<td style="text-align: center;">−2.285***</td>
+<td style="text-align: center;">−2.043***</td>
+<td style="text-align: center;">−2.963***</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Year3</td>
+<td style="text-align: center;">−2.619***</td>
+<td style="text-align: center;">−2.906***</td>
+<td style="text-align: center;">−3.795***</td>
+<td style="text-align: center;">−2.209***</td>
+<td style="text-align: center;">−2.508***</td>
+<td style="text-align: center;">−2.907***</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Year4</td>
+<td style="text-align: center;">−2.889***</td>
+<td style="text-align: center;">−3.306***</td>
+<td style="text-align: center;">−4.043***</td>
+<td style="text-align: center;">−2.718***</td>
+<td style="text-align: center;">−2.515***</td>
+<td style="text-align: center;">−2.992***</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Year5</td>
+<td style="text-align: center;">−2.686***</td>
+<td style="text-align: center;">−2.703***</td>
+<td style="text-align: center;">−4.108***</td>
+<td style="text-align: center;">−3.220***</td>
+<td style="text-align: center;">−2.523***</td>
+<td style="text-align: center;">−3.924***</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Year6</td>
+<td style="text-align: center;">−2.547***</td>
+<td style="text-align: center;">−2.929***</td>
+<td style="text-align: center;">−3.884***</td>
+<td style="text-align: center;">−3.186***</td>
+<td style="text-align: center;">−2.538***</td>
+<td style="text-align: center;">−3.256***</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Year7</td>
+<td style="text-align: center;">−3.194***</td>
+<td style="text-align: center;">−2.975***</td>
+<td style="text-align: center;">−3.533***</td>
+<td style="text-align: center;">−3.299***</td>
+<td style="text-align: center;">−3.197***</td>
+<td style="text-align: center;">−3.430***</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Year8</td>
+<td style="text-align: center;">−3.698***</td>
+<td style="text-align: center;">−3.961***</td>
+<td style="text-align: center;">−4.389***</td>
+<td style="text-align: center;">−3.487***</td>
+<td style="text-align: center;">−3.454***</td>
+<td style="text-align: center;">−4.303***</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">pnw1</td>
+<td style="text-align: center;">−0.162</td>
+<td style="text-align: center;">0.336</td>
+<td style="text-align: center;">−0.047</td>
+<td style="text-align: center;">−0.449**</td>
+<td style="text-align: center;">−0.227</td>
+<td style="text-align: center;">−0.114</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">pnw2</td>
+<td style="text-align: center;">0.386***</td>
+<td style="text-align: center;">−0.297</td>
+<td style="text-align: center;">0.265***</td>
+<td style="text-align: center;">0.581***</td>
+<td style="text-align: center;">0.329**</td>
+<td style="text-align: center;">0.274**</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">pnw3</td>
+<td style="text-align: center;">−0.200***</td>
+<td style="text-align: center;">−0.018</td>
+<td style="text-align: center;">−0.188***</td>
+<td style="text-align: center;">−0.102</td>
+<td style="text-align: center;">−0.018</td>
+<td style="text-align: center;">−0.121***</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">paredHigh-school graduate</td>
+<td style="text-align: center;">−0.194</td>
+<td style="text-align: center;">0.378**</td>
+<td style="text-align: center;">0.257</td>
+<td style="text-align: center;">0.341</td>
+<td style="text-align: center;">0.158</td>
+<td style="text-align: center;">0.160</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">paredSome college</td>
+<td style="text-align: center;">0.092</td>
+<td style="text-align: center;">0.431***</td>
+<td style="text-align: center;">0.681***</td>
+<td style="text-align: center;">0.659**</td>
+<td style="text-align: center;">0.338**</td>
+<td style="text-align: center;">0.755**</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">paredCollege degree</td>
+<td style="text-align: center;">0.196</td>
+<td style="text-align: center;">0.899***</td>
+<td style="text-align: center;">1.129***</td>
+<td style="text-align: center;">0.921***</td>
+<td style="text-align: center;">1.017***</td>
+<td style="text-align: center;">1.531***</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">asian</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">0.269</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">0.929</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">asian:pnw1</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">−125.812</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">−27.402</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">asian:pnw2</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">125.773</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">27.434</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">asian:paredHigh-school graduate</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">1.247</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">0.548</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">asian:paredSome college</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">1.154</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">−0.872</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left; box-shadow: 0px 1.5px;">asian:paredCollege degree</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;"></td>
+<td style="text-align: center; box-shadow: 0px 1.5px;"></td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">0.830</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;"></td>
+<td style="text-align: center; box-shadow: 0px 1.5px;"></td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">−0.864</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Num.Obs.</td>
+<td style="text-align: center;">4450</td>
+<td style="text-align: center;">3801</td>
+<td style="text-align: center;">7345</td>
+<td style="text-align: center;">4986</td>
+<td style="text-align: center;">4150</td>
+<td style="text-align: center;">10063</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">AIC</td>
+<td style="text-align: center;">2689.2</td>
+<td style="text-align: center;">2025.5</td>
+<td style="text-align: center;">3857.7</td>
+<td style="text-align: center;">2255.9</td>
+<td style="text-align: center;">1969.9</td>
+<td style="text-align: center;">4440.5</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">BIC</td>
+<td style="text-align: center;">2785.2</td>
+<td style="text-align: center;">2119.2</td>
+<td style="text-align: center;">4002.6</td>
+<td style="text-align: center;">2353.6</td>
+<td style="text-align: center;">2064.9</td>
+<td style="text-align: center;">4592.1</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Log.Lik.</td>
+<td style="text-align: center;">−1329.593</td>
+<td style="text-align: center;">−997.762</td>
+<td style="text-align: center;">−1907.848</td>
+<td style="text-align: center;">−1112.959</td>
+<td style="text-align: center;">−969.961</td>
+<td style="text-align: center;">−2199.266</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">RMSE</td>
+<td style="text-align: center;">0.30</td>
+<td style="text-align: center;">0.28</td>
+<td style="text-align: center;">0.28</td>
+<td style="text-align: center;">0.25</td>
+<td style="text-align: center;">0.26</td>
+<td style="text-align: center;">0.25</td>
+</tr>
+</tbody>
+</table>
+
+
+</div>
+</div>
+</figure>
+</div>
+</div>
+<p><a href="#tbl-enroll3-marginal" class="quarto-xref">Table 7</a> shows average marginal effects of parental networth on the likelihood of enrollment. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of enrollment in college.</p>
+<div class="cell">
+<div id="tbl-enroll3-marginal" class="cell quarto-float anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-enroll3-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table 7: Marginal effects of parental networth separate for negative and positive
+</figcaption>
+<div aria-describedby="tbl-enroll3-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="do-not-create-environment cell table table-sm table-striped small" data-quarto-postprocess="true">
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th"></th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">FBLACK</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">FHISPANI</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">FWHITE</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">MBLACK</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">MHISPANI</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">MWHITE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">pnw1</td>
+<td style="text-align: right;">-0.01452</td>
+<td style="text-align: right;">0.02663</td>
+<td style="text-align: right;">-0.16216</td>
+<td style="text-align: right;">-0.02875</td>
+<td style="text-align: right;">-0.01529</td>
+<td style="text-align: right;">-0.06917</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">pnw2</td>
+<td style="text-align: right;">0.03461</td>
+<td style="text-align: right;">-0.02351</td>
+<td style="text-align: right;">0.17699</td>
+<td style="text-align: right;">0.03726</td>
+<td style="text-align: right;">0.02220</td>
+<td style="text-align: right;">0.07952</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">pnw3</td>
+<td style="text-align: right;">-0.01796</td>
+<td style="text-align: right;">-0.00141</td>
+<td style="text-align: right;">-0.01459</td>
+<td style="text-align: right;">-0.00654</td>
+<td style="text-align: right;">-0.00125</td>
+<td style="text-align: right;">-0.00780</td>
+</tr>
+</tbody>
+</table>
+
+
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+</section>
+<section id="college-enrollment-after-dropping-out-of-college" class="level2">
+<h2 class="anchored" data-anchor-id="college-enrollment-after-dropping-out-of-college">College Enrollment After Dropping out of College</h2>
+<section id="re-enrollment-with-linear-parents-net-worth" class="level3">
+<h3 class="anchored" data-anchor-id="re-enrollment-with-linear-parents-net-worth">Re-Enrollment with Linear Parents’ Net-Worth</h3>
 <p>Many students who drop out of college return and re-enroll. Some do this multiple times. <a href="#fig-enrol-hazard-spells" class="quarto-xref">Figure 11</a> shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college for all students who drop out of college. <a href="#fig-enrol-hazard-two-spells-sex-race" class="quarto-xref">Figure 12</a> shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college by sex and race. The higher-order spells have few observations, which makes their hazard rates very noisy.</p>
 <div class="cell">
 <div class="cell-output-display">
@@ -4407,7 +4759,7 @@ Figure 13: Hazard function for college enrollment, sex, and race. X-axes repres
 <div id="tbl-reenrol-mod-est" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-reenrol-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 6: Estimated coefficients of the re-enrollment model
+Table 8: Estimated coefficients of the re-enrollment model
 </figcaption>
 <div aria-describedby="tbl-reenrol-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -4604,12 +4956,12 @@ Table 6: Estimated coefficients of the re-enrollment model
 </figure>
 </div>
 </div>
-<p><a href="#tbl-reenroll-marginal" class="quarto-xref">Table 7</a> shows average marginal effects of parental networth on the likelihood of enrollment in college after having dropped out. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of re-enrollment in college.</p>
+<p><a href="#tbl-reenroll-marginal" class="quarto-xref">Table 9</a> shows average marginal effects of parental networth on the likelihood of enrollment in college after having dropped out. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of re-enrollment in college.</p>
 <div class="cell">
 <div id="tbl-reenroll-marginal" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-reenroll-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 7: Marginal effects of parental networth on re-enrollment in college
+Table 9: Marginal effects of parental networth on re-enrollment in college
 </figcaption>
 <div aria-describedby="tbl-reenroll-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -4659,13 +5011,13 @@ Figure 14: Hazard rates for college enrollment after dropping out of college by
 </div>
 </div>
 </section>
-<section id="enrollment-after-dropping-out-of-college-altenrative" class="level3">
-<h3 class="anchored" data-anchor-id="enrollment-after-dropping-out-of-college-altenrative">Enrollment After Dropping Out of College, Altenrative</h3>
+<section id="re-enrollment-with-logarithmic-parents-net-worth" class="level3">
+<h3 class="anchored" data-anchor-id="re-enrollment-with-logarithmic-parents-net-worth">Re-Enrollment with Logarithmic Parents’ Net-Worth</h3>
 <div class="cell">
 <div id="tbl-reenrol2-mod-est" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-reenrol2-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 8: Estimated coefficients of the re-enrollment model with parental networth split into negative and positive terms
+Table 10: Estimated coefficients of the re-enrollment model with parental networth split into negative and positive terms
 </figcaption>
 <div aria-describedby="tbl-reenrol2-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -4884,7 +5236,7 @@ Table 8: Estimated coefficients of the re-enrollment model with parental networ
 <div id="tbl-reenroll2-marginal" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-reenroll2-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 9: Marginal effects of parental networth separate for negative and positive
+Table 11: Marginal effects of parental networth separate for negative and positive
 </figcaption>
 <div aria-describedby="tbl-reenroll2-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -4932,6 +5284,8 @@ Table 9: Marginal effects of parental networth separate for negative and positi
 </section>
 <section id="dropping-out-of-college" class="level2">
 <h2 class="anchored" data-anchor-id="dropping-out-of-college">Dropping out of College</h2>
+<section id="dropping-out-of-college-with-linear-parents-net-worth" class="level3">
+<h3 class="anchored" data-anchor-id="dropping-out-of-college-with-linear-parents-net-worth">Dropping out of College with Linear Parents’ Net-Worth</h3>
 <p>The drop-out model simulates the likelihood of dropping out of college for students who are enrolled in college. This is a survival model where the dependent variable is zero if a student is enrolled in college and one in the year the student drops out. For students who graduate from college, the variable is zero in all years.</p>
 <p><strong>Multiple Spells.</strong> A problem with modeling dropping out of college as a terminal event is that some students who drop out of college return later. Some drop out and return multiple times, i.e., have multiple spells of college enrollment. <a href="#fig-college-spells-number" class="quarto-xref">Figure 15</a> shows the distribution of number of spells in the NLSY sample for all individuals who were enrolled in college and <a href="#fig-college-spells-shares" class="quarto-xref">Figure 16</a> shows this distribution by race and sex. It appears that about one-third of students have more than one spell, and some have as many as seven. Which is why we do not treat dropping out of college as a terminal event. If a student drops out before graduation, they would be at risk of re-enrolling in subsequent years.</p>
 <div class="cell">
@@ -5037,7 +5391,7 @@ Figure 17: Drop-out hazard functions
 <div id="tbl-drop-simple-mod-est" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-drop-simple-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 10: Estimated coefficients of the model of dropping out of college
+Table 12: Estimated coefficients of the model of dropping out of college
 </figcaption>
 <div aria-describedby="tbl-drop-simple-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -5234,12 +5588,12 @@ Table 10: Estimated coefficients of the model of dropping out of college
 </figure>
 </div>
 </div>
-<p><a href="#tbl-drop-marginal" class="quarto-xref">Table 11</a> shows average marginal effects of parental networth on the likelihood of dropping out of college. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of dropping out of college.</p>
+<p><a href="#tbl-drop-marginal" class="quarto-xref">Table 13</a> shows average marginal effects of parental networth on the likelihood of dropping out of college. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of dropping out of college.</p>
 <div class="cell">
 <div id="tbl-drop-marginal" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-drop-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 11: Marginal effects of parental networth on dropping out of college
+Table 13: Marginal effects of parental networth on dropping out of college
 </figcaption>
 <div aria-describedby="tbl-drop-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -5288,13 +5642,14 @@ Figure 18: Hazard rates for dropping out of college by sex and race, actual and
 </div>
 </div>
 </div>
-<section id="dropping-out-of-college-alternative" class="level3">
-<h3 class="anchored" data-anchor-id="dropping-out-of-college-alternative">Dropping Out of College, Alternative</h3>
+</section>
+<section id="dropping-out-of-college-with-logarithmic-parents-net-worth" class="level3">
+<h3 class="anchored" data-anchor-id="dropping-out-of-college-with-logarithmic-parents-net-worth">Dropping out of College with Logarithmic Parents’ Net-Worth</h3>
 <div class="cell">
 <div id="tbl-drop-simple2-mod-est" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-drop-simple2-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 12: Estimated coefficients of the model of dropping out of college
+Table 14: Estimated coefficients of the model of dropping out of college
 </figcaption>
 <div aria-describedby="tbl-drop-simple2-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -5513,7 +5868,7 @@ Table 12: Estimated coefficients of the model of dropping out of college
 <div id="tbl-drop2-marginal" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-drop2-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 13: Marginal effects of parental networth on dropping out of college
+Table 15: Marginal effects of parental networth on dropping out of college
 </figcaption>
 <div aria-describedby="tbl-drop2-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -5561,6 +5916,8 @@ Table 13: Marginal effects of parental networth on dropping out of college
 </section>
 <section id="graduating-from-college" class="level2">
 <h2 class="anchored" data-anchor-id="graduating-from-college">Graduating from College</h2>
+<section id="college-graduation-with-linear-parents-net-worth" class="level3">
+<h3 class="anchored" data-anchor-id="college-graduation-with-linear-parents-net-worth">College Graduation with Linear Parents’ Net-Worth</h3>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-college-grad-time" class="quarto-figure quarto-figure-center quarto-float anchored">
@@ -5593,7 +5950,7 @@ Figure 20: Hazard function for college graduation by sex and race
 <div id="tbl-grad-simple-mod-est" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-grad-simple-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 14: Estimated coefficients of the college graduation model
+Table 16: Estimated coefficients of the college graduation model
 </figcaption>
 <div aria-describedby="tbl-grad-simple-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -5790,12 +6147,12 @@ Table 14: Estimated coefficients of the college graduation model
 </figure>
 </div>
 </div>
-<p><a href="#tbl-grad-marginal" class="quarto-xref">Table 15</a> shows average marginal effects of parental networth on the likelihood of graduating from college. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of graduation from college.</p>
+<p><a href="#tbl-grad-marginal" class="quarto-xref">Table 17</a> shows average marginal effects of parental networth on the likelihood of graduating from college. The numbers in the table can be interpreted as the effect that an increase in parental wealth by the amount equal to the average earnings in 1997 ($27,426) has on the likelihood of graduation from college.</p>
 <div class="cell">
 <div id="tbl-grad-marginal" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-grad-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 15: Marginal effects of parental networth on graduation from college
+Table 17: Marginal effects of parental networth on graduation from college
 </figcaption>
 <div aria-describedby="tbl-grad-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -5844,13 +6201,14 @@ Figure 21: Hazard rates for college graduation after the senior year by sex and
 </div>
 </div>
 </div>
-<section id="graduating-from-college-alternative" class="level3">
-<h3 class="anchored" data-anchor-id="graduating-from-college-alternative">Graduating from College, Alternative</h3>
+</section>
+<section id="college-graduation-with-logarithmic-parents-net-worth" class="level3">
+<h3 class="anchored" data-anchor-id="college-graduation-with-logarithmic-parents-net-worth">College Graduation with Logarithmic Parents’ Net-Worth</h3>
 <div class="cell">
 <div id="tbl-grad-simple2-mod-est" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-grad-simple2-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 16: Estimated coefficients of the college graduation model
+Table 18: Estimated coefficients of the college graduation model
 </figcaption>
 <div aria-describedby="tbl-grad-simple2-mod-est-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -6069,7 +6427,7 @@ Table 16: Estimated coefficients of the college graduation model
 <div id="tbl-grad2-marginal" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-grad2-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 17: Marginal effects of parental networth on graduation from college
+Table 19: Marginal effects of parental networth on graduation from college
 </figcaption>
 <div aria-describedby="tbl-grad2-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -6138,7 +6496,7 @@ Figure 22: Hazard function for graduate school enrollment by race, sex and year
 <div id="tbl-gsenrol-simple-mod-est1" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-gsenrol-simple-mod-est1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 18: Estimated coefficients for the model of graduate school enrollment
+Table 20: Estimated coefficients for the model of graduate school enrollment
 </figcaption>
 <div aria-describedby="tbl-gsenrol-simple-mod-est1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -6252,7 +6610,7 @@ Table 18: Estimated coefficients for the model of graduate school enrollment
 <div id="tbl-gsenrol-simple-mod-est2" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-gsenrol-simple-mod-est2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 19: Estimated coefficients for the model of graduate school enrollment
+Table 21: Estimated coefficients for the model of graduate school enrollment
 </figcaption>
 <div aria-describedby="tbl-gsenrol-simple-mod-est2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -6431,7 +6789,7 @@ Figure 23: Hazard rates for grad school enrollment by sex and race, actual and 
 <div id="tbl-gsenrol-marginal" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-gsenrol-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 20: Marginal effects of parental networth on graduation from college
+Table 22: Marginal effects of parental networth on graduation from college
 </figcaption>
 <div aria-describedby="tbl-gsenrol-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -6472,7 +6830,7 @@ Table 20: Marginal effects of parental networth on graduation from college
 <div id="tbl-gsenrol-simple-mod-est3" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-gsenrol-simple-mod-est3-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 21: Estimated coefficients for the model of graduate school enrollment
+Table 23: Estimated coefficients for the model of graduate school enrollment
 </figcaption>
 <div aria-describedby="tbl-gsenrol-simple-mod-est3-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -6691,7 +7049,7 @@ Table 21: Estimated coefficients for the model of graduate school enrollment
 <div id="tbl-gsenrol2-marginal" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-gsenrol2-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 22: Marginal effects of parental networth on graduation from college
+Table 24: Marginal effects of parental networth on graduation from college
 </figcaption>
 <div aria-describedby="tbl-gsenrol2-marginal-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -6743,7 +7101,7 @@ Table 22: Marginal effects of parental networth on graduation from college
 <div id="tbl-gsenrol-simple-mod-est4" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-gsenrol-simple-mod-est4-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 23: Estimated coefficients for the model of graduate school enrollment
+Table 25: Estimated coefficients for the model of graduate school enrollment
 </figcaption>
 <div aria-describedby="tbl-gsenrol-simple-mod-est4-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">
@@ -6929,7 +7287,7 @@ Table 23: Estimated coefficients for the model of graduate school enrollment
 <div id="tbl-gsenrol-simple-mod-est5" class="cell quarto-float anchored">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-gsenrol-simple-mod-est5-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table 24: Estimated coefficients for the model of graduate school enrollment
+Table 26: Estimated coefficients for the model of graduate school enrollment
 </figcaption>
 <div aria-describedby="tbl-gsenrol-simple-mod-est5-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output-display">

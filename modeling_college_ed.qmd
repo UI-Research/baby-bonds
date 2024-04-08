@@ -113,6 +113,7 @@ coefs = list(lin=list(), log=list())
 # These covariates are used in all regressions
 model_covars = c("yearf", "asian", "pnetworth", "asian*pnetworth", "pared", "asian*pared")
 model_covars2 = c("yearf", "asian", "pwealthpos", "pwealthneg", "asian*pwealthpos", "asian*pwealthneg", "pared", "asian*pared")
+model_covars3 = c("yearf", "asian", "pnw1", "pnw2", "pnw3", "asian*pnw1", "asian*pnw2", "pnw3", "pared", "asian*pared")
 
 
 ```
@@ -313,24 +314,46 @@ plotdf |>
 #| label: tbl-pnetworth
 #| tbl-cap: "Mean parents' networth (divided by the average wage index) by race"
 
+pnw_make_3splines = function(data)
+{
+  pnw_knots = c(0, 3)
+  data = data |> mutate(
+      x = dyn_wealth_xform(pnetworth, type='linear'),
+      pnw1 = x,
+      pnw2 = if_else(x>=pnw_knots[1], x-pnw_knots[1], 0),
+      pnw3 = if_else(x>=pnw_knots[2], x-pnw_knots[2], 0)
+  ) |>
+  select(-x)
+  return(data)
+}
+pnw_make_logs = function(data)
+{
+  data = data |> mutate(
+      pwealthpos  = dyn_wealth_xform(pnetworth, type='log+'),
+      pwealthneg  = dyn_wealth_xform(pnetworth, type='log-'),
+  )
+  return(data)
+}
+
+
+
 knitr::kable(
 basedf |>
   select(id, pnetworth, race, wt) |>
-  mutate(
-      tmp=pnetworth,
-      pnetworth = dyn_wealth_xform(tmp, type='linear'),
-      pwealthpos  = dyn_wealth_xform(tmp, type='log+'),
-      pwealthneg  = dyn_wealth_xform(tmp, type='log-')
-  ) |>
-  select(-tmp) |>
-  filter(pnetworth>-20) |>
+  pnw_make_3splines() |>
+  pnw_make_logs() |>
+  mutate(pnwawi = dyn_wealth_xform(pnetworth, type='linear')) |>
+  filter(pnwawi>-20) |>
   group_by(race) |>
-  summarize(across(c(pnetworth,pwealthpos,pwealthneg), ~ weighted.mean(.x, wt)))
+  summarize(
+      across(c(pnetworth,pnwawi,pwealthpos,pwealthneg,pnw1,pnw2,pnw3), 
+             ~ weighted.mean(.x, wt))
+      )
 )
 ```
 
 
-## Enrollment
+## College Enrollment After High-School Graduation
 
 
 ```{r}
@@ -350,7 +373,7 @@ tab_marg_effects = function(estdf, colnames)
 
 ```
 
-### Enrollment After Graduating from High School
+### College Enrollment with Linear Parents' Net-Worth
 
 The college enrollment model simulates enrollment into college for high-school graduates. To allow high-school graduates to take a break before enrolling into college, we need to model enrollment as a *survival model*, in which all high-school graduate who have not enrolled in college are at risk of enrolling in each year after graduating from high school for some number of years that we call *enrollment window*. The enrollment window in the current model is seven years.
 
@@ -629,7 +652,7 @@ estdf |>
 ```
 
 
-### Enrollment After Graduating from High School, an Alternative
+### College Enrollment with Logarithmic Parents' Net-Worth
 
 In this variation, we use the logarithmic transformation for parents' networth and we separate it in a positive and a negative term. For positive values of networth, the positive term equals the  natural logarithm of networth and the negative term is zero. For negative values of networth, the positive term is zero and the negative term equals the natural logarithm of negative networth. @tbl-enrol2-simple-mod-est shows the estimated coefficients.
 
@@ -702,7 +725,80 @@ tab_marg_effects(estdf, c("margpos", "margneg"))
 ```
 
 
-### Enrollment After Dropping out of College
+### College Enrollment with Piecewise-Linear Parents' Net-Worth
+
+In this variation, we use piecewise linear splines for parents' networth. @tbl-enroll3-simple-mod-est shows the estimated coefficients.
+
+```{r}
+#| label: est-enroll3-models
+
+# Create a factor year variable to use it as dummmies in regressions
+estdf = colenrdf |>
+    filter(spEnroll==1) |>
+    mutate(yearf       = factor(pmin(timeEnroll,8))) |>
+    pnw_make_3splines()
+
+model_formula = as.formula(paste("tEnroll ~ ", paste(model_covars3, collapse = " + ")))
+
+# Estimate one model for each sex-race combination
+estdf = estdf |>
+    group_by(race, sex) |>
+    nest() |>
+    mutate(
+        mods = map(data, \(x) glm(
+            model_formula, 
+            data=x, 
+            family=binomial)
+        )
+    ) |>
+    mutate(pred = map(mods, \(x) predict(x, type='response'))) |>
+    mutate(
+        margpnw1 = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnw1"))),
+        margpnw2 = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnw2"))),
+        margpnw3 = map2(mods, data, \(x,y) marginal_effects(x, y, variables=c("pnw3")))
+        )
+
+```
+
+```{r}
+#| label: tbl-enroll3-simple-mod-est
+#| tbl-cap: "Estimated coefficients for the model of college enrollment with parental networth split into negative an dpositive terms"
+
+# Create a named list of models
+estdf = estdf |> arrange(desc(sex), race)
+models = estdf$mods
+names(models) = dyn_get_sexrace_names(estdf)
+
+# Create a regression table
+modelsummary(models, 
+             estimate="{estimate}{stars}", 
+             statistic=NULL,
+             stars=c('*'=.1, '**'=.05, '***'=.01),
+             coef_rename=\(x) gsub('yearf(.*)', 'Year\\1', x)
+             )
+
+coefs[['pwl']][['colenr']] = list(
+    df = dyn_coef_to_df(models, sig_level=opt_sig_level),
+    filename = "coefs/coef_col_enr.csv",
+    description = 'Coefficients for college enrollment model.'
+)
+
+```
+
+@tbl-enroll3-marginal shows average marginal effects of parental networth on the likelihood of enrollment. The numbers in the table can be interpreted as the effect that one percent increase in parental wealth has on the likelihood of enrollment in college.
+
+```{r}
+#| label: tbl-enroll3-marginal
+#| tbl-cap: "Marginal effects of parental networth separate for negative and positive"
+
+tab_marg_effects(estdf, c("margpnw1","margpnw2","margpnw3"))
+
+```
+
+
+## College Enrollment After Dropping out of College
+
+### Re-Enrollment with Linear Parents' Net-Worth
 
 Many students who drop out of college return and re-enroll. Some do this multiple times. @fig-enrol-hazard-spells shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college for all students who drop out of college. @fig-enrol-hazard-two-spells-sex-race shows enrollment hazard rates for the first two spells of non-enrollment after dropping out of college by sex and race. The higher-order spells have few observations, which makes their hazard rates very noisy.
 
@@ -859,7 +955,8 @@ estdf |>
 
 
 ```
-### Enrollment After Dropping Out of College, Altenrative
+
+### Re-Enrollment with Logarithmic Parents' Net-Worth
 
 ```{r}
 #| label: est-reenrol2-models
@@ -932,6 +1029,8 @@ tab_marg_effects(estdf, c("margpos", "margneg"))
 
 
 ## Dropping out of College
+
+### Dropping out of College with Linear Parents' Net-Worth
 
 The drop-out model simulates the likelihood of dropping out of college for students who are enrolled in college. This is a survival model where the dependent variable is zero if a student is enrolled in college and one in the year the student drops out. For students who graduate from college, the variable is zero in all years.
 
@@ -1184,7 +1283,7 @@ estdf |>
 
 ```
 
-### Dropping Out of College, Alternative
+### Dropping out of College with Logarithmic Parents' Net-Worth
 
 ```{r}
 #| label: est-simple-drop2-models
@@ -1259,6 +1358,8 @@ tab_marg_effects(estdf, c("margpos", "margneg"))
 ```
 
 ## Graduating from College
+
+### College Graduation with Linear Parents' Net-Worth
 
 ```{r}
 #| label: make-grad-df
@@ -1399,7 +1500,8 @@ estdf |>
 
 
 ```
-### Graduating from College, Alternative
+
+### College Graduation with Logarithmic Parents' Net-Worth
 
 ```{r}
 #| label: est-grad-simple2-models
