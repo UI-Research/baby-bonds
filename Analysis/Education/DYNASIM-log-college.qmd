@@ -1,0 +1,420 @@
+---
+title: "DYNASIM Log: Education Models"
+format:
+  html:
+    embed-resources: true
+execute: 
+  echo: false
+  warning: false
+fig-cap-location: top
+toc: true
+toc-expand: true
+
+---
+
+```{r}
+
+library(tidyverse)
+library(tidyquant)
+library(urbnthemes)
+set_urbn_defaults(style = "print", 
+                  base_size=11,
+                  base_line_size = 1.5
+                  )
+
+ggplot2::theme_update(
+    panel.grid.major.x = element_line(color = "grey",
+                                size = 0.2,
+                                linetype = 1),
+    panel.grid.minor.x = element_line(color = "grey",
+                                size = 0.2,
+                                linetype = 2),
+    line = element_line(colour = "#000000",
+                                 size = 1,
+                                 linetype = 1L,
+                                 lineend = "butt"),
+    )
+
+safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
+                             "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
+#scales::show_col(safe_colorblind_palette)
+```
+
+
+
+```{r}
+#| label: load-data
+#| cache: true
+#| cache.lazy: false
+#| echo: false
+#| output: false
+
+#fehdir = "X:/FEHOutput/run_01006/base_v19/"
+fehdir = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/base_v20/"
+text = read_lines(paste0(fehdir,'rundynasipp.out'))
+txtdf = tibble(text)
+txtdf = txtdf |>
+    mutate(year = if_else(
+        grepl('BEGIN PRE - YEAR LEVEL FOR', text),
+        as.integer(gsub('^\\s+BEGIN PRE - YEAR LEVEL FOR CY= (\\d{4}).+', '\\1', text)),
+        NA)
+        ) |>
+    mutate(
+        section = if_else(
+            grepl('^!\\[', text),
+            as.integer(gsub('^!\\[(\\d+)\\]', '\\1', text)),
+            NA)
+        ) |>
+    mutate(
+        task = if_else(
+            grepl('^Dynasim3', text),
+            gsub('^Dynasim3:.+Task: (.+)\\s+CY:.+', '\\1', text),
+            NA),
+        task = trimws(task)
+    ) |>
+    mutate(
+        module = if_else(
+            lag(section)>0,
+            if_else(
+                grepl('^Dynasim3', text),
+                gsub('^Dynasim3.+Module:\\[(\\S+)\\s*\\].+', '\\1', text),
+                'None'
+                ),
+            NA
+        )
+    ) |>
+    fill(module) |>
+    fill(year) |>
+    fill(task)
+
+
+coldf = txtdf |> filter(module=="COLLEGE") |>
+    mutate(
+        tmp = if_else(
+            grepl('^Dynasim3.+Task: POST - YEAR', text),
+            gsub('^Dynasim3: \\"(.+)\\".+', '\\1', text),
+            NA
+        )
+    ) |>
+    separate(tmp, into=c("model", "group")) |>
+    fill(model) |>
+    fill(group)
+
+
+
+xbdf = coldf |>
+    filter(grepl('^\\s+\\d+', text)) |>
+    mutate(text = trimws(text)) |>
+    separate(text, into=c(
+        "varnum",
+        "varname",
+        "coef",
+        "sum",
+        "n",
+        "mean",
+        "min",
+        "max"
+    ),
+    sep='\\s+',
+    convert=TRUE
+    ) |>
+    mutate(xb=coef*mean)
+
+
+xpdf = coldf |>
+    filter(grepl('^\\s+XP', text)) |>
+    mutate(text = trimws(text)) |>
+    separate(text, into=c(
+        "varname",
+        "sum",
+        "n",
+        "mean",
+        "min",
+        "max"
+        ),
+        sep='\\s+',
+        convert=TRUE
+    ) |>
+    select(-section) |>
+    arrange(year, model, group)
+
+
+plotdf = bind_rows(xbdf,xpdf) |>
+    select(-section, -varnum, -task) |>
+    pivot_longer(-c(varname, module, model, group, year)) |>
+    mutate(value=as.numeric(value)) |>
+    arrange(model,group,varname,name,year) |>
+    group_by(model,group,varname,name) |>
+    mutate(
+        dval=if_else(lag(value)==0 | is.na(lag(value)), 0, value/lag(value)-1),
+        maxval = max(abs(value)),
+        maxdval = max(abs(dval)),
+        model = factor(model, levels=c( "ENROLL",
+                                        "DROP",  
+                                        "REENROLL",
+                                        "GRADUATE",
+                                        "GSENROLL")
+        )
+    )
+    
+
+models = levels(plotdf$model)
+groups = unique(plotdf$group)
+
+```
+
+```{r}
+#| output: true
+
+cat("Version: ", tail(strsplit(fehdir, '/')[[1]], n=1))
+
+```
+
+## Expected Probability by Sex-Race Group
+
+
+```{r}
+
+
+plot_xp_by_model <- function(modeltab)
+{
+  knitr::knit_child(text = c(
+    "#### `r modeltab`",
+    "",
+    "```{r}",
+    "#| echo: false",
+    "plotdf %>%",
+    "    filter(varname=='XP', name=='mean', model==modeltab) |>",
+    "    ggplot(aes(x=year,y=value,color=group)) +",
+    "    geom_line() +",
+    "    ylab('XP') +",
+    "    theme(legend.position = 'bottom')",
+    "```",
+    ""
+  ), envir = environment(), quiet = TRUE)
+
+}
+
+```
+
+::: panel-tabset
+```{r}
+#| label: xp-by-model-group
+#| results: asis
+res = purrr::map_chr(models, plot_xp_by_model)
+cat(res, sep='\n')
+```
+:::
+
+
+## X-Beta Diff by Sex-Race Group
+
+
+```{r}
+
+
+plot_xb_by_group <- function(grouptab, opt_model, yvar="value", vars=NULL)
+{
+  txt = c(
+    "#### `r grouptab`",
+    "",
+    "```{r}",
+    "#| echo: false",
+    "plotdf |>",
+    "    filter(group==grouptab, model==opt_model, name=='xb', maxval>0, maxdval>0) |>"
+    )
+  
+  if( vars == "years" ) {
+    txt = c(txt, "   filter(grepl('^YEAR', varname)) |>")
+  } else if( vars == "asian" ) {
+    txt = c(txt, "   filter(grepl('^(ASIAN|ASN)', varname)) |>")
+  } else if( vars == "core" ) {
+    txt = c(txt, "   filter(grepl('^(?!(YEAR|ASIAN|ASN))', varname, perl=TRUE)) |>")
+  }
+  
+  if( yvar=="value" ) {
+    txt = c(txt, "    ggplot(aes(x=year,y=value,color=varname)) +")
+  } else if( yvar=="dval") {
+    txt = c(txt, "    ggplot(aes(x=year,y=dval,color=varname)) +")
+  }
+  txt = c(txt,
+    "    geom_line() +",
+    "    ggplot2::scale_color_discrete(type=safe_colorblind_palette) +",
+    "    ylab('XBeta Change') +",
+    "  theme(legend.position = 'bottom')",
+    "```",
+    ""
+  )
+  
+  knitr::knit_child(text = txt, envir = environment(), quiet = TRUE)
+
+}
+
+
+```
+
+::: panel-tabset
+```{r}
+#| label: xb-diff-by-group-yearvars
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(groups, plot_xb_by_group, m, "dval", "years")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
+
+::: panel-tabset
+```{r}
+#| label: xb-diff-by-group-corevars
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(groups, plot_xb_by_group, m, "dval", "core")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
+
+::: panel-tabset
+```{r}
+#| label: xb-diff-by-group-asianvars
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(groups, plot_xb_by_group, m, "dval", "asian")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
+
+
+## X-Beta by Sex-Race Group
+
+::: panel-tabset
+```{r}
+#| label: xb-by-group-yearvars
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(groups, plot_xb_by_group, m, "value", "years")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
+
+::: panel-tabset
+```{r}
+#| label: xb-by-group-corevars
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(groups, plot_xb_by_group, m, "value", "core")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
+
+::: panel-tabset
+```{r}
+#| label: xb-by-group-asianvars
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(groups, plot_xb_by_group, m, "value", "asian")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
+
+## X by Sex-Race Group
+
+
+```{r}
+
+
+plot_x_by_group <- function(grouptab, opt_model)
+{
+  knitr::knit_child(text = c(
+    "#### `r grouptab`",
+    "",
+    "```{r}",
+    "#| echo: false",
+    "plotdf %>%",
+    "    filter(group==grouptab, model==opt_model, name=='mean', maxval>0, maxdval>0) |>",
+    "    ggplot(aes(x=year,y=value,color=varname)) +",
+    "    geom_line() +",
+    "    ggplot2::scale_color_discrete() +",
+    "    ylab('XBeta') +",
+    "  theme(legend.position = 'bottom')",
+    "```",
+    ""
+  ), envir = environment(), quiet = TRUE)
+
+}
+
+```
+
+::: panel-tabset
+```{r}
+#| label: x-by-group
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(groups, plot_x_by_group, m)
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
+
+
+
+
+
+
+
+
+
