@@ -14,8 +14,8 @@ read_shares = function(fname)
     col_types = c("text", "text", "numeric", "numeric", "numeric", "numeric")
     range="B6:G18"
     sheets = list(
-        list(sheet="Dependent BA",     desc="Dependent BA"),
-        list(sheet="Dependent non-BA", desc="Dependent non-BA")
+        list(sheet="Dependent BA",     taxstatus="Dependent", educ="BA"),
+        list(sheet="Dependent non-BA", taxstatus="Dependent", educ="Some college")
     )
     read_share_sheet = function(x, fname)
     {
@@ -27,7 +27,10 @@ read_shares = function(fname)
             range=range
         ) |>
             filter(!is.na(race)) |>
-            mutate(desc=x[['desc']])
+            mutate(
+                taxstatus=x[['taxstatus']],
+                educ=x[['educ']]
+            )
     }
 
     return(bind_rows(map(sheets, read_share_sheet, fname)))
@@ -35,4 +38,46 @@ read_shares = function(fname)
 
 
 shares_df = read_shares(fname_shares)
+
+
+read_amounts = function()
+{
+    range="B6:H18"
+    col_names=c("race", "gender", "p10", "p25", "p50", "p75", "p90")
+    col_types=rep("text", 7)
+
+    fname_amts = list(
+        list(fname="BPS amt borrow dep BA.xlsx",       taxstatus="Dependent",   educ="BA"),
+        list(fname="BPS amt borrow dep non-BA.xlsx",   taxstatus="Dependent",   educ="Some college"),
+        list(fname="BPS amt borrow indep BA.xlsx",     taxstatus="Independent", educ="BA"),
+        list(fname="BPS amt borrow indep non-BA.xlsx", taxstatus="Independent", educ="Some college")
+    )
+
+    read_amt_file = function(x)
+    {
+        read_excel(
+            path=paste0(datadir, x[['fname']]),
+            sheet="All incomes",
+            col_names=col_names,
+            col_types=col_types,
+            range=range
+        ) |>
+            filter(!is.na(race)) |>
+            mutate(
+                taxstatus=x[['taxstatus']],
+                educ=x[['educ']]
+            )
+    }
+
+    return(
+        bind_rows(map(fname_amts, read_amt_file)) |>
+            mutate(across(starts_with('p'), ~gsub(',', '', .x))) |>
+            mutate(across(starts_with('p'), ~gsub('\\..+', '', .x))) |>
+            mutate(across(starts_with('p'), ~gsub('\\D+', '', .x))) |>
+            mutate(across(starts_with('p'), as.numeric))
+    )
+}
+
+amt_df = read_amounts()
+
 
