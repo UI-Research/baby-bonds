@@ -63,6 +63,8 @@ make_debt_sample = function(df)
 {
 
     s = list()
+    valmin = 0
+    valmax = 6e4
     
     for( j in 1:dim(df)[1] ) {
     
@@ -71,7 +73,7 @@ make_debt_sample = function(df)
         p1 = r1 |> select(starts_with('p'))
         pctiles = c(0, as.integer(gsub('^p', '', names(p1))), 100)
         probs=pctiles/100
-        quants= c(1000, as.numeric(p1), 6e4)
+        quants= c(valmin, as.numeric(p1), valmax)
         lens=diff(pctiles)
         len_x=10
         
@@ -84,7 +86,7 @@ make_debt_sample = function(df)
                     (seq(
                         quants[i-1],
                         quants[i],
-                        length.out=lens[i-1] * len_x
+                        length.out=(lens[i-1] * len_x)+1
                         ))[-1]
                     }
                 )
@@ -114,19 +116,74 @@ make_debt_sample = function(df)
 ```
 
 
-## 
+# Imputing a Distribution of Student Loan Debt
+
+To simulate student-loan debt in DYNASIM, it is necessary to have a distribution of that debt. The available data contains several percentiles of student-loan debt and we use them to impute a full distribution of debt.
+
+We obtained data on direct subsidized and unsubsidized student loans from the National Center for Educational Statistics. The data includes 10th, 25th, 50th, 75th, and 90th percentiles of debt borrowed for undergraduate education through 2017 by race/ethnicity, gender, and educational attainment in 2017. For dependent students, data is also disaggregated by parents' income in 2012.
+
+To impute a full distribution, we generate a sequence of debt values between each two subsequent percentiles available in data. Each sequence's length is proportional to the number of "missing" percentiles. For example, this process might generate 14 values between 10th and 25th percentiles and 24 values between 25th and 50th percentiles. If a larger sample is necessary, these numbers could be multiplied by some factor. Each sequence is generated as an arithmetic progression with the first percentile as its start value and the second percentile as its end value. 
+
+::: {.callout-note}
+We assume that the minimum value of a loan is zero and maximum value is $60,000. Is this right?
+:::
+
 
 ```{r}
+#| label: make-plotdf1
 
+plotdf = amt_df |> 
+    filter(race %in% c("Black", "Hispanic", "White"), gender == "Total") |>
+    make_debt_sample()
+```
 
-df = amt_df |> filter(race %in% c("Black", "Hispanic", "White"), gender == "Total")
-
-
-plotdf = make_debt_sample(df)
+```{r}
+#| label: fig-debtamt-by-race-stat-educ
+#| fig-cap: "Imputed distribution of student debt by race, tax status, and educational attainment." 
 plotdf |>
     ggplot(aes(debt, color=taxstat)) +
     stat_ecdf() +
-    facet_grid(rows=vars(educ), cols=vars(race))
+    facet_grid(rows=vars(educ), cols=vars(race)) +
+    scale_x_continuous(labels=function(x) return(x/1000) ) +
+    scale_y_continuous(labels=function(x) return(x*100) ) +
+    xlab("Debt ($1000)") + ylab("ECDF (%)")
+
+
+```
+
+```{r}
+#| label: make-plotdf2
+
+plotdf = amt_df |> 
+    filter(race %in% c("Black", "Hispanic", "White"), gender %in% c("Male", "Female")) |>
+    make_debt_sample()
+```
+
+```{r}
+#| label: fig-debtamt-by-race-educ-sex-deps
+#| fig-cap: "Imputed distribution of student debt for dependent students by race, sex, and educational attainment." 
+plotdf |>
+    filter(taxstat=="Dependent") |>
+    ggplot(aes(debt, color=sex)) +
+    stat_ecdf() +
+    facet_grid(rows=vars(educ), cols=vars(race)) +
+    scale_x_continuous(labels=function(x) return(x/1000) ) +
+    scale_y_continuous(labels=function(x) return(x*100) ) +
+    xlab("Debt ($1000)") + ylab("ECDF (%)")
+
+
+```
+```{r}
+#| label: fig-debtamt-by-race-educ-sex-indeps
+#| fig-cap: "Imputed distribution of student debt for independent students by race, sex, and educational attainment." 
+plotdf |>
+    filter(taxstat=="Independent") |>
+    ggplot(aes(debt, color=sex)) +
+    stat_ecdf() +
+    facet_grid(rows=vars(educ), cols=vars(race)) +
+    scale_x_continuous(labels=function(x) return(x/1000) ) +
+    scale_y_continuous(labels=function(x) return(x*100) ) +
+    xlab("Debt ($1000)") + ylab("ECDF (%)")
 
 
 ```
