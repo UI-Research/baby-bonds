@@ -102,9 +102,7 @@ read_amounts = function()
     )
 }
 
-# Read shares with debt
-shares_df = read_shares(fname_shares)
 
-# Read amounts of debt
-amt_df = read_amounts()
+
+
 
