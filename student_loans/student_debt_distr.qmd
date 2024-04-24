@@ -1,0 +1,132 @@
+---
+title: "Student Loan Data"
+format:
+  html:
+    embed-resources: true
+execute: 
+  echo: false
+  warning: false
+fig-cap-location: top
+toc: true
+toc-expand: true
+
+---
+
+```{r}
+
+library(tidyverse)
+library(tidyquant)
+library(plotly)
+
+library(urbnthemes)
+set_urbn_defaults(style = "print", 
+                  base_size=11,
+                  base_line_size = 1.5
+                  )
+
+ggplot2::theme_update(
+    panel.grid.major.x = element_line(color = "grey",
+                                size = 0.2,
+                                linetype = 1),
+    panel.grid.minor.x = element_line(color = "grey",
+                                size = 0.2,
+                                linetype = 2),
+    line = element_line(colour = "#000000",
+                                 size = 1,
+                                 linetype = 1L,
+                                 lineend = "butt"),
+    )
+```
+
+
+
+```{r}
+#| label: load-data
+
+source("make_student_loan_data.R")
+
+# Read shares with debt
+shares_df = read_shares(fname_shares)
+
+# Read amounts of debt
+amt_df = read_amounts()
+
+
+```
+
+
+
+```{r}
+#| label: make-samples
+
+make_debt_sample = function(df)
+{
+
+    s = list()
+    
+    for( j in 1:dim(df)[1] ) {
+    
+        # 1. Get probabilities
+        r1 = df[j,]
+        p1 = r1 |> select(starts_with('p'))
+        pctiles = c(0, as.integer(gsub('^p', '', names(p1))), 100)
+        probs=pctiles/100
+        quants= c(1000, as.numeric(p1), 6e4)
+        lens=diff(pctiles)
+        len_x=10
+        
+        # 2. Create a sample
+        s1 = unlist(c(
+            quants[1],
+            map(
+                2:length(quants),
+                function(i) {
+                    (seq(
+                        quants[i-1],
+                        quants[i],
+                        length.out=lens[i-1] * len_x
+                        ))[-1]
+                    }
+                )
+            ))
+        
+        # 3. Create a list entry
+        s[[length(s)+1]] = list(
+            race     = pull(r1[1,"race"]),
+            sex      = pull(r1[1,"gender"]),
+            taxstat  = pull(r1[1,"taxstatus"]),
+            educ     = pull(r1[1,"educ"]),
+            data     = s1
+            )
+    }
+    
+    resdf = bind_rows(map(s, ~tibble(
+            race    = .x$race, 
+            sex     = .x$sex, 
+            debt    = .x$data,
+            taxstat = .x$taxstat,
+            educ    = .x$educ
+            )
+        )
+    )
+    return(resdf)
+}
+```
+
+
+## 
+
+```{r}
+
+
+df = amt_df |> filter(race %in% c("Black", "Hispanic", "White"), gender == "Total")
+
+
+plotdf = make_debt_sample(df)
+plotdf |>
+    ggplot(aes(debt, color=taxstat)) +
+    stat_ecdf() +
+    facet_grid(rows=vars(educ), cols=vars(race))
+
+
+```
