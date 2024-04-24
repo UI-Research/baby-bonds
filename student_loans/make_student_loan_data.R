@@ -8,10 +8,36 @@ datadir = "C:/Users/dcosic/Box/Data/Student Loans/Excel/"
 fname_shares = paste0(datadir, "BPS share borrow.xlsx")
 
 
+#' Removes non-digit characters from selected columns and converts them to nums
+clean_nums = function(data, start_str)
+{
+    return(data |> mutate(across(starts_with(start_str), ~gsub(',', '', .x))) |>
+               mutate(across(starts_with(start_str), ~gsub('\\..+', '', .x))) |>
+               mutate(across(starts_with(start_str), ~gsub('\\D+', '', .x))) |>
+               mutate(across(starts_with(start_str), as.numeric))
+    )
+}
+
+recode_race = function(data)
+{
+    return(
+        data |>
+            mutate(
+                race = case_match(
+                    race,
+                    "Black or African American" ~ "Black",
+                    "Hispanic or Latino"        ~ "Hispanic",
+                    .default = race
+                )
+            )
+    )
+}
+
+#' Reads data on shares of students with student debt
 read_shares = function(fname)
 {
     col_names = c("race", "gender", "income_all", "income1", "income2", "income3")
-    col_types = c("text", "text", "numeric", "numeric", "numeric", "numeric")
+    col_types = rep("text", 6)
     range="B6:G18"
     sheets = list(
         list(sheet="Dependent BA",     taxstatus="Dependent", educ="BA"),
@@ -33,12 +59,12 @@ read_shares = function(fname)
             )
     }
 
-    return(bind_rows(map(sheets, read_share_sheet, fname)))
+    return(
+        bind_rows(map(sheets, read_share_sheet, fname)) |>
+            clean_nums('income') |>
+            recode_race()
+    )
 }
-
-
-shares_df = read_shares(fname_shares)
-
 
 read_amounts = function()
 {
@@ -71,13 +97,14 @@ read_amounts = function()
 
     return(
         bind_rows(map(fname_amts, read_amt_file)) |>
-            mutate(across(starts_with('p'), ~gsub(',', '', .x))) |>
-            mutate(across(starts_with('p'), ~gsub('\\..+', '', .x))) |>
-            mutate(across(starts_with('p'), ~gsub('\\D+', '', .x))) |>
-            mutate(across(starts_with('p'), as.numeric))
+            clean_nums('p') |>
+            recode_race()
     )
 }
 
-amt_df = read_amounts()
+# Read shares with debt
+shares_df = read_shares(fname_shares)
 
+# Read amounts of debt
+amt_df = read_amounts()
 
