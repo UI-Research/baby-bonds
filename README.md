@@ -28,3 +28,9 @@ It is assumed that an R project file is in the repo's root folder and that the B
 * `College-finance2.sdf`: Mapping of question names to variable descriptions and variable numbers.
 * `customweight_nlsy97_651b190a18af1d9d269.dat`: Weights for use in longitudinal analysis.
 * `customweight_nlsy97_651b190a18af1d9d269.readme`: 
+
+# Student Loan Data
+## Student Loan Folder
+* `student_debt_distr.qmd`: Imputes and plots student loan data.
+* [`student_debt_distr.html`](student_loans/student_debt_distr.html): Rendering of the above file.
+
