@@ -36,7 +36,7 @@ recode_race = function(data)
 #' Reads data on shares of students with student debt
 read_shares = function(fname)
 {
-    col_names = c("race", "gender", "income_all", "income1", "income2", "income3")
+    col_names = c("race", "sex", "income_all", "income1", "income2", "income3")
     col_types = rep("text", 6)
     range="B6:G18"
     sheets = list(
@@ -69,7 +69,7 @@ read_shares = function(fname)
 read_amounts = function()
 {
     range="B6:H18"
-    col_names=c("race", "gender", "p10", "p25", "p50", "p75", "p90")
+    col_names=c("race", "sex", "p10", "p25", "p50", "p75", "p90")
     col_types=rep("text", 7)
 
     fname_amts = list(

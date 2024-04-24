@@ -95,7 +95,7 @@ make_debt_sample = function(df)
         # 3. Create a list entry
         s[[length(s)+1]] = list(
             race     = pull(r1[1,"race"]),
-            sex      = pull(r1[1,"gender"]),
+            sex      = pull(r1[1,"sex"]),
             taxstat  = pull(r1[1,"taxstatus"]),
             educ     = pull(r1[1,"educ"]),
             data     = s1
@@ -133,7 +133,7 @@ We assume that the minimum value of a loan is zero and maximum value is $60,000.
 #| label: make-plotdf1
 
 plotdf = amt_df |> 
-    filter(race %in% c("Black", "Hispanic", "White"), gender == "Total") |>
+    filter(race %in% c("Black", "Hispanic", "White"), sex == "Total") |>
     make_debt_sample()
 ```
 
@@ -155,7 +155,7 @@ plotdf |>
 #| label: make-plotdf2
 
 plotdf = amt_df |> 
-    filter(race %in% c("Black", "Hispanic", "White"), gender %in% c("Male", "Female")) |>
+    filter(race %in% c("Black", "Hispanic", "White"), sex %in% c("Male", "Female")) |>
     make_debt_sample()
 ```
 
@@ -184,6 +184,16 @@ plotdf |>
     scale_x_continuous(labels=function(x) return(x/1000) ) +
     scale_y_continuous(labels=function(x) return(x*100) ) +
     xlab("Debt ($1000)") + ylab("ECDF (%)")
+
+
+```
+
+
+```{r}
+#| label: export-data
+
+amt_df |> filter(educ == "Some college", race %in% c("Black", "Hispanic", "White"), sex=="Total", taxstatus=="Dependent")
+
 
 
 ```
