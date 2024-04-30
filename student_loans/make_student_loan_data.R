@@ -40,8 +40,10 @@ read_shares = function(fname)
     col_types = rep("text", 6)
     range="B6:G18"
     sheets = list(
-        list(sheet="Dependent BA",     taxstatus="Dependent", educ="BA"),
-        list(sheet="Dependent non-BA", taxstatus="Dependent", educ="Some college")
+        list(sheet="Dependent BA",       taxstatus="Dependent",   educ="BA"),
+        list(sheet="Dependent non-BA",   taxstatus="Dependent",   educ="Some college"),
+        list(sheet="Independent BA",     taxstatus="Independent", educ="BA"),
+        list(sheet="Independent non-BA", taxstatus="Independent", educ="Some college")
     )
     read_share_sheet = function(x, fname)
     {
