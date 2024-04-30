@@ -44,6 +44,7 @@ ggplot2::theme_update(
 #| label: load-data
 
 source("make_student_loan_data.R")
+source(paste0(here::here(), "/dynasim_lib.R"))
 
 # Read shares with debt
 shares_df = read_shares(fname_shares)
@@ -65,7 +66,17 @@ make_debt_sample = function(df)
     s = list()
     valmin = 0
     valmax = 6e4
-    
+    minmaxdf = tibble(
+        taxstatus=c('Dependent','Independent'), 
+        valmin=c(100,100),
+        valmax=c(5e4,6e4)
+    )
+    df = left_join(
+        df,
+        minmaxdf,
+        by="taxstatus"
+    )
+
     for( j in 1:dim(df)[1] ) {
     
         # 1. Get probabilities
@@ -73,7 +84,7 @@ make_debt_sample = function(df)
         p1 = r1 |> select(starts_with('p'))
         pctiles = c(0, as.integer(gsub('^p', '', names(p1))), 100)
         probs=pctiles/100
-        quants= c(valmin, as.numeric(p1), valmax)
+        quants= c(as.numeric(r1$valmin), as.numeric(p1), as.numeric(r1$valmax))
         lens=diff(pctiles)
         len_x=10
         
