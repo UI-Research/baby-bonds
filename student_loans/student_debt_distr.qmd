@@ -64,8 +64,6 @@ make_debt_sample = function(df)
 {
 
     s = list()
-    valmin = 0
-    valmax = 6e4
     minmaxdf = tibble(
         taxstatus=c('Dependent','Independent'), 
         valmin=c(100,100),
@@ -136,7 +134,7 @@ We obtained data on direct subsidized and unsubsidized student loans from the Na
 To impute a full distribution, we generate a sequence of debt values between each two subsequent percentiles available in data. Each sequence's length is proportional to the number of "missing" percentiles. For example, this process might generate 14 values between 10th and 25th percentiles and 24 values between 25th and 50th percentiles. If a larger sample is necessary, these numbers could be multiplied by some factor. Each sequence is generated as an arithmetic progression with the first percentile as its start value and the second percentile as its end value. 
 
 ::: {.callout-note}
-We assume that the minimum value of a loan is zero and maximum value is $60,000. Is this right?
+We assume that the minimum value of a loan is zero. For maximum, we assume $50,000 for dependent students and $60,000 for independent ones.
 :::
 
 
@@ -205,17 +203,16 @@ plotdf |>
 
 outdf = left_join(
     amt_df |> 
-        filter(race %in% c("Black", "Hispanic", "White")),
+        filter(race %in% c("Black", "Hispanic", "White", "Total")),
     shares_df |>
         select(race, sex, share=income_all, taxstatus, educ) |>
-        filter(race %in% c("Black", "Hispanic", "White")),
+        filter(race %in% c("Black", "Hispanic", "White", "Total")),
     by=c("race", "sex", "taxstatus", "educ")
 )
 
 outdf = outdf |> 
     mutate(
-        sex = if_else(sex  == 'Total',        'All', sex),
-        educ= if_else(educ == 'Some college', 'SC',  educ)
+        educ = if_else(educ == 'Some college', 'SC',  educ)
     ) |>
     mutate(across(c(race,sex),toupper)) |> 
     mutate(
@@ -242,6 +239,15 @@ outdf2 = outdf |>
 dyn_write_coef_file(
     outdf2, 
     "student_debt.csv", 
-    "Shares and percentiles of student loan debt by sex, race, \n; dependent status, and educational attainment"
+    paste0(
+        "Shares and percentiles of student loan debt by sex, race, \n", 
+        "; dependent status, and educational attainment \n",
+        ";\n",
+        "; Name coding:\n",
+        ";   1   - Sex (Female, Male, Total)\n",
+        ";   2   - Race (Black, Hispanic, White, Total)\n",
+        ";   3   - Tax status (Dependent, Independent)\n",
+        ";   4-5 - Education (BA, Some College)\n"
     )
+)
 ```
