@@ -38,7 +38,7 @@ read_shares = function(fname)
 {
     col_names = c("race", "sex", "income_all", "income1", "income2", "income3")
     col_types = rep("text", 6)
-    range="B6:G18"
+    range="B6:G21"
     sheets = list(
         list(sheet="Dependent BA",       taxstatus="Dependent",   educ="BA"),
         list(sheet="Dependent non-BA",   taxstatus="Dependent",   educ="Some college"),
@@ -70,7 +70,7 @@ read_shares = function(fname)
 
 read_amounts = function()
 {
-    range="B6:H18"
+    range="B6:H21"
     col_names=c("race", "sex", "p10", "p25", "p50", "p75", "p90")
     col_types=rep("text", 7)
 
