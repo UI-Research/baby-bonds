@@ -52,6 +52,18 @@ shares_df = read_shares(fname_shares)
 # Read amounts of debt
 amt_df = read_amounts()
 
+minmaxdf = tibble(
+    taxstatus=c('Dependent','Independent'), 
+    p0=c(100,100),
+    p100=c(5e4,6e4)
+)
+amt_df = left_join(
+    amt_df,
+    minmaxdf,
+    by="taxstatus"
+) |>
+    select(sex, race, educ, taxstatus, p0, p10, p25, p50, p75, p90, p100)
+
 
 ```
 
@@ -64,27 +76,18 @@ make_debt_sample = function(df)
 {
 
     s = list()
-    minmaxdf = tibble(
-        taxstatus=c('Dependent','Independent'), 
-        valmin=c(100,100),
-        valmax=c(5e4,6e4)
-    )
-    df = left_join(
-        df,
-        minmaxdf,
-        by="taxstatus"
-    )
 
     for( j in 1:dim(df)[1] ) {
     
         # 1. Get probabilities
         r1 = df[j,]
         p1 = r1 |> select(starts_with('p'))
-        pctiles = c(0, as.integer(gsub('^p', '', names(p1))), 100)
-        probs=pctiles/100
-        quants= c(as.numeric(r1$valmin), as.numeric(p1), as.numeric(r1$valmax))
-        lens=diff(pctiles)
-        len_x=10
+        
+        pctiles = as.integer(gsub('^p', '', names(p1)))
+        probs   = pctiles/100
+        quants  = as.numeric(p1)
+        lens    = diff(pctiles)
+        len_x   = 10
         
         # 2. Create a sample
         s1 = unlist(c(
