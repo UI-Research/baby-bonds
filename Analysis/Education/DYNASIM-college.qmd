@@ -2,20 +2,20 @@
 title: "DYNASIM College"
 format:
   html:
-    page-layout: custom
+    embed-resources: true
 execute: 
   echo: false
   warning: false
 fig-cap-location: top
-server: shiny
 ---
 
 ```{r}
-#| context: setup
 
 library(Hmisc)
+library(ipumsr)
 library(tidyverse)
 library(tidyquant)
+library(plotly)
 library(urbnthemes)
 set_urbn_defaults(style = "print", 
                   base_size=11,
@@ -23,6 +23,7 @@ set_urbn_defaults(style = "print",
                   )
 
 source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
+source(paste0(here::here(), "/Analysis/Education/dyn_educ_lib.R"))
 
 #obs = 50000
 obs = NA
@@ -81,13 +82,33 @@ make_form_output = function(data, var, form, by)
     return(data)
 }
 
+educ_cats = c(
+    "Less Than High School",
+    "High School", 
+    "Some College", 
+    "Bachelor's Degree", 
+    "Graduate School"
+)
+
+race_cats = c(
+    "Asian",
+    "Black",
+    "Hispanic",
+    "White",
+    "Other"
+)
+
+pidx = read_csv(paste0(here::here(), "/pindex.csv"))
+widx = read_csv(paste0(here::here(), "/windex.csv")) |>
+    mutate(windex=windex*1e3)
+pwidx = left_join(pidx, widx, by='year')
+pidx2024 = pwidx |> filter(year==2024) |> select(pindex) |> pull()
 
 ```
 
 
 ```{r}
 #| label: read-feh0
-#| context: data
 #| cache: true
 #| cache.lazy: false
 #| echo: false
@@ -101,7 +122,6 @@ fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset=fehname0
 
 ```{r}
 #| label: read-feh1
-#| context: data
 #| cache: true
 #| cache.lazy: false
 #| echo: false
@@ -114,23 +134,6 @@ fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf1) |> mutate(dataset=fehname1
 ```
 
 ```{r}
-#| label: read-feh2
-#| context: data
-#| cache: false
-#| cache.lazy: false
-#| echo: false
-#| output: false
-#| eval: false
-
-
-fehname2       = "FEH2"
-fehdir2        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/test3/"
-fehdf2         = read_feh(fehdir2, columns=keep_cols, obs_count=obs)
-fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf2) |> mutate(dataset=fehname2)
-```
-
-```{r}
-#| context: data
 #| cache: false
 
 fehdf = bind_rows(fehdfs) |>
@@ -147,378 +150,259 @@ fehdf = bind_rows(fehdfs) |>
             3000<=ethncty & ethncty<=3099       ~ 'Other',
             4000<=ethncty & ethncty<=4099       ~ 'Asian'
         ),
-        weight=weight
+        weight=weight,
+        dobycatold = cut(
+            doby, 
+            seq(1980,2040,10), 
+            labels=paste0(seq(1980,2030,10), '-', seq(1989,2039,10)), 
+            include.lowest = TRUE, 
+            right=FALSE),
+        dobycat = cut(
+            doby, 
+            seq(1974,2044,10), 
+            labels=paste0(seq(1974,2034,10), '-', seq(1983,2043,10)), 
+            include.lowest = TRUE, 
+            right=FALSE)
     ) |>
-    filter(age>=16, gradecat>=12, race %in% races)
-
-# By age, year, race, and sex
-tmpdf1 = fehdf |> 
-    filter(age %in% ages, year %in% years, gradecat %in% grades) |>
-    count(age, sex, race, year, gradecat, dataset, wt=weight) |>
-    group_by(dataset, year, sex, race, age) |>
-    complete(gradecat=grades, fill=list(n=0)) |>
-    arrange(dataset, year, sex, race, age, gradecat) |>
-    mutate(
-        cumn     = cumsum(n),
-        share    = n/sum(n),
-        cumshare = cumsum(share)
-    )
-
-# By age, year, race, and "all" sexes
-tmpdf2 = tmpdf1 |> 
-    group_by(dataset, year, race, age, gradecat) |>
-    summarise(n = sum(n), cumn = sum(cumn)) |>
-    group_by(dataset, year, race, age) |>
-    mutate(
-        sex="All",
-        share    = n/sum(n),
-        cumshare = cumsum(share)
-    )
-
-tmpdf2b = bind_rows(tmpdf1, tmpdf2)
-
-# By age, year, sex, and "all" races
-tmpdf3 = tmpdf2b |> 
-    group_by(dataset, year, sex, age, gradecat) |>
-    summarise(n = sum(n), cumn = sum(cumn)) |>
-    group_by(dataset, year, sex, age) |>
-    mutate(
-        race="All",
-        share    = n/sum(n),
-        cumshare = cumsum(share)
-        )
-
-educByAgeYearSexRace = bind_rows(tmpdf2b, tmpdf3) |>
-    ungroup()
-
-stopifnot(dim(educByAgeYearSexRace |> 
-    arrange(dataset, year, sex, race, age, gradecat) |> 
-    group_by(dataset, year, sex, race, age) |> 
-    mutate(testcumn=cumsum(n), diff=testcumn-cumn) |> 
-    filter(diff>0))[1] == 0)
-
-# By age, birth year, race, and sex
-tmpdf1 = fehdf |> 
-    filter(age %in% ages, doby %in% birth_years, gradecat %in% grades) |>
-    count(age, sex, race, doby, gradecat, dataset, wt=weight) |>
-    group_by(dataset, doby, sex, race, age) |>
-    complete(gradecat=grades, fill=list(n=0)) |>
-    arrange(dataset, doby, sex, race, age, gradecat) |>
-    mutate(
-        cumn     = cumsum(n),
-        share    = n/sum(n),
-        cumshare = cumsum(share)
-    )
-
-# By age, birth year, race, and "all" sexes
-tmpdf2 = tmpdf1 |> 
-    group_by(dataset, doby, race, age, gradecat) |>
-    summarise(n = sum(n), cumn = sum(cumn)) |>
-    mutate(
-        sex="All",
-        share    = n/sum(n),
-        cumshare = cumsum(share)
-    )
-
-tmpdf2b = bind_rows(tmpdf1, tmpdf2)
-
-# By age, birth year, sex, and "all" races
-tmpdf3 = tmpdf2b |> 
-    group_by(dataset, doby, sex, age, gradecat) |>
-    summarise(n = sum(n), cumn = sum(cumn)) |>
-    mutate(
-        race="All",
-        share    = n/sum(n),
-        cumshare = cumsum(share)
-        )
-
-educByAgeBCohSexRace = bind_rows(tmpdf2b, tmpdf3) |>
-    ungroup()
-
-stopifnot(dim(educByAgeBCohSexRace |> 
-    arrange(dataset, doby, sex, race, age, gradecat) |> 
-    group_by(dataset, doby, sex, race, age) |> 
-    mutate(testcumn=cumsum(n), diff=testcumn-cumn) |> 
-    filter(diff>0))[1] == 0)
+    filter(age>=16, race %in% races) |>
+    left_join(pidx, by="year") |>
+    mutate(rsavings1 = savings1/pindex*pidx2024)
 
 ```
-
-# DYNASIM
 
 ```{r}
-#| panel: input
-#| layout-ncol: 3
 
-forms = c("Value", "Diff")
+bb10k = fehdf |>
+    filter(dataset=="Baby bonds") |>
+    select(age, year, pernum, rsavings1) |>
+    filter(age==18, rsavings1>=1e4) |>
+    select(pernum) |>
+    pull()
+bb20k = fehdf |>
+    filter(dataset=="Baby bonds") |>
+    select(age, year, pernum, rsavings1) |>
+    filter(age==18, rsavings1>=2e4) |>
+    select(pernum) |>
+    pull()
+```
 
-selectInput('grade',   'Grade',       grades,          selected=16)
-selectInput('sex',     'Sex',         sexes,           selected=sexes[1])
-selectInput('race',    'Race',        races,           selected=races[1])
-selectInput('outcome', 'Outcome',     names(outcomes), selected=names(outcomes)[1])
-selectInput('ma_n',    'MA Window',   c(1,3,5,7,9),    selected=5)
-selectInput('form',    'Form',        forms,           selected=forms[1])
+
+```{r}
+educByAgeYearSexRace = fehdf |>
+    filter(age %in% ages, year %in% years, gradecat %in% grades) |>
+    sum_by_aser_time(year, age)    
+
+educByAgeBCohSexRace = fehdf |>
+    filter(age %in% ages, doby %in% birth_years, gradecat %in% grades) |>
+    sum_by_aser_time(doby, age)    
+
+educByAgeBCohcatSexRace = fehdf |>
+    filter(age %in% ages, doby %in% birth_years, gradecat %in% grades) |>
+    sum_by_aser_time(dobycat, age)    
 
 ```
+
+
+```{r}
+#| eval: FALSE
+
+plotdf = dplyr::filter(
+        educByAgeBCohcatSexRace, 
+        dobycat=="2030-2039",
+        sex=="All",
+        gradecat==16
+    )
+
+plotdf |>
+    ggplot2::ggplot(aes(
+        x=age, 
+        y=cumshare, 
+        linetype=dataset,
+        color=race,
+        )) +
+    geom_line()
+
+
+```
+
+## Distribution of Baby Bonds
+
+```{r}
+#| label: fig-babybonds-distr-age18-bc2024-2033
+#| fig-cap: "Distribution of baby bonds at age 18 for birth cohorts 2024-2033 in 2024 dollars."
+
+fehdf |>
+    filter(age==18, dobycat=="2024-2033", dataset=="Baby bonds") |>
+    ggplot(aes(x=rsavings1, color=race)) +
+    stat_ecdf() +
+    xlab("Baby Bonds ($2024 Thousands)") +
+    ylab("Percentiles") +
+    scale_x_continuous(labels=function(x) x/1000) +
+    scale_y_continuous(labels=function(x) x*100) +
+    coord_flip()
+
+```
+
+## Effect of Baby Bonds on College Education
+
+### Share with BA: Age Profile for Birth Cohort 2024
 
 ::: {.panel-tabset}
 
-## Age Profile by Year
-
 ```{r}
-#| panel: sidebar
+#| label: bseduc-byrace-doby-tabsex
+#| results: asis
 
-selectInput('year',  'Year',  years,  selected=2030)
-```
-
-
-```{r}
-#| panel: fill
-
-plotOutput('plotByYear')
-plotOutput('plotByYearGrade')
-```
-
-```{r}
-#| context: server
-
-plotdf1 = reactive({ 
+plotdf = educByAgeBCohSexRace |>
     dplyr::filter(
-        educByAgeYearSexRace, 
-        year==input$year,
-        sex==input$sex,
-        race==input$race
-    )
-})
+            doby==2024,
+            gradecat==16
+        ) |>
+    mutate(dataset=factor(dataset))
+
+plot_ycumshare_xage_crace_tsex <- function(sextab)
+{
+  knitr::knit_child(text = c(
+    "#### `r sextab`",
+    "",
+    "```{r}",
+    "#| echo: false",
+    "plotdf |>",
+    "  filter(sex==sextab) |>",
+    "  ggplot2::ggplot(aes(x=age, y=cumshare,linetype=dataset,color=race)) + ",
+    "  geom_line() + ylab('Share with BA (%)') + ",
+    "  scale_y_continuous(labels=function(x) {100*x})",
+    "```",
+    ""
+    ), 
+    envir = environment(), quiet = TRUE
+  )
+}
 
 
-output$plotByYear = renderPlot({
-    plotdf1() |>
-        filter(gradecat==input$grade) |>
-        make_form_output(input$outcome, input$form, c("year","sex","race","age")) |>
-        ggplot2::ggplot(aes(
-            x=age, 
-            y=y, 
-            linetype=dataset
-            )) +
-        tidyquant::geom_ma(n=as.integer(input$ma_n)) +
-        ylab(input$outcome)
-})
-
-output$plotByYearGrade = renderPlot({
-    plotdf1() |>
-        mutate(gradecat=factor(gradecat)) |>
-        make_form_output(input$outcome, input$form, c("year","sex","race","age","gradecat")) |>
-        ggplot2::ggplot(aes(
-            x=age, 
-            y=y, 
-            color=gradecat, 
-            linetype=dataset
-            )) +
-        tidyquant::geom_ma(n=as.integer(input$ma_n))
-})
-
-```
-
-
-## Age Profile by Birth Year
-
-```{r}
-#| panel: sidebar
-
-selectInput('birth_year',  'Birth Year',  birth_years,  selected=1990)
-```
-
-
-```{r}
-#| panel: fill
-
-plotOutput('plotByBirthYear')
-plotOutput('plotByBirthYearGrade')
-```
-
-```{r}
-#| context: server
-
-library(ggplot2)
-
-plotdf2 = reactive({ 
-    dplyr::filter(
-        educByAgeBCohSexRace, 
-        doby==input$birth_year,
-        sex==input$sex,
-        race==input$race
-    )
-})
-
-output$plotByBirthYear = renderPlot({
-    plotdf2() |>
-        filter(gradecat==input$grade) |>
-        make_form_output(input$outcome, input$form, c("doby","sex","race","age")) |>
-        ggplot2::ggplot(aes(
-            x=age, 
-            y=y, 
-            linetype=dataset
-            )) +
-        tidyquant::geom_ma(n=as.integer(input$ma_n))
-})
-
-output$plotByBirthYearGrade = renderPlot({
-    plotdf2() |>
-        mutate(gradecat=factor(gradecat)) |>
-        make_form_output(input$outcome, input$form, c("doby","sex","race","age","gradecat")) |>
-        ggplot2::ggplot(aes(
-            x=age, 
-            y=y, 
-            color=gradecat, 
-            linetype=dataset
-            )) +
-        tidyquant::geom_ma(n=as.integer(input$ma_n))
-})
-
-```
-
-
-## Annual Data by Age
-
-```{r}
-#| panel: sidebar
-
-selectInput('age1',    'Age',   ages,   selected=35)
-```
-
-
-```{r}
-#| panel: fill
-
-plotOutput('plotByAge')
-plotOutput('plotByAgeGrade')
-```
-
-```{r}
-#| context: server
-
-library(ggplot2)
-
-plotdf3 = reactive({ 
-    dplyr::filter(
-        educByAgeYearSexRace, 
-        age==input$age1,
-        sex==input$sex,
-        race==input$race
-    )
-})
-
-output$plotByAge = renderPlot({
-    plotdf3() |>
-        filter(gradecat==input$grade) |>
-        make_form_output(input$outcome, input$form, c("year","sex","race","age")) |>
-        ggplot2::ggplot(aes(
-            x=year, 
-            y=y, 
-            linetype=dataset
-            )) +
-        tidyquant::geom_ma(n=as.integer(input$ma_n))
-})
-
-output$plotByAgeGrade = renderPlot({
-    plotdf3() |>
-        mutate(gradecat=factor(gradecat)) |>
-        make_form_output(input$outcome, input$form, c("year","sex","race","age","gradecat")) |>
-        ggplot2::ggplot(aes(
-            x=year, 
-            y=y, 
-            color=gradecat, 
-            linetype=dataset)) +
-        tidyquant::geom_ma(n=as.integer(input$ma_n))
-})
-
-```
-
-## Annual Data by Race
-
-```{r}
-#| panel: sidebar
-
-selectInput('age2',    'Age',   ages,   selected=35)
-```
-
-
-```{r}
-#| panel: fill
-
-plotOutput('plotByYearRace')
-```
-
-```{r}
-#| context: server
-
-library(ggplot2)
-
-plotdf4 = reactive({ 
-    dplyr::filter(
-        educByAgeYearSexRace, 
-        age==input$age2,
-        sex==input$sex,
-        gradecat==input$grade
-    )
-})
-
-output$plotByYearRace = renderPlot({
-    plotdf4() |>
-        make_form_output(input$outcome, input$form, c("year","sex","race","age")) |>
-        ggplot2::ggplot(aes(
-            x=year, 
-            y=y, 
-            color=race, 
-            linetype=dataset
-            )) +
-        tidyquant::geom_ma(n=as.integer(input$ma_n))
-})
+res = purrr::map_chr(c("All", "Women", "Men"), plot_ycumshare_xage_crace_tsex)
+cat(res, sep='\n')
 
 
 ```
 
-## Age Profile by Race
-
-```{r}
-#| panel: sidebar
-
-selectInput('birth_year2',  'Birth Year',  birth_years,  selected=1990)
-```
-
-
-```{r}
-#| panel: fill
-
-plotOutput('plotByBirthYearRace')
-```
-
-```{r}
-#| context: server
-
-library(ggplot2)
-
-plotdf5 = reactive({ 
-    dplyr::filter(
-        educByAgeBCohSexRace, 
-        doby==input$birth_year2,
-        sex==input$sex,
-        gradecat==input$grade
-    )
-})
-
-output$plotByBirthYearRace = renderPlot({
-    plotdf5() |>
-        make_form_output(input$outcome, input$form, c("doby","sex","race","age")) |>
-        ggplot2::ggplot(aes(
-            x=age, 
-            y=y, 
-            color=race, 
-            linetype=dataset
-            )) +
-        tidyquant::geom_ma(n=as.integer(input$ma_n))
-})
-
-
-```
 :::
+
+### Share with BA: Age Profile for Birth Cohorts 2024-2033
+
+::: {.panel-tabset}
+
+```{r}
+#| label: bseduc-byrace-dobycat-tabsex
+#| results: asis
+
+plotdf = educByAgeBCohcatSexRace |>
+    dplyr::filter(
+            dobycat=="2024-2033",
+            gradecat==16
+        ) |>
+    mutate(dataset=factor(dataset))
+
+res = purrr::map_chr(c("All", "Women", "Men"), plot_ycumshare_xage_crace_tsex)
+cat(res, sep='\n')
+```
+
+:::
+
+### Diff in Share with BA: Age Profile for Birth Cohorts 2024-2033
+
+::: {.panel-tabset}
+
+```{r}
+#| label: diff-bseduc-byrace-tabsex
+#| results: asis
+
+plotdf = left_join(
+    educByAgeBCohcatSexRace |>
+    dplyr::filter(
+            dobycat=="2024-2033",
+            gradecat==16,
+            dataset=="Baseline"
+        ) |>
+    select(age, sex, race, cumshare0=cumshare),
+    educByAgeBCohcatSexRace |>
+    dplyr::filter(
+            dobycat=="2024-2033",
+            gradecat==16,
+            dataset=="Baby bonds"
+        ) |>
+    select(age, sex, race, cumshare),
+    by=c("age","sex","race")
+) |>
+    mutate(cumshare=cumshare-cumshare0)
+
+plot_ydiffcumshare_xage_crace_tsex <- function(sextab)
+{
+  knitr::knit_child(text = c(
+    "#### `r sextab`",
+    "",
+    "```{r}",
+    "#| echo: false",
+    "plotdf |>",
+    "  filter(sex==sextab) |>",
+    "  ggplot2::ggplot(aes(x=age, y=cumshare,color=race)) + ",
+    "  geom_line() + ylab('Diff in share with BA (%)') +",
+    "  scale_y_continuous(labels=function(x) {100*x})",
+    "```",
+    ""
+    ), 
+    envir = environment(), quiet = TRUE
+  )
+}
+
+
+res = purrr::map_chr(c("All", "Women", "Men"), plot_ydiffcumshare_xage_crace_tsex)
+cat(res, sep='\n')
+
+
+```
+
+:::
+
+
+### Share with BA: Age Profile for Birth Cohorts 2024-2033 and Those Who Had $10,000 or more in baby bonds at 18
+
+::: {.panel-tabset}
+
+```{r}
+#| label: bseduc-byrace-dobycat-tabsex-bb10k
+#| results: asis
+
+plotdf = fehdf |>
+    filter(age %in% ages, dobycat=="2024-2033", gradecat %in% grades, pernum %in% bb10k) |>
+    sum_by_aser_time(dobycat, age) |>
+    filter(gradecat==16) |>
+    mutate(dataset=factor(dataset))
+
+res = purrr::map_chr(c("All", "Women", "Men"), plot_ycumshare_xage_crace_tsex)
+cat(res, sep='\n')
+```
+
+:::
+
+
+### Share with BA: Age Profile for Birth Cohorts 2024-2033 and Those Who Had $20,000 or more in baby bonds at 18
+
+::: {.panel-tabset}
+
+```{r}
+#| label: bseduc-byrace-dobycat-tabsex-bb20k
+#| results: asis
+
+plotdf = fehdf |>
+    filter(age %in% ages, dobycat=="2024-2033", gradecat %in% grades, pernum %in% bb20k) |>
+    sum_by_aser_time(dobycat, age) |>
+    filter(gradecat==16) |>
+    mutate(dataset=factor(dataset))
+
+res = purrr::map_chr(c("All", "Women", "Men"), plot_ycumshare_xage_crace_tsex)
+cat(res, sep='\n')
+```
+
+:::
+
