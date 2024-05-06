@@ -162,7 +162,12 @@ fehdf = bind_rows(fehdfs) |>
             seq(1974,2044,10), 
             labels=paste0(seq(1974,2034,10), '-', seq(1983,2043,10)), 
             include.lowest = TRUE, 
-            right=FALSE)
+            right=FALSE),
+        agecat = cut(
+            age, 
+            seq(15,44,5), 
+            right=TRUE, 
+            labels=paste0(seq(16,36,5),"-",seq(20,40,5)))
     ) |>
     filter(age>=16, race %in% races) |>
     left_join(pidx, by="year") |>
@@ -245,22 +250,12 @@ fehdf |>
 
 ## Effect of Baby Bonds on College Education
 
-### Share with BA: Age Profile for Birth Cohort 2024
 
-::: {.panel-tabset}
+### Share with BA at Ages 36-40
 
 ```{r}
-#| label: bseduc-byrace-doby-tabsex
-#| results: asis
 
-plotdf = educByAgeBCohSexRace |>
-    dplyr::filter(
-            doby==2024,
-            gradecat==16
-        ) |>
-    mutate(dataset=factor(dataset))
-
-plot_ycumshare_xage_crace_tsex <- function(sextab)
+plot_ycumshare_xyear_crace_tsex <- function(sextab)
 {
   knitr::knit_child(text = c(
     "#### `r sextab`",
@@ -269,7 +264,7 @@ plot_ycumshare_xage_crace_tsex <- function(sextab)
     "#| echo: false",
     "plotdf |>",
     "  filter(sex==sextab) |>",
-    "  ggplot2::ggplot(aes(x=age, y=cumshare,linetype=dataset,color=race)) + ",
+    "  ggplot2::ggplot(aes(x=year, y=cumshare,linetype=dataset,color=race)) + ",
     "  geom_line() + ylab('Share with BA (%)') + ",
     "  scale_y_continuous(labels=function(x) {100*x})",
     "```",
@@ -280,127 +275,25 @@ plot_ycumshare_xage_crace_tsex <- function(sextab)
 }
 
 
-res = purrr::map_chr(c("All", "Women", "Men"), plot_ycumshare_xage_crace_tsex)
-cat(res, sep='\n')
-
-
 ```
 
-:::
 
-### Share with BA: Age Profile for Birth Cohorts 2024-2033
+Share of population ages 36-40 with at least a BA degree by race and gender.
 
 ::: {.panel-tabset}
 
 ```{r}
-#| label: bseduc-byrace-dobycat-tabsex
+#| label: bseduc-byrace-year-tabsex
 #| results: asis
 
-plotdf = educByAgeBCohcatSexRace |>
-    dplyr::filter(
-            dobycat=="2024-2033",
-            gradecat==16
-        ) |>
-    mutate(dataset=factor(dataset))
-
-res = purrr::map_chr(c("All", "Women", "Men"), plot_ycumshare_xage_crace_tsex)
-cat(res, sep='\n')
-```
-
-:::
-
-### Diff in Share with BA: Age Profile for Birth Cohorts 2024-2033
-
-::: {.panel-tabset}
-
-```{r}
-#| label: diff-bseduc-byrace-tabsex
-#| results: asis
-
-plotdf = left_join(
-    educByAgeBCohcatSexRace |>
-    dplyr::filter(
-            dobycat=="2024-2033",
-            gradecat==16,
-            dataset=="Baseline"
-        ) |>
-    select(age, sex, race, cumshare0=cumshare),
-    educByAgeBCohcatSexRace |>
-    dplyr::filter(
-            dobycat=="2024-2033",
-            gradecat==16,
-            dataset=="Baby bonds"
-        ) |>
-    select(age, sex, race, cumshare),
-    by=c("age","sex","race")
-) |>
-    mutate(cumshare=cumshare-cumshare0)
-
-plot_ydiffcumshare_xage_crace_tsex <- function(sextab)
-{
-  knitr::knit_child(text = c(
-    "#### `r sextab`",
-    "",
-    "```{r}",
-    "#| echo: false",
-    "plotdf |>",
-    "  filter(sex==sextab) |>",
-    "  ggplot2::ggplot(aes(x=age, y=cumshare,color=race)) + ",
-    "  geom_line() + ylab('Diff in share with BA (%)') +",
-    "  scale_y_continuous(labels=function(x) {100*x})",
-    "```",
-    ""
-    ), 
-    envir = environment(), quiet = TRUE
-  )
-}
-
-
-res = purrr::map_chr(c("All", "Women", "Men"), plot_ydiffcumshare_xage_crace_tsex)
-cat(res, sep='\n')
-
-
-```
-
-:::
-
-
-### Share with BA: Age Profile for Birth Cohorts 2024-2033 and Those Who Had $10,000 or more in baby bonds at 18
-
-::: {.panel-tabset}
-
-```{r}
-#| label: bseduc-byrace-dobycat-tabsex-bb10k
-#| results: asis
 
 plotdf = fehdf |>
-    filter(age %in% ages, dobycat=="2024-2033", gradecat %in% grades, pernum %in% bb10k) |>
-    sum_by_aser_time(dobycat, age) |>
-    filter(gradecat==16) |>
+    filter(year>=2030, age %in% ages, gradecat %in% grades) |>
+    sum_by_aser_time(year, agecat) |>
+    filter(agecat=="36-40", gradecat==16) |>
     mutate(dataset=factor(dataset))
 
-res = purrr::map_chr(c("All", "Women", "Men"), plot_ycumshare_xage_crace_tsex)
-cat(res, sep='\n')
-```
-
-:::
-
-
-### Share with BA: Age Profile for Birth Cohorts 2024-2033 and Those Who Had $20,000 or more in baby bonds at 18
-
-::: {.panel-tabset}
-
-```{r}
-#| label: bseduc-byrace-dobycat-tabsex-bb20k
-#| results: asis
-
-plotdf = fehdf |>
-    filter(age %in% ages, dobycat=="2024-2033", gradecat %in% grades, pernum %in% bb20k) |>
-    sum_by_aser_time(dobycat, age) |>
-    filter(gradecat==16) |>
-    mutate(dataset=factor(dataset))
-
-res = purrr::map_chr(c("All", "Women", "Men"), plot_ycumshare_xage_crace_tsex)
+res = purrr::map_chr(c("All", "Women", "Men"), plot_ycumshare_xyear_crace_tsex)
 cat(res, sep='\n')
 ```
 
