@@ -76,6 +76,19 @@ make_debt_sample = function(df)
 {
 
     s = list()
+<<<<<<< HEAD
+=======
+    minmaxdf = tibble(
+        taxstatus=c('Dependent','Independent'), 
+        valmin=c(100,100),
+        valmax=c(5e4,6e4)
+    )
+    df = left_join(
+        df,
+        minmaxdf,
+        by="taxstatus"
+    )
+>>>>>>> 3e9eed8cb6b4f83245e38623d462944d3470d347
 
     for( j in 1:dim(df)[1] ) {
     
