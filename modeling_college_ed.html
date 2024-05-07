@@ -3579,7 +3579,7 @@ h_t &amp;= Pr(t-1&lt;T&lt;t|T&gt;t-1) \\
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co"># These covariates are used in all regressions</span></span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>model_covars <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;yearf&quot;</span>, <span class="st">&quot;asian&quot;</span>, <span class="st">&quot;pnwawi&quot;</span>, <span class="st">&quot;asian*pnwawi&quot;</span>, <span class="st">&quot;pared&quot;</span>, <span class="st">&quot;asian*pared&quot;</span>)</span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>model_covars2 <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;yearf&quot;</span>, <span class="st">&quot;asian&quot;</span>, <span class="st">&quot;pwealthpos&quot;</span>, <span class="st">&quot;pwealthneg&quot;</span>, <span class="st">&quot;asian*pwealthpos&quot;</span>, <span class="st">&quot;asian*pwealthneg&quot;</span>, <span class="st">&quot;pared&quot;</span>, <span class="st">&quot;asian*pared&quot;</span>)</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>model_covars3 <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;yearf&quot;</span>, <span class="st">&quot;asian&quot;</span>, <span class="st">&quot;pnw1&quot;</span>, <span class="st">&quot;pnw2&quot;</span>, <span class="st">&quot;pnw3&quot;</span>, <span class="st">&quot;asian*pnw1&quot;</span>, <span class="st">&quot;asian*pnw2&quot;</span>, <span class="st">&quot;pnw3&quot;</span>, <span class="st">&quot;pared&quot;</span>, <span class="st">&quot;asian*pared&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>model_covars3 <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;yearf&quot;</span>, <span class="st">&quot;asian&quot;</span>, <span class="st">&quot;pnw1&quot;</span>, <span class="st">&quot;pnw2&quot;</span>, <span class="st">&quot;pnw3&quot;</span>, <span class="st">&quot;asian*pnw1&quot;</span>, <span class="st">&quot;asian*pnw2&quot;</span>, <span class="st">&quot;asian*pnw3&quot;</span>, <span class="st">&quot;pared&quot;</span>, <span class="st">&quot;asian*pared&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
 <div class="cell-output-display">
@@ -4424,82 +4424,82 @@ Table 6: Estimated coefficients for the model of college enrollment with parent
 <td style="text-align: left;">(Intercept)</td>
 <td style="text-align: center;">−0.082</td>
 <td style="text-align: center;">−0.434***</td>
-<td style="text-align: center;">−0.420*</td>
+<td style="text-align: center;">−0.426*</td>
 <td style="text-align: center;">−1.153***</td>
 <td style="text-align: center;">−0.903***</td>
-<td style="text-align: center;">−1.037***</td>
+<td style="text-align: center;">−1.052***</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Year1</td>
 <td style="text-align: center;">−1.613***</td>
 <td style="text-align: center;">−1.195***</td>
-<td style="text-align: center;">−2.052***</td>
+<td style="text-align: center;">−2.047***</td>
 <td style="text-align: center;">−1.285***</td>
 <td style="text-align: center;">−1.201***</td>
-<td style="text-align: center;">−2.100***</td>
+<td style="text-align: center;">−2.096***</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Year2</td>
 <td style="text-align: center;">−2.371***</td>
 <td style="text-align: center;">−2.174***</td>
-<td style="text-align: center;">−3.089***</td>
+<td style="text-align: center;">−3.085***</td>
 <td style="text-align: center;">−2.285***</td>
 <td style="text-align: center;">−2.043***</td>
-<td style="text-align: center;">−2.963***</td>
+<td style="text-align: center;">−2.958***</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Year3</td>
 <td style="text-align: center;">−2.619***</td>
 <td style="text-align: center;">−2.906***</td>
-<td style="text-align: center;">−3.795***</td>
+<td style="text-align: center;">−3.791***</td>
 <td style="text-align: center;">−2.209***</td>
 <td style="text-align: center;">−2.508***</td>
-<td style="text-align: center;">−2.907***</td>
+<td style="text-align: center;">−2.903***</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Year4</td>
 <td style="text-align: center;">−2.889***</td>
 <td style="text-align: center;">−3.306***</td>
-<td style="text-align: center;">−4.043***</td>
+<td style="text-align: center;">−4.040***</td>
 <td style="text-align: center;">−2.718***</td>
 <td style="text-align: center;">−2.515***</td>
-<td style="text-align: center;">−2.992***</td>
+<td style="text-align: center;">−2.987***</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Year5</td>
 <td style="text-align: center;">−2.686***</td>
 <td style="text-align: center;">−2.703***</td>
-<td style="text-align: center;">−4.108***</td>
+<td style="text-align: center;">−4.106***</td>
 <td style="text-align: center;">−3.220***</td>
 <td style="text-align: center;">−2.523***</td>
-<td style="text-align: center;">−3.924***</td>
+<td style="text-align: center;">−3.917***</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Year6</td>
 <td style="text-align: center;">−2.547***</td>
 <td style="text-align: center;">−2.929***</td>
-<td style="text-align: center;">−3.884***</td>
+<td style="text-align: center;">−3.881***</td>
 <td style="text-align: center;">−3.186***</td>
 <td style="text-align: center;">−2.538***</td>
-<td style="text-align: center;">−3.256***</td>
+<td style="text-align: center;">−3.251***</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Year7</td>
 <td style="text-align: center;">−3.194***</td>
 <td style="text-align: center;">−2.975***</td>
-<td style="text-align: center;">−3.533***</td>
+<td style="text-align: center;">−3.531***</td>
 <td style="text-align: center;">−3.299***</td>
 <td style="text-align: center;">−3.197***</td>
-<td style="text-align: center;">−3.430***</td>
+<td style="text-align: center;">−3.425***</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Year8</td>
 <td style="text-align: center;">−3.698***</td>
 <td style="text-align: center;">−3.961***</td>
-<td style="text-align: center;">−4.389***</td>
+<td style="text-align: center;">−4.386***</td>
 <td style="text-align: center;">−3.487***</td>
 <td style="text-align: center;">−3.454***</td>
-<td style="text-align: center;">−4.303***</td>
+<td style="text-align: center;">−4.298***</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw1</td>
@@ -4508,108 +4508,117 @@ Table 6: Estimated coefficients for the model of college enrollment with parent
 <td style="text-align: center;">−0.047</td>
 <td style="text-align: center;">−0.449**</td>
 <td style="text-align: center;">−0.227</td>
-<td style="text-align: center;">−0.114</td>
+<td style="text-align: center;">−0.122</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">pnw2</td>
 <td style="text-align: center;">0.386***</td>
 <td style="text-align: center;">−0.297</td>
-<td style="text-align: center;">0.265***</td>
+<td style="text-align: center;">0.270***</td>
 <td style="text-align: center;">0.581***</td>
 <td style="text-align: center;">0.329**</td>
-<td style="text-align: center;">0.274**</td>
+<td style="text-align: center;">0.295**</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw3</td>
 <td style="text-align: center;">−0.200***</td>
 <td style="text-align: center;">−0.018</td>
-<td style="text-align: center;">−0.188***</td>
+<td style="text-align: center;">−0.194***</td>
 <td style="text-align: center;">−0.102</td>
 <td style="text-align: center;">−0.018</td>
-<td style="text-align: center;">−0.121***</td>
+<td style="text-align: center;">−0.137***</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">paredHigh-school graduate</td>
 <td style="text-align: center;">−0.194</td>
 <td style="text-align: center;">0.378**</td>
-<td style="text-align: center;">0.257</td>
+<td style="text-align: center;">0.255</td>
 <td style="text-align: center;">0.341</td>
 <td style="text-align: center;">0.158</td>
-<td style="text-align: center;">0.160</td>
+<td style="text-align: center;">0.152</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">paredSome college</td>
 <td style="text-align: center;">0.092</td>
 <td style="text-align: center;">0.431***</td>
-<td style="text-align: center;">0.681***</td>
+<td style="text-align: center;">0.679***</td>
 <td style="text-align: center;">0.659**</td>
 <td style="text-align: center;">0.338**</td>
-<td style="text-align: center;">0.755**</td>
+<td style="text-align: center;">0.748**</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">paredCollege degree</td>
 <td style="text-align: center;">0.196</td>
 <td style="text-align: center;">0.899***</td>
-<td style="text-align: center;">1.129***</td>
+<td style="text-align: center;">1.125***</td>
 <td style="text-align: center;">0.921***</td>
 <td style="text-align: center;">1.017***</td>
-<td style="text-align: center;">1.531***</td>
+<td style="text-align: center;">1.523***</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">asian</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.269</td>
+<td style="text-align: center;">1.171</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.929</td>
+<td style="text-align: center;">1.385*</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">asian:pnw1</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−125.812</td>
+<td style="text-align: center;">−114.681</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−27.402</td>
+<td style="text-align: center;">−25.880</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">asian:pnw2</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">125.773</td>
+<td style="text-align: center;">114.178</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">27.434</td>
+<td style="text-align: center;">25.484</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;">asian:pnw3</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">0.528</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">0.582*</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;">asian:paredHigh-school graduate</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">1.247</td>
+<td style="text-align: center;">1.448</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.548</td>
+<td style="text-align: center;">0.941</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">asian:paredSome college</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">1.154</td>
+<td style="text-align: center;">0.936</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−0.872</td>
+<td style="text-align: center;">−0.766</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left; box-shadow: 0px 1.5px;">asian:paredCollege degree</td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">0.830</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">0.937</td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">−0.864</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">−0.636</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">Num.Obs.</td>
 <td style="text-align: center;">4450</td>
 <td style="text-align: center;">3801</td>
@@ -4618,34 +4627,34 @@ Table 6: Estimated coefficients for the model of college enrollment with parent
 <td style="text-align: center;">4150</td>
 <td style="text-align: center;">10063</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">AIC</td>
 <td style="text-align: center;">2689.2</td>
 <td style="text-align: center;">2025.5</td>
-<td style="text-align: center;">3857.7</td>
+<td style="text-align: center;">3858.5</td>
 <td style="text-align: center;">2255.9</td>
 <td style="text-align: center;">1969.9</td>
-<td style="text-align: center;">4440.5</td>
+<td style="text-align: center;">4438.8</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">BIC</td>
 <td style="text-align: center;">2785.2</td>
 <td style="text-align: center;">2119.2</td>
-<td style="text-align: center;">4002.6</td>
+<td style="text-align: center;">4010.3</td>
 <td style="text-align: center;">2353.6</td>
 <td style="text-align: center;">2064.9</td>
-<td style="text-align: center;">4592.1</td>
+<td style="text-align: center;">4597.6</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">Log.Lik.</td>
 <td style="text-align: center;">−1329.593</td>
 <td style="text-align: center;">−997.762</td>
-<td style="text-align: center;">−1907.848</td>
+<td style="text-align: center;">−1907.248</td>
 <td style="text-align: center;">−1112.959</td>
 <td style="text-align: center;">−969.961</td>
-<td style="text-align: center;">−2199.266</td>
+<td style="text-align: center;">−2197.409</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">RMSE</td>
 <td style="text-align: center;">0.30</td>
 <td style="text-align: center;">0.28</td>
@@ -4689,28 +4698,28 @@ Table 7: Marginal effects of parental networth separate for negative and positi
 <td style="text-align: left;">pnw1</td>
 <td style="text-align: right;">-0.01452</td>
 <td style="text-align: right;">0.02663</td>
-<td style="text-align: right;">-0.16216</td>
+<td style="text-align: right;">-0.14043</td>
 <td style="text-align: right;">-0.02875</td>
 <td style="text-align: right;">-0.01529</td>
-<td style="text-align: right;">-0.06917</td>
+<td style="text-align: right;">-0.06362</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw2</td>
 <td style="text-align: right;">0.03461</td>
 <td style="text-align: right;">-0.02351</td>
-<td style="text-align: right;">0.17699</td>
+<td style="text-align: right;">0.15546</td>
 <td style="text-align: right;">0.03726</td>
 <td style="text-align: right;">0.02220</td>
-<td style="text-align: right;">0.07952</td>
+<td style="text-align: right;">0.07387</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">pnw3</td>
 <td style="text-align: right;">-0.01796</td>
 <td style="text-align: right;">-0.00141</td>
-<td style="text-align: right;">-0.01459</td>
+<td style="text-align: right;">-0.01443</td>
 <td style="text-align: right;">-0.00654</td>
 <td style="text-align: right;">-0.00125</td>
-<td style="text-align: right;">-0.00780</td>
+<td style="text-align: right;">-0.00752</td>
 </tr>
 </tbody>
 </table>
@@ -4729,7 +4738,7 @@ Table 7: Marginal effects of parental networth separate for negative and positi
 Figure 12: Hazard rates for college enrollment after graduating from high school by sex and race, actual, predicted, and alternative with $100K more in parents’ net-worth.
 </figcaption>
 <div aria-describedby="fig-enr-simple3-mod-pred-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="data:image/png;base64,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" class="img-fluid figure-img" width="672">
+<img src="data:image/png;base64,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" class="img-fluid figure-img" width="672">
 </div>
 </figure>
 </div>
@@ -5338,16 +5347,16 @@ Table 12: Estimated coefficients of the re-enrollment model with parental netwo
 <td style="text-align: left;">(Intercept)</td>
 <td style="text-align: center;">−0.594**</td>
 <td style="text-align: center;">−1.442***</td>
-<td style="text-align: center;">−1.656***</td>
+<td style="text-align: center;">−1.649***</td>
 <td style="text-align: center;">−2.229***</td>
 <td style="text-align: center;">−1.663***</td>
-<td style="text-align: center;">−2.122***</td>
+<td style="text-align: center;">−2.125***</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Year2</td>
 <td style="text-align: center;">−0.542***</td>
 <td style="text-align: center;">−0.716***</td>
-<td style="text-align: center;">−0.762***</td>
+<td style="text-align: center;">−0.758***</td>
 <td style="text-align: center;">−0.532**</td>
 <td style="text-align: center;">−0.668**</td>
 <td style="text-align: center;">−0.784***</td>
@@ -5356,138 +5365,147 @@ Table 12: Estimated coefficients of the re-enrollment model with parental netwo
 <td style="text-align: left;">Year3</td>
 <td style="text-align: center;">−0.571***</td>
 <td style="text-align: center;">−1.195***</td>
-<td style="text-align: center;">−1.047***</td>
+<td style="text-align: center;">−1.045***</td>
 <td style="text-align: center;">−1.337***</td>
 <td style="text-align: center;">−1.194***</td>
-<td style="text-align: center;">−1.014***</td>
+<td style="text-align: center;">−1.015***</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Year4</td>
 <td style="text-align: center;">−1.673***</td>
 <td style="text-align: center;">−1.705***</td>
-<td style="text-align: center;">−1.265***</td>
+<td style="text-align: center;">−1.262***</td>
 <td style="text-align: center;">−0.580**</td>
 <td style="text-align: center;">−1.611***</td>
-<td style="text-align: center;">−1.175***</td>
+<td style="text-align: center;">−1.176***</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Year5</td>
 <td style="text-align: center;">−1.436***</td>
 <td style="text-align: center;">−1.972***</td>
-<td style="text-align: center;">−1.975***</td>
+<td style="text-align: center;">−1.970***</td>
 <td style="text-align: center;">−1.877***</td>
 <td style="text-align: center;">−1.989***</td>
-<td style="text-align: center;">−2.152***</td>
+<td style="text-align: center;">−2.153***</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw1</td>
 <td style="text-align: center;">−0.258</td>
 <td style="text-align: center;">1.084</td>
-<td style="text-align: center;">0.022</td>
+<td style="text-align: center;">0.023</td>
 <td style="text-align: center;">−0.071</td>
 <td style="text-align: center;">0.202</td>
-<td style="text-align: center;">0.046</td>
+<td style="text-align: center;">0.045</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">pnw2</td>
 <td style="text-align: center;">0.329</td>
 <td style="text-align: center;">−0.994</td>
-<td style="text-align: center;">−0.003</td>
+<td style="text-align: center;">−0.014</td>
 <td style="text-align: center;">−0.017</td>
 <td style="text-align: center;">−0.131</td>
-<td style="text-align: center;">−0.021</td>
+<td style="text-align: center;">−0.016</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw3</td>
 <td style="text-align: center;">−0.102</td>
 <td style="text-align: center;">−0.109</td>
-<td style="text-align: center;">−0.001</td>
+<td style="text-align: center;">0.010</td>
 <td style="text-align: center;">0.061</td>
 <td style="text-align: center;">−0.129</td>
-<td style="text-align: center;">−0.025</td>
+<td style="text-align: center;">−0.029</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">paredHigh-school graduate</td>
 <td style="text-align: center;">−0.773***</td>
 <td style="text-align: center;">0.209</td>
-<td style="text-align: center;">0.265</td>
+<td style="text-align: center;">0.266</td>
 <td style="text-align: center;">0.354</td>
 <td style="text-align: center;">0.055</td>
-<td style="text-align: center;">0.187</td>
+<td style="text-align: center;">0.185</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">paredSome college</td>
 <td style="text-align: center;">−0.634**</td>
 <td style="text-align: center;">0.214</td>
-<td style="text-align: center;">0.227</td>
+<td style="text-align: center;">0.230</td>
 <td style="text-align: center;">0.636</td>
 <td style="text-align: center;">0.200</td>
-<td style="text-align: center;">0.781</td>
+<td style="text-align: center;">0.779</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">paredCollege degree</td>
 <td style="text-align: center;">−0.946***</td>
 <td style="text-align: center;">0.484*</td>
-<td style="text-align: center;">0.557</td>
+<td style="text-align: center;">0.561</td>
 <td style="text-align: center;">0.754</td>
 <td style="text-align: center;">0.422</td>
-<td style="text-align: center;">0.952*</td>
+<td style="text-align: center;">0.949*</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">asian</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.888</td>
+<td style="text-align: center;">−0.313</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">1.100</td>
+<td style="text-align: center;">1.372</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">asian:pnw1</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−5.276</td>
+<td style="text-align: center;">−5.650</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.122</td>
+<td style="text-align: center;">−0.023</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">asian:pnw2</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">5.270</td>
+<td style="text-align: center;">7.494</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;">asian:pnw3</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">−1.946</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">0.181</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;">asian:paredHigh-school graduate</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−1.251</td>
+<td style="text-align: center;">−5.086</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−0.586</td>
+<td style="text-align: center;">−0.608</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">asian:paredSome college</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−13.524</td>
+<td style="text-align: center;">−14.436</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−1.726</td>
+<td style="text-align: center;">−1.907</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left; box-shadow: 0px 1.5px;">asian:paredCollege degree</td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">−1.680</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">−5.245</td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">−1.858*</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">−1.893*</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">Num.Obs.</td>
 <td style="text-align: center;">2778</td>
 <td style="text-align: center;">2446</td>
@@ -5496,34 +5514,34 @@ Table 12: Estimated coefficients of the re-enrollment model with parental netwo
 <td style="text-align: center;">2290</td>
 <td style="text-align: center;">5132</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">AIC</td>
 <td style="text-align: center;">1774.4</td>
 <td style="text-align: center;">1251.3</td>
-<td style="text-align: center;">2434.1</td>
+<td style="text-align: center;">2432.3</td>
 <td style="text-align: center;">1130.6</td>
 <td style="text-align: center;">982.0</td>
-<td style="text-align: center;">2305.1</td>
+<td style="text-align: center;">2307.0</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">BIC</td>
 <td style="text-align: center;">1839.6</td>
 <td style="text-align: center;">1315.1</td>
-<td style="text-align: center;">2544.4</td>
+<td style="text-align: center;">2549.2</td>
 <td style="text-align: center;">1196.5</td>
 <td style="text-align: center;">1045.1</td>
-<td style="text-align: center;">2409.8</td>
+<td style="text-align: center;">2418.2</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">Log.Lik.</td>
 <td style="text-align: center;">−876.205</td>
 <td style="text-align: center;">−614.654</td>
-<td style="text-align: center;">−1200.041</td>
+<td style="text-align: center;">−1198.162</td>
 <td style="text-align: center;">−554.316</td>
 <td style="text-align: center;">−479.985</td>
-<td style="text-align: center;">−1136.556</td>
+<td style="text-align: center;">−1136.485</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">RMSE</td>
 <td style="text-align: center;">0.30</td>
 <td style="text-align: center;">0.26</td>
@@ -5566,28 +5584,28 @@ Table 13: Marginal effects of parental networth separate for negative and posit
 <td style="text-align: left;">pnw1</td>
 <td style="text-align: right;">-0.02312</td>
 <td style="text-align: right;">0.07429</td>
-<td style="text-align: right;">-0.00427</td>
+<td style="text-align: right;">-0.00397</td>
 <td style="text-align: right;">-0.00334</td>
 <td style="text-align: right;">0.01099</td>
-<td style="text-align: right;">0.00302</td>
+<td style="text-align: right;">0.00262</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw2</td>
 <td style="text-align: right;">0.02946</td>
 <td style="text-align: right;">-0.06806</td>
-<td style="text-align: right;">0.00550</td>
+<td style="text-align: right;">0.00637</td>
 <td style="text-align: right;">-0.00081</td>
 <td style="text-align: right;">-0.00713</td>
-<td style="text-align: right;">-0.00123</td>
+<td style="text-align: right;">-0.00096</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">pnw3</td>
 <td style="text-align: right;">-0.00918</td>
 <td style="text-align: right;">-0.00745</td>
-<td style="text-align: right;">-0.00008</td>
+<td style="text-align: right;">-0.00122</td>
 <td style="text-align: right;">0.00288</td>
 <td style="text-align: right;">-0.00702</td>
-<td style="text-align: right;">-0.00147</td>
+<td style="text-align: right;">-0.00129</td>
 </tr>
 </tbody>
 </table>
@@ -6258,10 +6276,10 @@ Table 18: Estimated coefficients of the model of dropping out of college
 <td style="text-align: left;">(Intercept)</td>
 <td style="text-align: center;">−0.751***</td>
 <td style="text-align: center;">−0.751***</td>
-<td style="text-align: center;">−0.852***</td>
+<td style="text-align: center;">−0.853***</td>
 <td style="text-align: center;">−0.931***</td>
 <td style="text-align: center;">−0.681***</td>
-<td style="text-align: center;">−0.604**</td>
+<td style="text-align: center;">−0.600**</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Year2</td>
@@ -6285,7 +6303,7 @@ Table 18: Estimated coefficients of the model of dropping out of college
 <td style="text-align: left;">Year4</td>
 <td style="text-align: center;">−0.537***</td>
 <td style="text-align: center;">−0.486***</td>
-<td style="text-align: center;">−0.674***</td>
+<td style="text-align: center;">−0.675***</td>
 <td style="text-align: center;">−0.682***</td>
 <td style="text-align: center;">−0.366*</td>
 <td style="text-align: center;">−0.555***</td>
@@ -6294,10 +6312,10 @@ Table 18: Estimated coefficients of the model of dropping out of college
 <td style="text-align: left;">Year5</td>
 <td style="text-align: center;">−0.069</td>
 <td style="text-align: center;">0.120</td>
-<td style="text-align: center;">0.096</td>
+<td style="text-align: center;">0.097</td>
 <td style="text-align: center;">−0.155</td>
 <td style="text-align: center;">−0.605***</td>
-<td style="text-align: center;">−0.073</td>
+<td style="text-align: center;">−0.072</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw1</td>
@@ -6306,108 +6324,117 @@ Table 18: Estimated coefficients of the model of dropping out of college
 <td style="text-align: center;">−0.010</td>
 <td style="text-align: center;">0.110</td>
 <td style="text-align: center;">0.077</td>
-<td style="text-align: center;">0.037</td>
+<td style="text-align: center;">0.038</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">pnw2</td>
 <td style="text-align: center;">−0.192</td>
 <td style="text-align: center;">−0.115</td>
-<td style="text-align: center;">−0.093*</td>
+<td style="text-align: center;">−0.091*</td>
 <td style="text-align: center;">−0.313*</td>
 <td style="text-align: center;">−0.156</td>
-<td style="text-align: center;">−0.153</td>
+<td style="text-align: center;">−0.159*</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw3</td>
 <td style="text-align: center;">0.062</td>
 <td style="text-align: center;">−0.033</td>
-<td style="text-align: center;">0.089**</td>
+<td style="text-align: center;">0.088**</td>
 <td style="text-align: center;">0.160**</td>
 <td style="text-align: center;">0.021</td>
-<td style="text-align: center;">0.099**</td>
+<td style="text-align: center;">0.104**</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">paredHigh-school graduate</td>
 <td style="text-align: center;">−0.053</td>
 <td style="text-align: center;">−0.026</td>
-<td style="text-align: center;">−0.056</td>
+<td style="text-align: center;">−0.057</td>
 <td style="text-align: center;">0.404</td>
 <td style="text-align: center;">−0.083</td>
-<td style="text-align: center;">−0.254</td>
+<td style="text-align: center;">−0.252</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">paredSome college</td>
 <td style="text-align: center;">−0.237</td>
 <td style="text-align: center;">−0.062</td>
-<td style="text-align: center;">−0.218</td>
+<td style="text-align: center;">−0.219</td>
 <td style="text-align: center;">0.386</td>
 <td style="text-align: center;">−0.302*</td>
-<td style="text-align: center;">−0.270</td>
+<td style="text-align: center;">−0.267</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">paredCollege degree</td>
 <td style="text-align: center;">−0.594***</td>
 <td style="text-align: center;">−0.503***</td>
-<td style="text-align: center;">−0.746***</td>
+<td style="text-align: center;">−0.747***</td>
 <td style="text-align: center;">0.144</td>
 <td style="text-align: center;">−0.453**</td>
-<td style="text-align: center;">−0.686**</td>
+<td style="text-align: center;">−0.683**</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">asian</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.169</td>
+<td style="text-align: center;">0.272</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−0.759</td>
+<td style="text-align: center;">−0.925</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">asian:pnw1</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−0.278</td>
+<td style="text-align: center;">−0.253</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">29.690</td>
+<td style="text-align: center;">29.277</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">asian:pnw2</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.263</td>
+<td style="text-align: center;">0.170</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−29.708</td>
+<td style="text-align: center;">−29.174</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;">asian:pnw3</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">0.081</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">−0.147</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;">asian:paredHigh-school graduate</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−1.016</td>
+<td style="text-align: center;">−0.962</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.253</td>
+<td style="text-align: center;">0.211</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">asian:paredSome college</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−2.041*</td>
+<td style="text-align: center;">−2.032*</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.577</td>
+<td style="text-align: center;">0.549</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left; box-shadow: 0px 1.5px;">asian:paredCollege degree</td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">−0.611</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">−0.605</td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">0.547</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">0.533</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">Num.Obs.</td>
 <td style="text-align: center;">3008</td>
 <td style="text-align: center;">2000</td>
@@ -6416,34 +6443,34 @@ Table 18: Estimated coefficients of the model of dropping out of college
 <td style="text-align: center;">1670</td>
 <td style="text-align: center;">5063</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">AIC</td>
 <td style="text-align: center;">3314.9</td>
 <td style="text-align: center;">2210.4</td>
-<td style="text-align: center;">4850.5</td>
+<td style="text-align: center;">4852.4</td>
 <td style="text-align: center;">1981.1</td>
 <td style="text-align: center;">1834.6</td>
-<td style="text-align: center;">4686.8</td>
+<td style="text-align: center;">4688.4</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">BIC</td>
 <td style="text-align: center;">3381.0</td>
 <td style="text-align: center;">2272.0</td>
-<td style="text-align: center;">4963.2</td>
+<td style="text-align: center;">4971.8</td>
 <td style="text-align: center;">2040.9</td>
 <td style="text-align: center;">1894.2</td>
-<td style="text-align: center;">4797.8</td>
+<td style="text-align: center;">4806.0</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">Log.Lik.</td>
 <td style="text-align: center;">−1646.469</td>
 <td style="text-align: center;">−1094.205</td>
-<td style="text-align: center;">−2408.236</td>
+<td style="text-align: center;">−2408.200</td>
 <td style="text-align: center;">−979.571</td>
 <td style="text-align: center;">−906.297</td>
-<td style="text-align: center;">−2326.386</td>
+<td style="text-align: center;">−2326.220</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">RMSE</td>
 <td style="text-align: center;">0.43</td>
 <td style="text-align: center;">0.43</td>
@@ -6486,28 +6513,28 @@ Table 19: Marginal effects of parental networth on dropping out of college
 <td style="text-align: left;">pnw1</td>
 <td style="text-align: right;">0.02362</td>
 <td style="text-align: right;">0.00876</td>
-<td style="text-align: right;">-0.00216</td>
+<td style="text-align: right;">-0.00211</td>
 <td style="text-align: right;">0.02160</td>
 <td style="text-align: right;">0.01381</td>
-<td style="text-align: right;">0.16186</td>
+<td style="text-align: right;">0.16014</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw2</td>
 <td style="text-align: right;">-0.03488</td>
 <td style="text-align: right;">-0.02085</td>
-<td style="text-align: right;">-0.01148</td>
+<td style="text-align: right;">-0.01155</td>
 <td style="text-align: right;">-0.06150</td>
 <td style="text-align: right;">-0.02811</td>
-<td style="text-align: right;">-0.17874</td>
+<td style="text-align: right;">-0.17697</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">pnw3</td>
 <td style="text-align: right;">0.01120</td>
 <td style="text-align: right;">-0.00603</td>
-<td style="text-align: right;">0.01180</td>
+<td style="text-align: right;">0.01181</td>
 <td style="text-align: right;">0.03146</td>
 <td style="text-align: right;">0.00382</td>
-<td style="text-align: right;">0.01426</td>
+<td style="text-align: right;">0.01418</td>
 </tr>
 </tbody>
 </table>
@@ -7105,10 +7132,10 @@ Table 24: Estimated coefficients of the college graduation model
 <td style="text-align: left;">(Intercept)</td>
 <td style="text-align: center;">−3.835***</td>
 <td style="text-align: center;">−3.151***</td>
-<td style="text-align: center;">−2.914***</td>
+<td style="text-align: center;">−2.921***</td>
 <td style="text-align: center;">−3.387***</td>
 <td style="text-align: center;">−3.884***</td>
-<td style="text-align: center;">−3.852***</td>
+<td style="text-align: center;">−3.847***</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Year1</td>
@@ -7117,13 +7144,13 @@ Table 24: Estimated coefficients of the college graduation model
 <td style="text-align: center;">3.406***</td>
 <td style="text-align: center;">2.994***</td>
 <td style="text-align: center;">2.408***</td>
-<td style="text-align: center;">3.465***</td>
+<td style="text-align: center;">3.466***</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Year2</td>
 <td style="text-align: center;">2.567***</td>
 <td style="text-align: center;">1.831***</td>
-<td style="text-align: center;">2.410***</td>
+<td style="text-align: center;">2.411***</td>
 <td style="text-align: center;">2.897***</td>
 <td style="text-align: center;">2.597***</td>
 <td style="text-align: center;">2.593***</td>
@@ -7141,7 +7168,7 @@ Table 24: Estimated coefficients of the college graduation model
 <td style="text-align: left;">Year4</td>
 <td style="text-align: center;">2.676***</td>
 <td style="text-align: center;">1.763***</td>
-<td style="text-align: center;">2.226***</td>
+<td style="text-align: center;">2.231***</td>
 <td style="text-align: center;">3.076***</td>
 <td style="text-align: center;">2.545***</td>
 <td style="text-align: center;">2.190***</td>
@@ -7150,111 +7177,120 @@ Table 24: Estimated coefficients of the college graduation model
 <td style="text-align: left;">pnw1</td>
 <td style="text-align: center;">−0.115</td>
 <td style="text-align: center;">−0.196</td>
-<td style="text-align: center;">−0.046</td>
+<td style="text-align: center;">−0.047</td>
 <td style="text-align: center;">−0.356</td>
 <td style="text-align: center;">−0.060</td>
-<td style="text-align: center;">0.034</td>
+<td style="text-align: center;">0.035</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">pnw2</td>
 <td style="text-align: center;">0.310**</td>
 <td style="text-align: center;">0.196</td>
-<td style="text-align: center;">0.161**</td>
+<td style="text-align: center;">0.168**</td>
 <td style="text-align: center;">0.517*</td>
 <td style="text-align: center;">0.269</td>
-<td style="text-align: center;">0.070</td>
+<td style="text-align: center;">0.064</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw3</td>
 <td style="text-align: center;">−0.101</td>
 <td style="text-align: center;">0.028</td>
-<td style="text-align: center;">−0.108*</td>
+<td style="text-align: center;">−0.116**</td>
 <td style="text-align: center;">−0.132</td>
 <td style="text-align: center;">−0.189*</td>
-<td style="text-align: center;">−0.062</td>
+<td style="text-align: center;">−0.058</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">paredHigh-school graduate</td>
 <td style="text-align: center;">0.049</td>
 <td style="text-align: center;">0.212</td>
-<td style="text-align: center;">−0.503</td>
+<td style="text-align: center;">−0.507</td>
 <td style="text-align: center;">−0.946</td>
 <td style="text-align: center;">−0.205</td>
-<td style="text-align: center;">0.067</td>
+<td style="text-align: center;">0.068</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">paredSome college</td>
 <td style="text-align: center;">0.108</td>
 <td style="text-align: center;">0.388</td>
-<td style="text-align: center;">−0.351</td>
+<td style="text-align: center;">−0.357</td>
 <td style="text-align: center;">−0.671</td>
 <td style="text-align: center;">0.219</td>
-<td style="text-align: center;">0.334</td>
+<td style="text-align: center;">0.335</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">paredCollege degree</td>
 <td style="text-align: center;">0.526</td>
 <td style="text-align: center;">0.711***</td>
-<td style="text-align: center;">0.023</td>
+<td style="text-align: center;">0.018</td>
 <td style="text-align: center;">−0.431</td>
 <td style="text-align: center;">0.509*</td>
-<td style="text-align: center;">0.563</td>
+<td style="text-align: center;">0.564</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">asian</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−1.040</td>
+<td style="text-align: center;">−0.677</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">1.998*</td>
+<td style="text-align: center;">1.897*</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">asian:pnw1</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−0.300</td>
+<td style="text-align: center;">−0.221</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−0.337</td>
+<td style="text-align: center;">−0.358</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">asian:pnw2</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.322</td>
+<td style="text-align: center;">0.054</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.315</td>
+<td style="text-align: center;">0.406</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;">asian:pnw3</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">0.221</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">−0.082</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;">asian:paredHigh-school graduate</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">1.408</td>
+<td style="text-align: center;">1.546</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−1.159</td>
+<td style="text-align: center;">−1.184</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">asian:paredSome college</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.842</td>
+<td style="text-align: center;">0.815</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−1.837</td>
+<td style="text-align: center;">−1.865</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left; box-shadow: 0px 1.5px;">asian:paredCollege degree</td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">1.287</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">1.234</td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">−2.064*</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">−2.071*</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">Num.Obs.</td>
 <td style="text-align: center;">1549</td>
 <td style="text-align: center;">975</td>
@@ -7263,34 +7299,34 @@ Table 24: Estimated coefficients of the college graduation model
 <td style="text-align: center;">786</td>
 <td style="text-align: center;">2375</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">AIC</td>
 <td style="text-align: center;">1427.0</td>
 <td style="text-align: center;">954.7</td>
-<td style="text-align: center;">2589.2</td>
+<td style="text-align: center;">2590.7</td>
 <td style="text-align: center;">676.7</td>
 <td style="text-align: center;">712.9</td>
-<td style="text-align: center;">2243.0</td>
+<td style="text-align: center;">2244.9</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">BIC</td>
 <td style="text-align: center;">1485.8</td>
 <td style="text-align: center;">1008.4</td>
-<td style="text-align: center;">2689.5</td>
+<td style="text-align: center;">2696.9</td>
 <td style="text-align: center;">727.5</td>
 <td style="text-align: center;">764.3</td>
-<td style="text-align: center;">2341.1</td>
+<td style="text-align: center;">2348.8</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">Log.Lik.</td>
 <td style="text-align: center;">−702.498</td>
 <td style="text-align: center;">−466.367</td>
-<td style="text-align: center;">−1277.583</td>
+<td style="text-align: center;">−1277.341</td>
 <td style="text-align: center;">−327.334</td>
 <td style="text-align: center;">−345.460</td>
-<td style="text-align: center;">−1104.506</td>
+<td style="text-align: center;">−1104.466</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">RMSE</td>
 <td style="text-align: center;">0.39</td>
 <td style="text-align: center;">0.40</td>
@@ -7333,28 +7369,28 @@ Table 25: Marginal effects of parental networth on graduation from college
 <td style="text-align: left;">pnw1</td>
 <td style="text-align: right;">-0.01716</td>
 <td style="text-align: right;">-0.03082</td>
-<td style="text-align: right;">-0.00902</td>
+<td style="text-align: right;">-0.00869</td>
 <td style="text-align: right;">-0.05159</td>
 <td style="text-align: right;">-0.00867</td>
-<td style="text-align: right;">0.00218</td>
+<td style="text-align: right;">0.00228</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw2</td>
 <td style="text-align: right;">0.04647</td>
 <td style="text-align: right;">0.03078</td>
-<td style="text-align: right;">0.02712</td>
+<td style="text-align: right;">0.02665</td>
 <td style="text-align: right;">0.07498</td>
 <td style="text-align: right;">0.03863</td>
-<td style="text-align: right;">0.01373</td>
+<td style="text-align: right;">0.01365</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">pnw3</td>
 <td style="text-align: right;">-0.01506</td>
 <td style="text-align: right;">0.00444</td>
-<td style="text-align: right;">-0.01696</td>
+<td style="text-align: right;">-0.01681</td>
 <td style="text-align: right;">-0.01909</td>
 <td style="text-align: right;">-0.02714</td>
-<td style="text-align: right;">-0.00966</td>
+<td style="text-align: right;">-0.00969</td>
 </tr>
 </tbody>
 </table>
@@ -8018,7 +8054,7 @@ Table 31: Estimated coefficients for the model of graduate school enrollment
 <td style="text-align: center;">−3.116***</td>
 <td style="text-align: center;">−3.681***</td>
 <td style="text-align: center;">−3.517***</td>
-<td style="text-align: center;">−2.986***</td>
+<td style="text-align: center;">−3.008***</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Yearf1</td>
@@ -8027,7 +8063,7 @@ Table 31: Estimated coefficients for the model of graduate school enrollment
 <td style="text-align: center;">0.774***</td>
 <td style="text-align: center;">0.832</td>
 <td style="text-align: center;">0.836</td>
-<td style="text-align: center;">0.336</td>
+<td style="text-align: center;">0.335</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Yearf2</td>
@@ -8036,7 +8072,7 @@ Table 31: Estimated coefficients for the model of graduate school enrollment
 <td style="text-align: center;">0.154</td>
 <td style="text-align: center;">0.982</td>
 <td style="text-align: center;">0.201</td>
-<td style="text-align: center;">0.274</td>
+<td style="text-align: center;">0.272</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Yearf3</td>
@@ -8045,7 +8081,7 @@ Table 31: Estimated coefficients for the model of graduate school enrollment
 <td style="text-align: center;">0.521*</td>
 <td style="text-align: center;">−1.040</td>
 <td style="text-align: center;">0.314</td>
-<td style="text-align: center;">−0.074</td>
+<td style="text-align: center;">−0.075</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Yearf4</td>
@@ -8063,16 +8099,16 @@ Table 31: Estimated coefficients for the model of graduate school enrollment
 <td style="text-align: center;">0.008</td>
 <td style="text-align: center;">−0.540**</td>
 <td style="text-align: center;">2.386</td>
-<td style="text-align: center;">−0.182</td>
+<td style="text-align: center;">−0.192</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Pnw2</td>
 <td style="text-align: center;">−0.713</td>
 <td style="text-align: center;">−0.631</td>
-<td style="text-align: center;">−0.096</td>
+<td style="text-align: center;">−0.097</td>
 <td style="text-align: center;">0.553*</td>
 <td style="text-align: center;">−2.299</td>
-<td style="text-align: center;">0.302</td>
+<td style="text-align: center;">0.331</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Pnw3</td>
@@ -8081,16 +8117,16 @@ Table 31: Estimated coefficients for the model of graduate school enrollment
 <td style="text-align: center;">0.076</td>
 <td style="text-align: center;">0.011</td>
 <td style="text-align: center;">−0.092</td>
-<td style="text-align: center;">−0.119</td>
+<td style="text-align: center;">−0.140</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">paredHigh-School Graduate</td>
 <td style="text-align: center;">0.401</td>
 <td style="text-align: center;">0.340</td>
-<td style="text-align: center;">−0.419</td>
+<td style="text-align: center;">−0.418</td>
 <td style="text-align: center;">−0.503</td>
 <td style="text-align: center;">−1.891*</td>
-<td style="text-align: center;">−0.940</td>
+<td style="text-align: center;">−0.954</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">paredSome College</td>
@@ -8099,7 +8135,7 @@ Table 31: Estimated coefficients for the model of graduate school enrollment
 <td style="text-align: center;">−0.659</td>
 <td style="text-align: center;">−0.492</td>
 <td style="text-align: center;">0.128</td>
-<td style="text-align: center;">−0.619</td>
+<td style="text-align: center;">−0.634</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">paredCollege Degree</td>
@@ -8108,63 +8144,72 @@ Table 31: Estimated coefficients for the model of graduate school enrollment
 <td style="text-align: center;">−0.073</td>
 <td style="text-align: center;">0.163</td>
 <td style="text-align: center;">−0.125</td>
-<td style="text-align: center;">−0.533</td>
+<td style="text-align: center;">−0.552</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Asian</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−12.174</td>
+<td style="text-align: center;">−12.182</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.651</td>
+<td style="text-align: center;">1.009</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Asian:pnw1</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−1.004</td>
+<td style="text-align: center;">−1.008</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−1.106</td>
+<td style="text-align: center;">−0.874</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Asian:pnw2</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">0.962</td>
+<td style="text-align: center;">0.975</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">1.155</td>
+<td style="text-align: center;">0.525</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;">Asian:pnw3</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">−0.009</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">0.431</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;">asian:paredHigh-School Graduate</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">11.378</td>
+<td style="text-align: center;">11.368</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−14.253</td>
+<td style="text-align: center;">−13.777</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">asian:paredSome College</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">12.817</td>
+<td style="text-align: center;">12.813</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
-<td style="text-align: center;">−14.761</td>
+<td style="text-align: center;">−14.129</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left; box-shadow: 0px 1.5px;">asian:paredCollege Degree</td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">13.018</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">13.006</td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
 <td style="text-align: center; box-shadow: 0px 1.5px;"></td>
-<td style="text-align: center; box-shadow: 0px 1.5px;">−0.872</td>
+<td style="text-align: center; box-shadow: 0px 1.5px;">−0.426</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">Num.Obs.</td>
 <td style="text-align: center;">2881</td>
 <td style="text-align: center;">1896</td>
@@ -8173,34 +8218,34 @@ Table 31: Estimated coefficients for the model of graduate school enrollment
 <td style="text-align: center;">1500</td>
 <td style="text-align: center;">7315</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">AIC</td>
 <td style="text-align: center;">832.2</td>
 <td style="text-align: center;">449.2</td>
-<td style="text-align: center;">2102.4</td>
+<td style="text-align: center;">2104.4</td>
 <td style="text-align: center;">330.4</td>
 <td style="text-align: center;">245.0</td>
-<td style="text-align: center;">1635.1</td>
+<td style="text-align: center;">1636.3</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">BIC</td>
 <td style="text-align: center;">897.8</td>
 <td style="text-align: center;">510.2</td>
-<td style="text-align: center;">2223.4</td>
+<td style="text-align: center;">2232.5</td>
 <td style="text-align: center;">388.8</td>
 <td style="text-align: center;">303.5</td>
-<td style="text-align: center;">1752.4</td>
+<td style="text-align: center;">1760.4</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">Log.Lik.</td>
 <td style="text-align: center;">−405.103</td>
 <td style="text-align: center;">−213.594</td>
 <td style="text-align: center;">−1034.213</td>
 <td style="text-align: center;">−154.196</td>
 <td style="text-align: center;">−111.520</td>
-<td style="text-align: center;">−800.550</td>
+<td style="text-align: center;">−800.139</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">RMSE</td>
 <td style="text-align: center;">0.18</td>
 <td style="text-align: center;">0.15</td>
@@ -8243,28 +8288,28 @@ Table 32: Marginal effects of parental networth on graduation from college
 <td style="text-align: left;">pnw1</td>
 <td style="text-align: right;">0.02462</td>
 <td style="text-align: right;">0.01757</td>
-<td style="text-align: right;">-0.00107</td>
+<td style="text-align: right;">-0.00108</td>
 <td style="text-align: right;">-0.01195</td>
 <td style="text-align: right;">0.03809</td>
-<td style="text-align: right;">-0.00541</td>
+<td style="text-align: right;">-0.00540</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">pnw2</td>
 <td style="text-align: right;">-0.02266</td>
 <td style="text-align: right;">-0.01490</td>
-<td style="text-align: right;">-0.00113</td>
+<td style="text-align: right;">-0.00112</td>
 <td style="text-align: right;">0.01225</td>
 <td style="text-align: right;">-0.03670</td>
-<td style="text-align: right;">0.00826</td>
+<td style="text-align: right;">0.00829</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">pnw3</td>
 <td style="text-align: right;">-0.00288</td>
 <td style="text-align: right;">-0.00322</td>
-<td style="text-align: right;">0.00185</td>
+<td style="text-align: right;">0.00184</td>
 <td style="text-align: right;">0.00025</td>
 <td style="text-align: right;">-0.00147</td>
-<td style="text-align: right;">-0.00278</td>
+<td style="text-align: right;">-0.00282</td>
 </tr>
 </tbody>
 </table>

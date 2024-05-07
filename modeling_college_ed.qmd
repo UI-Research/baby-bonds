@@ -113,7 +113,7 @@ coefs = list(lin=list(), log=list())
 # These covariates are used in all regressions
 model_covars = c("yearf", "asian", "pnwawi", "asian*pnwawi", "pared", "asian*pared")
 model_covars2 = c("yearf", "asian", "pwealthpos", "pwealthneg", "asian*pwealthpos", "asian*pwealthneg", "pared", "asian*pared")
-model_covars3 = c("yearf", "asian", "pnw1", "pnw2", "pnw3", "asian*pnw1", "asian*pnw2", "pnw3", "pared", "asian*pared")
+model_covars3 = c("yearf", "asian", "pnw1", "pnw2", "pnw3", "asian*pnw1", "asian*pnw2", "asian*pnw3", "pared", "asian*pared")
 
 
 ```
