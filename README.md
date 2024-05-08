@@ -9,6 +9,7 @@ Data analysis for the Baby Bonds project and estimation of models for DYNASIM.
 
 * `DYNASIM-college.qmd`: Quarto report on the effects of baby bonds on college education.
 * [`DYNASIM-college.html`](Analysis/Education/DYNASIM-college.html): Rendering of the above file.
+* [`DYNASIM-college-2024-05-06.html`](Analysis/Education/DYNASIM-college-2024-05-06.html): Rendering of the above file.
 
 # NLSY Data
 It is assumed that an R project file is in the repo's root folder and that the Box drive is mounted in '~/..' (this is true on Windows but may not be on Mac, in which case modify `nlsy_data_dir` in common.R.
