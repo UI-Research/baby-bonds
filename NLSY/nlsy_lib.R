@@ -42,6 +42,7 @@ nlsy_get_base_df = function()
             mom_bio_ed      = "CV_HGC_BIO_MOM_1997",
             mom_res_ed      = "CV_HGC_RES_MOM_1997",
             mom_age_birth   = "CV_BIO_MOM_AGE_YOUTH_1997",
+            hh_size         = "CV_HH_SIZE_1997",
             wt
         )
 
