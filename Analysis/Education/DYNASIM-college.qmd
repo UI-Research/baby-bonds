@@ -48,7 +48,8 @@ keep_cols = c(
   paste0('GRADECAT', first_year:last_year),
   paste0('EARNINGS', first_year:last_year),
   paste0('WEDSTATE', first_year:last_year),
-  paste0('SAVINGS1', first_year:last_year)
+  paste0('SAVINGS1', first_year:last_year),
+  paste0('LHINCFPL', first_year:last_year)
 )
 
 fehdfs = list()
@@ -109,26 +110,26 @@ pidx2024 = pwidx |> filter(year==2024) |> select(pindex) |> pull()
 
 ```{r}
 #| label: read-feh0
-#| cache: true
+#| cache: false
 #| cache.lazy: false
 #| echo: false
 #| output: false
 
 fehname0       = "Baseline"
-fehdir0        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/base_v25/"
+fehdir0        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/base_v27/"
 fehdf0         = read_feh(fehdir0, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset=fehname0)
 ```
 
 ```{r}
 #| label: read-feh1
-#| cache: true
+#| cache: false
 #| cache.lazy: false
 #| echo: false
 #| output: false
 
 fehname1       = "Baby bonds"
-fehdir1        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/babybonds_v1"
+fehdir1        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/babybonds_v3"
 fehdf1         = read_feh(fehdir1, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf1) |> mutate(dataset=fehname1)
 ```
@@ -177,18 +178,10 @@ fehdf = bind_rows(fehdfs) |>
 
 ```{r}
 
-bb10k = fehdf |>
-    filter(dataset=="Baby bonds") |>
-    select(age, year, pernum, rsavings1) |>
-    filter(age==18, rsavings1>=1e4) |>
-    select(pernum) |>
-    pull()
-bb20k = fehdf |>
-    filter(dataset=="Baby bonds") |>
-    select(age, year, pernum, rsavings1) |>
-    filter(age==18, rsavings1>=2e4) |>
-    select(pernum) |>
-    pull()
+hincat16 = fehdf |>
+    filter(age==16, lhincfpl>0) |>
+    select(pernum, dataset, lhincfpl16=lhincfpl)
+
 ```
 
 
@@ -298,4 +291,51 @@ cat(res, sep='\n')
 ```
 
 :::
+
+
+Share of population ages 36-40 with at least a BA degree among people whose family income was below 100 percent of the Federal Poverty Line at 16 by race and gender.
+
+::: {.panel-tabset}
+
+```{r}
+#| label: bseduc-byrace-year-tabsex-100fpl16
+#| results: asis
+
+plotdf = left_join(
+        fehdf,
+        hincat16,
+        by=c("pernum", "dataset")
+    ) |>
+    filter(year>=2030, lhincfpl16<100, age %in% ages, gradecat %in% grades) |>
+    sum_by_aser_time(year, agecat) |>
+    filter(agecat=="36-40", gradecat==16) |>
+    mutate(dataset=factor(dataset))
+
+res = purrr::map_chr(c("All", "Women", "Men"), plot_ycumshare_xyear_crace_tsex)
+cat(res, sep='\n')
+```
+
+:::
+
+
+```{r}
+#| eval: FALSE
+
+plotdf = left_join(
+        fehdf,
+        hincat16,
+        by=c("pernum", "dataset")
+    ) |>
+    filter(year>=2030, lhincfpl16<100, age %in% ages, gradecat %in% grades) |>
+    sum_by_aser_time(year, agecat) |>
+    filter(agecat=="36-40", gradecat==16) |>
+    mutate(dataset=factor(dataset))
+
+plotdf |>
+    filter(gradecat==16, sex=="All") |>
+    ggplot(aes(x=year,y=cumshare, color=race, linetype=dataset)) +
+    geom_line()
+
+```
+
 
