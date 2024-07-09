@@ -29,7 +29,17 @@ microdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData.csv")
 ```{r}
 #| label: functions
 
-plot_by_scen_sex = function(data, var, var_lab, class1, class1_lab, scale=1, title=NULL)
+plot_by_scen_sex = function(data, 
+                            var, 
+                            var_lab, 
+                            class1, 
+                            class1_lab, 
+                            scale=1, 
+                            title=NULL, 
+                            dodgewidth=1, 
+                            hjust=1,
+                            val_lab_digits=0
+                            )
 {
     p = data |> 
         ggplot(aes(x={{class1}}, y={{var}})) +
@@ -45,9 +55,9 @@ plot_by_scen_sex = function(data, var, var_lab, class1, class1_lab, scale=1, tit
         scale_color_manual(values=c("white", "black")) +
         coord_flip() +
         geom_text(
-            aes(label=round({{var}}*scale), color=scenario), 
-            position=position_dodge(width=1), 
-            hjust=1, 
+            aes(label=round({{var}}*scale, val_lab_digits), color=scenario), 
+            position=position_dodge(width=dodgewidth), 
+            hjust=hjust, 
             show.legend = FALSE
             )
     return(p)
@@ -224,8 +234,6 @@ df |> ggplot() +
     xlab("Race/ethnicity") + ylab("Share with college degree (%)") +
     scale_fill_manual(values=palette_urbn_main)
     
-
-
 ```
 
 ## Share of People with College Degree by Race/Ethnicity and Sex
@@ -244,14 +252,15 @@ df = microdf |>
     recode_raceeth() |>
     recode_scenario()
 
-df |> ggplot() +
-    geom_col(aes(x=raceeth, y=ed_coldeg, fill=scenario), position=position_dodge()) +
-    facet_wrap(~male) +
-    scale_y_continuous(labels=function(x) x*100) +
-    xlab("Race/ethnicity") + ylab("Share with college degree (%)") +
-    scale_fill_manual(values=palette_urbn_main)
-    
-
+plot_by_scen_sex(
+    df,
+    var=ed_coldeg, 
+    var_lab="Share with college degree (%)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    scale=1e2,
+    title="People age 45"
+    )
 
 ```
 
@@ -277,7 +286,6 @@ df |> ggplot() +
     scale_fill_manual(values=palette_urbn_main)
     
 
-
 ```
 
 
@@ -298,13 +306,15 @@ df = microdf |>
     recode_male() |>
     recode_scenario()
 
-df |> ggplot() +
-    geom_col(aes(x=lhinc0quin, y=ed_coldeg, fill=scenario), position=position_dodge()) +
-    scale_y_continuous(labels=function(x) x*100) +
-    facet_wrap(~male) +
-    xlab("Quintile of family income at birth") + ylab("Share with college degree (%)") +
-    scale_fill_manual(values=palette_urbn_main)
-    
+plot_by_scen_sex(
+    df,
+    var=ed_coldeg, 
+    var_lab="Share with college degree (%)",
+    class1=lhinc0quin,
+    class1_lab="Quintile of family income at birth",
+    scale=1e2,
+    title="People age 45 who attended college"
+    )
 
 
 ```
@@ -326,14 +336,15 @@ df = microdf |>
     recode_raceeth() |>
     recode_scenario()
 
-df |> ggplot() +
-    geom_col(aes(x=raceeth, y=hasdebt, fill=scenario), position=position_dodge()) +
-    facet_wrap(~male) +
-    scale_y_continuous(labels=function(x) x*100) +
-    xlab("Race/ethnicity") + ylab("Share with student loan debt (%)") +
-    ggtitle("People age 45 who Attended College") +
-    scale_fill_manual(values=palette_urbn_main)
-    
+plot_by_scen_sex(
+    df,
+    var=hasdebt, 
+    var_lab="Share with student loan debt (%)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    scale=1e2,
+    title="People age 45 who attended college"
+    )
 
 
 ```
@@ -401,6 +412,8 @@ plot_by_scen_sex(
 
 ```
 
+## Average Earnings by Educational Attainment and Sex
+
 ```{r}
 #| label: fig-avg-earn-by-educ-sex-45
 #| fig-cap: "Average Earnings by Education and Sex"
@@ -417,14 +430,17 @@ df = microdf |>
     recode_degree() |>
     recode_scenario()
 
-df |> ggplot() +
-    geom_col(aes(x=degree, y=rearn, fill=scenario), position=position_dodge()) +
-    facet_wrap(~male) +
-    scale_y_continuous(labels=function(x) x/1000) +
-    xlab("Educational attainment") + ylab("Earnings (1000s of $2023)") +
-    ggtitle("People age 45") +
-    scale_fill_manual(values=palette_urbn_main) +
-    coord_flip()
+plot_by_scen_sex(
+    df,
+    var=rearn, 
+    var_lab="Earnings (1000s of $2023)",
+    class1=degree,
+    class1_lab="Educational attainment",
+    scale=1e-3,
+    title="People age 45",
+    dodgewidth=.5
+    )
+
 ```
 
 
@@ -446,13 +462,16 @@ df = microdf |>
     recode_raceeth() |>
     recode_scenario()
 
-df |> ggplot() +
-    geom_col(aes(x=raceeth, y=ownhome, fill=scenario), position=position_dodge()) +
-    facet_wrap(~male) +
-    scale_y_continuous(labels=function(x) x*100) +
-    xlab("Race/ethnicity") + ylab("Homeownership rate(%)") +
-    ggtitle("People age 45") +
-    scale_fill_manual(values=palette_urbn_main)
+plot_by_scen_sex(
+    df,
+    var=ownhome, 
+    var_lab="Homeownership rate(%)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    scale=100,
+    title="People age 45",
+    dodgewidth=.5
+    )
 ```
 
 ## Home Equity by Race/Ethnicity and Sex
@@ -473,13 +492,17 @@ df = microdf |>
     recode_raceeth() |>
     recode_scenario()
 
-df |> ggplot() +
-    geom_col(aes(x=raceeth, y=homeeq, fill=scenario), position=position_dodge()) +
-    facet_wrap(~male) +
-    scale_y_continuous(labels=function(x) x/1000) +
-    xlab("Race/ethnicity") + ylab("Home equity(1000s of $2023)") +
-    ggtitle("People age 45") +
-    scale_fill_manual(values=palette_urbn_main)
+plot_by_scen_sex(
+    df,
+    var=homeeq, 
+    var_lab="Home equity(1000s of $2023)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    scale=1e-3,
+    title="People age 45",
+    dodgewidth=.5
+    )
+
 ```
 
 # Age 65
@@ -502,13 +525,17 @@ df = microdf |>
     recode_raceeth() |>
     recode_scenario()
 
-df |> ggplot() +
-    geom_col(aes(x=raceeth, y=retbal, fill=scenario), position=position_dodge()) +
-    facet_wrap(~male) +
-    scale_y_continuous(labels=function(x) x/1000) +
-    xlab("Race/ethnicity") + ylab("Retirement savings (1000s of $2023)") +
-    ggtitle("People age 65") +
-    scale_fill_manual(values=palette_urbn_main)
+plot_by_scen_sex(
+    df,
+    var=retbal, 
+    var_lab="Retirement savings (1000s of $2023)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    scale=1e-3,
+    title="People age 65",
+    dodgewidth=.5
+    )
+
 ```
 
 ## Per-Capita Lifetime Earnings Savings by Race/Ethnicity
@@ -529,13 +556,18 @@ df = microdf |>
     recode_raceeth() |>
     recode_scenario()
 
-df |> ggplot() +
-    geom_col(aes(x=raceeth, y=lifeearn, fill=scenario), position=position_dodge()) +
-    facet_wrap(~male) +
-    scale_y_continuous(labels=function(x) x/1000) +
-    xlab("Race/ethnicity") + ylab("Lifetime earnings (1000s of $2023)") +
-    ggtitle("People age 65") +
-    scale_fill_manual(values=palette_urbn_main)
+plot_by_scen_sex(
+    df,
+    var=lifeearn, 
+    var_lab="Lifetime earnings (Millions of $2023)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    scale=1e-6,
+    title="People age 65",
+    dodgewidth=.5,
+    val_lab_digits=1
+    )
+
 
 ```
 
