@@ -13,6 +13,7 @@
 !*.qmd
 !*.RMD
 !*.html
+!*.pptx
 # Allow renv files
 !*renv.lock
 !*.Rprofile
