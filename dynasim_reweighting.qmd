@@ -1,0 +1,377 @@
+---
+title: "Reweighting of DYNASIM Sample"
+format: pdf
+editor: visual
+execute: 
+  echo: false
+  warning: false
+fig-cap-location: top
+toc: true
+toc-expand: true
+bibliography: references.bib
+---
+
+```{r}
+
+library(ipumsr)
+library(tidyverse)
+library(tidycensus)
+library(scales)
+library(ggridges)
+library(urbnthemes)
+#set_urbn_defaults(style="print")
+
+```
+
+# Introduction
+
+The DYNASIM starting sample contains a nationally representative sample of the population. The sample is constructed with two goals: (1) its distribution of a set of discrete variables like age, sex, race, education must be similar to the distribution of these variables in the population, and (2) the conditional distribution of a continuous variable like earnings or wealth conditional on these discrete variables in the sample must be similar to the one at the population level. The latter is verified by comparing the conditional mean of the continuous variable estimated on the sample with those estimated from nationally representative surveys.
+
+When the area of interest is smaller, such as state or metro area, the DYNASIM sample can be reweighted to resemble the population of interest with respect to a set of individual and household characteristics. Two important choices regarding the weighting process are the choice of reweighting method and the choice of individual and household characteristics—control variables—to be used in reweighting.
+
+There are several reweighting methods but some of them require a sample of the population of interest with the control variables. Because we don't have such a sample, we don't consider the methods that require it. One of the simplest and most commonly used methods is *raking*, which iteratively adjusts the weight for each person until the sample distributions of control variables matches the distributions of the target area. [@mercer2018] evaluated several reweighting methods and found that raking performs as well as more sophisticated methods. Another method proposed by [@schirm2002] uses a *Poisson regression* to predict weights. Control variables are covariates in the regression. Observations are reweighted so that weighted sums of control variables equal targets values.
+
+Regardless of method, control variables need to be selected with care and with consideration to the application. Because both of the above methods work with discrete variables, particularly challenging are applications in which continuous variables are of interest. In our case, it is important that the sample distribution of wealth matches the target distribution. One way to achieve this with the above methods is to use a categorical variable such as quintile or decile of wealth.
+
+Because we are interested not only in its marginal distributions, but also in conditional distributions, we need to interact the control variables.
+
+# ACS Microdata Estimates
+
+This section shows estimates of income and homeownership rates for Boston, New York City, and Oakland based on the 5-year American Community Survey (2019). Included in the sample are adults ages 25 to 70 who identify as Black, Hispanic, or white. All estimates are done at the individual level using individual weights. The smallest cell in the sample has 28 observations for Hispanic women ages 55 to 70 with some college who live in Oakland.
+
+```{r}
+
+
+city_codes = list(
+    "Boston"    = 810,
+    "New York"  = 4610,    
+    "Oakland"   = 4930
+)
+
+setwd(paste0(here::here(), "/ACS"))
+source("usa_00013.R")
+setwd(here::here())
+
+acsdf = data |>
+    mutate(
+        educ = case_when(
+            EDUC<=6 ~ "High School or Less",
+            EDUC<=9 ~ "Some College",
+            TRUE    ~ "College Diploma"
+        ),
+        race = case_when(
+            HISPAN %in% 1:4 ~ "Hispanic",
+            RACE == 1 ~ "White",
+            RACE == 2 ~ "Black",
+            TRUE ~ "Other"
+        ),
+        city = case_when(
+            CITY ==  810 ~ "Boston",
+            CITY == 4610 ~ "New York",
+            CITY == 4930 ~ "Oakland",
+            TRUE ~ "Other"
+        ),
+        age_cat = case_when(
+            25<=AGE & AGE<=39   ~ "25-39",
+            40<=AGE & AGE<=54   ~ "40-54",
+            55<=AGE & AGE<=70   ~ "55-70",
+            TRUE                ~ "Other"
+        ),
+        sex = case_when(
+            SEX==1 ~ "Male",
+            SEX==2 ~ "Female",
+            TRUE   ~ "Other"
+        )
+    ) |>
+    filter(
+        race != "Other", 
+        city != "Other",
+        age_cat != "Other",
+        sex != "Other"
+    )
+
+# Total individual income
+incdf = acsdf |>
+    filter(INCTOT < 9999999) |>
+    group_by(age_cat, sex, educ, race, city) |>
+    summarise(
+        inctot = weighted.mean(INCTOT, PERWT),
+        inctot_p25 =  Hmisc::wtd.quantile(INCTOT, PERWT, probs=.25),
+        inctot_p50 =  Hmisc::wtd.quantile(INCTOT, PERWT, probs=.5),
+        inctot_p75 =  Hmisc::wtd.quantile(INCTOT, PERWT, probs=.75),
+        n = n(),
+        pop = sum(PERWT)
+    ) |>
+    mutate(
+        educ = factor(educ, levels=c("High School or Less", "Some College", "College Diploma"))
+    )
+
+
+# Total individual income
+howndf = acsdf |>
+    filter(OWNERSHP > 0) |>
+    group_by(age_cat, sex, educ, race, city) |>
+    mutate(homeown = as.integer(OWNERSHP==1)) |>
+    summarise(
+        homeown = weighted.mean(homeown, PERWT),
+        n = n(),
+        pop = sum(PERWT)
+    ) |>
+    mutate(
+        educ = factor(educ, levels=c("High School or Less", "Some College", "College Diploma"))
+    )
+
+plot_city_inc = function(sexarg, var)
+{
+    return(
+    incdf |> 
+        filter(sex==sexarg) |>
+        ggplot() +
+        geom_col(aes(x=age_cat, y={{var}}, fill=city), position="dodge") +
+        scale_y_continuous(labels=\(x) x/1000) +
+        facet_grid(rows=vars(race), cols=vars(educ)) +
+        xlab("Age") + ylab("Income (thousands)")
+    )
+}
+
+
+plot_city_inc2 = function(sexarg, agearg)
+{
+    return(
+    incdf |> 
+        filter(sex==sexarg & age_cat==agearg) |>
+        select(starts_with("inctot"), race, educ, city) |> 
+        pivot_longer(starts_with("inctot_"), names_prefix="inctot_", names_to="Percentile", values_to="Income") |>
+        ggplot() +
+        geom_line(aes(x=Percentile, y=Income, color=city, group=city)) +
+        scale_y_continuous(labels=\(x) x/1000) +
+        facet_grid(rows=vars(race), cols=vars(educ)) +
+        xlab("Percentiles") + ylab("Income (thousands)")
+    )
+}
+
+plot_city_homeown = function(sexarg)
+{
+    return(
+    howndf |> 
+        filter(sex==sexarg) |>
+        ggplot() +
+        geom_col(aes(x=age_cat, y=homeown, fill=city), position="dodge") +
+        facet_grid(rows=vars(race), cols=vars(educ)) +
+        xlab("Age") + ylab("Homeownership")
+    )
+}
+
+
+```
+
+## Women
+
+### Mean Income
+
+```{r}
+#| results: asis
+
+plot_city_inc("Female", inctot)
+
+```
+
+### Percentiles of Income
+
+```{r}
+#| results: asis
+
+
+
+agecats = c("25-39","40-54","55-70")
+plots = map(agecats, \(x) plot_city_inc2("Female", x))
+
+pwalk(list(agecats, plots), ~{
+    cat("#### Ages ", .x, '\n\n')
+    print(.y)
+    cat('\n\n')
+})
+
+
+```
+
+### Homeownership Rates
+
+```{r}
+#| results: asis
+
+plot_city_homeown("Female")
+
+```
+
+## Men
+
+### Mean Income
+
+```{r}
+#| results: asis
+
+plot_city_inc("Female", inctot)
+
+```
+
+### Percentiles of Income
+
+```{r}
+#| results: asis
+
+
+agecats = c("25-39","40-54","55-70")
+plots = map(agecats, \(x) plot_city_inc2("Female", x))
+
+pwalk(list(agecats, plots), ~{
+    cat("#### Ages ", .x, '\n\n')
+    print(.y)
+    cat('\n\n')
+})
+
+
+```
+
+### Homeownership Rates
+
+```{r}
+#| results: asis
+
+plot_city_homeown("Male")
+
+```
+
+# ACS Tables
+
+## Age-Sex-Race Tables
+
+```{r}
+
+
+#census_api_key(censuskey, install = TRUE)
+
+acs_data_dir        = paste0(here::here(), "/ACS/")
+acs1_asr_filename   = paste0(acs_data_dir, "acs2022_asr.rds")
+
+
+places = tribble(
+  ~state,   ~geoid,
+  "GA",     "1304000",
+  "MD",     "2404000"
+)
+
+states = c("GA, MD")
+
+acs1vars = load_variables(2022, "acs1", cache=TRUE)
+
+get_one_acs_table = function(table, state, geoid)
+{
+    return(
+        get_acs(
+            geography = "place", 
+            table = table,
+            survey="acs1",
+            state=state,
+            year = 2022
+        ) |>
+        filter(GEOID==geoid)
+    )
+}
+
+get_acs_tables = function(tables, state, geoid)
+{
+    return(list_rbind(
+        map(tables, \(t) get_one_acs_table(
+            table = t,
+            state=state,
+            geoid=geoid
+            )
+        )
+    )
+    )
+}
+
+get_acs_by_sex_age_race = function()
+{
+    # Tables we need
+    acs1tabs = tribble(
+        ~code,      ~concept,
+        "B01001A",  "Sex by Age (White Alone)",
+        "B01001B",  "Sex by Age (Black or African American Alone)",
+        "B01001C",  "Sex by Age (American Indian and Alaska Native Alone)", 
+        "B01001D",  "Sex by Age (Asian Alone)", 
+        "B01001E",  "Sex by Age (Native Hawaiian and Other Pacific Islander Alone)",
+        "B01001F",  "Sex by Age (Some Other Race Alone)",
+        "B01001G",  "Sex by Age (Two or More Races)",
+        "B01001H",  "Sex by Age (White Alone, Not Hispanic or Latino)",
+        "B01001I",  "Sex by Age (Hispanic or Latino)"
+    )
+    
+    # Just table codes
+    tables=acs1tabs$code[1:2]
+    
+    # Fetch the tables
+    datadf = list_rbind(
+        apply(
+            places, 
+            1, 
+            \(x) get_acs_tables(tables, x['state'], x['geoid'])
+            )
+        )
+    
+    # Create labels
+    labdf = list_rbind(
+        #
+        # Filter only variables from the tables we use
+        map(tables, \(x) filter(acs1vars, grepl(paste0("^",x,"_"), name)))) |>
+        #
+        # Use "All" for totals
+        mutate(
+            label=str_replace(label,"^Estimate!!Total:!*", ""),
+            label=case_when(
+                label=="" ~ "All:!!All",
+                label=="Male:" ~ "Male:!!All",
+                label=="Female:" ~ "Female:!!All",
+                TRUE ~ label
+            ),
+            race=gsub("Sex by Age \\((.+)\\)", "\\1", concept),
+            race=gsub(" Alone", "", race),
+            race=gsub(" or African American", "", race)
+        ) |>
+        #
+        # Create columns "sex" and "agecat"
+        separate_wider_regex(
+            label, 
+            c(
+                sex="All|Male|Female", 
+                ":!!", 
+                agecat=".+"
+            )
+        ) |>
+        #
+        # Rename "name", we will use it for a join
+        rename(variable=name)
+    
+    resdf = left_join(
+        datadf,
+        labdf,
+        by="variable"
+    )
+    
+    return(resdf)
+}
+
+if( file.exists(acs1_asr_filename) ) {
+    df = readRDS(acs1_asr_filename)   
+} else {
+    df = get_acs_by_sex_age_race()
+    saveRDS(df, acs1_asr_filename)
+}
+
+```
+
+# Bibliography
+
+::: {#refs}
+:::
