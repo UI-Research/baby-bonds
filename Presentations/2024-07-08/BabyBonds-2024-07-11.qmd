@@ -13,8 +13,8 @@ title-slide-attributes:
 ---
 
 ```{r}
+library(Hmisc)
 library(tidyverse)
-library(reldist)
 library(urbnthemes)
 set_urbn_defaults(style = "print", 
                   base_size=11,
@@ -29,11 +29,12 @@ microdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData.csv")
 ```{r}
 #| label: functions
 
-plot_by_scen_sex = function(data, 
+plot_by_scen = function(data, 
                             var, 
                             var_lab, 
                             class1, 
                             class1_lab, 
+                            facet=NULL,
                             scale=1, 
                             title=NULL, 
                             dodgewidth=1, 
@@ -41,11 +42,15 @@ plot_by_scen_sex = function(data,
                             val_lab_digits=0
                             )
 {
+    names(palette_urbn_main) = NULL
+
     p = data |> 
         ggplot(aes(x={{class1}}, y={{var}})) +
-        geom_col(aes(fill=scenario), position=position_dodge()) +
-        facet_wrap(~male) +
-        scale_y_continuous(labels=function(x) x*scale) +
+        geom_col(aes(fill=scenario), position=position_dodge())
+        if(!is.null(facet)) {
+            p = p + facet_wrap(facet)
+        }
+    p = p + scale_y_continuous(labels=function(x) x*scale) +
         xlab(class1_lab) + ylab(var_lab)
     if(!is.null(title)) {
         p = p + ggtitle(title)
@@ -62,6 +67,7 @@ plot_by_scen_sex = function(data,
             )
     return(p)
 }
+
 
 
 
@@ -129,16 +135,23 @@ recode_degree = function(data)
 }
 ```
 
-## Introduction
+## Baby Bonds Simulations
 
-* The Baby Bonds program starts in 2024
+* The Baby Bonds program as defined in the American Opportunity Accounts Act starts in 2024.
+* We simulate the use of baby bonds for college education, home purchase, and retirement savings.
+* College students who would take student loans use the maximum anount of baby bonds up to the amount of loans.
+* People who did not use their baby bonds for college, use them for home purchase if they decide to buy one.
+* Any residual baby bonds are added to retirement savings.
+
+## Analysis
+
 * This analysis observes people born from 2024 to 2028 
 * It analyzes the following outcomes:
-  * At age 18, the amount of baby bonds
+  * At age 18, demographic composition, the amount of baby bonds.
   * At age 45, the share of people with college degree, student loan debt, earnings, and homeownership.
-  * At age 65, retirement savings.
+  * At age 65, retirement savings and lifetime earnings.
 
-## Introduction (continued)
+## Analysis (continued)
 
 * This analysis disaggregates outcomes along the following dimensions:
   * Sex,
@@ -146,9 +159,10 @@ recode_degree = function(data)
   * Quintile of family income at birth.
 
 
-# Age 18
+# Results at Age 18
 
 ## Race/Ethnicity Shares by Quintile of Family Income at Birth
+
 
 ```{r}
 #| label: fig-pop-by-race-thousands-18
@@ -166,7 +180,9 @@ df |> group_by(lhinc0quin) |>
     ggplot() +
     geom_col(aes(x=lhinc0quin,y=share,fill=raceeth)) +
     scale_y_continuous(labels=function(x) x*100) +
-    xlab("Quintile of family income at birth") + ylab("Share in race/ethnic category (%)")
+    xlab("Quintile of family income at birth") + ylab("Share in race/ethnic category (%)") +
+    ggtitle("People age 18 born in 2024-2028")
+    
 
 ```
 
@@ -184,7 +200,8 @@ df |> group_by(raceeth) |>
         position=position_stack(reverse = TRUE)
         ) +
     scale_y_continuous(labels=function(x) x*100) +
-    xlab("Race/ethnicity") + ylab("Share in  quintile of family income at birth (%)")
+    xlab("Race/ethnicity") + ylab("Share in  quintile of family income at birth (%)") +
+    ggtitle("People age 18 born in 2024-2028")
 
 ```
 
@@ -206,11 +223,13 @@ df = microdf |>
 df |> ggplot() +
     geom_col(aes(x=lhinc0quin, y=bbonds, fill=raceeth), position=position_dodge()) +
     scale_y_continuous(labels=function(x) x/1000) +
-    xlab("Quintile of family income at birth") + ylab("Baby bonds (1000s of $2023)")
+    xlab("Quintile of family income at birth") + ylab("Baby bonds (1000s of $2023)") +
+    ggtitle("People age 18 born in 2024-2028")
+
 
 ```
 
-# Age 45
+# Results at Age 45
 
 ## Share of People with College Degree by Race/Ethnicity
 
@@ -226,13 +245,16 @@ df = microdf |>
     recode_raceeth() |>
     recode_scenario()
 
-names(palette_urbn_main) = NULL
 
-df |> ggplot() +
-    geom_col(aes(x=raceeth, y=ed_coldeg, fill=scenario), position=position_dodge()) +
-    scale_y_continuous(labels=function(x) x*100) +
-    xlab("Race/ethnicity") + ylab("Share with college degree (%)") +
-    scale_fill_manual(values=palette_urbn_main)
+plot_by_scen(
+    df,
+    var=ed_coldeg, 
+    var_lab="Share with college degree (%)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    scale=1e2,
+    title="People age 45 born in 2024-2028"
+    )
     
 ```
 
@@ -252,14 +274,15 @@ df = microdf |>
     recode_raceeth() |>
     recode_scenario()
 
-plot_by_scen_sex(
+plot_by_scen(
     df,
     var=ed_coldeg, 
     var_lab="Share with college degree (%)",
     class1=raceeth,
     class1_lab="Race/ethnicity",
+    facet=~male,
     scale=1e2,
-    title="People age 45"
+    title="People age 45 born in 2024-2028"
     )
 
 ```
@@ -279,12 +302,15 @@ df = microdf |>
     recode_quintile(lhinc0quin) |>
     recode_scenario()
 
-df |> ggplot() +
-    geom_col(aes(x=lhinc0quin, y=ed_coldeg, fill=scenario), position=position_dodge()) +
-    scale_y_continuous(labels=function(x) x*100) +
-    xlab("Quintile of family income at birth") + ylab("Share with college degree (%)") +
-    scale_fill_manual(values=palette_urbn_main)
-    
+plot_by_scen(
+    df,
+    var=ed_coldeg, 
+    var_lab="Share with college degree (%)",
+    class1=lhinc0quin,
+    class1_lab="Quintile of family income at birth",
+    scale=1e2,
+    title="People age 45 born in 2024-2028"
+    )
 
 ```
 
@@ -306,21 +332,22 @@ df = microdf |>
     recode_male() |>
     recode_scenario()
 
-plot_by_scen_sex(
+plot_by_scen(
     df,
     var=ed_coldeg, 
     var_lab="Share with college degree (%)",
     class1=lhinc0quin,
     class1_lab="Quintile of family income at birth",
+    facet=~male,
     scale=1e2,
-    title="People age 45 who attended college"
+    title="People age 45 born in 2024-2028 who attended college"
     )
 
 
 ```
 
 
-## Share of People who Attended College with Student Loan Debt by Race/Ethnicity and Sex
+## Share of People who Took a Student Loan by Race/Ethnicity and Sex
 
 ```{r}
 #| label: fig-share-stdebt-by-race-sex-45
@@ -336,21 +363,22 @@ df = microdf |>
     recode_raceeth() |>
     recode_scenario()
 
-plot_by_scen_sex(
+plot_by_scen(
     df,
     var=hasdebt, 
     var_lab="Share with student loan debt (%)",
     class1=raceeth,
     class1_lab="Race/ethnicity",
+    facet=~male,
     scale=1e2,
-    title="People age 45 who attended college"
+    title="People age 45 born in 2024-2028 who attended college"
     )
 
 
 ```
 
 
-## Average Student Loan Debt by Race/Ethnicity and Sex
+## Average Student Loan Debt at College Exit among College Attendees by Race/Ethnicity and Sex
 
 ```{r}
 #| label: fig-avg-stdebt-by-race-sex-45
@@ -361,25 +389,72 @@ df = microdf |>
     select(raceeth, male, scenario, weight, studdebt) |>
     group_by(raceeth, male, scenario) |>
     summarise(
-        debtavg = weighted.mean(studdebt, weight),
-        debtmed = median(studdebt)
+        debt_avg = wtd.mean(studdebt, weight)
         ) |>
     ungroup() |>
     recode_male() |>
     recode_raceeth() |>
     recode_scenario()
 
-plot_by_scen_sex(
+plot_by_scen(
     df,
-    var=debtavg, 
+    var=debt_avg, 
     var_lab="Student loan debt (1000s of $2023)",
     class1=raceeth,
     class1_lab="Race/ethnicity",
+    facet=~male,
     scale=1e-3,
-    title="People age 45 who attended college"
+    title="People age 45 born in 2024-2028 who attended college"
+    )
+```
+## Average Student Loan Debt at College Exit Among Borrowers by Race/Ethnicity and Sex
+
+```{r}
+#| label: fig-avg-stdebt-by-race-sex-45-brw
+#| fig-cap: "Average Student Loan Debt by Race/Ethnicity and Sex"
+
+df = microdf |>
+    filter(age==45, studdebt>0) |>
+    select(raceeth, male, scenario, weight, studdebt) |>
+    group_by(raceeth, male, scenario) |>
+    summarise(
+        debt_avg = wtd.mean(studdebt, weight),
+        debt_med = wtd.quantile(studdebt, weight, probs=.5),
+        ) |>
+    ungroup() |>
+    recode_male() |>
+    recode_raceeth() |>
+    recode_scenario()
+
+plot_by_scen(
+    df,
+    var=debt_avg, 
+    var_lab="Student loan debt (1000s of $2023)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    facet=~male,
+    scale=1e-3,
+    title="Borrowers age 45 born in 2024-2028"
     )
 ```
 
+## Median Student Loan Debt at College Exit Among Borrowers by Race/Ethnicity and Sex
+
+```{r}
+#| label: fig-med-stdebt-by-race-sex-45-brw
+#| fig-cap: "Median Student Loan Debt by Race/Ethnicity and Sex"
+
+plot_by_scen(
+    df,
+    var=debt_med, 
+    var_lab="Student loan debt (1000s of $2023)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    facet=~male,
+    scale=1e-3,
+    title="Borrowers age 45 born in 2024-2028"
+    )
+```
 
 ## Average Earnings by Race/Ethnicity and Sex
 
@@ -388,11 +463,12 @@ plot_by_scen_sex(
 #| fig-cap: "Average Earnings by Race/Ethnicity and Sex"
 
 df = microdf |>
-    filter(age==45) |>
+    filter(age==45 & rearn1>0) |>
     select(raceeth, male, scenario, weight, rearn1, rearn2) |>
     group_by(raceeth, male, scenario) |>
     summarise(
-        rearn = weighted.mean(rearn1, weight)
+        rearn_avg = wtd.mean(rearn1, weight),
+        rearn_med = wtd.quantile(rearn1, weight, probs=.5)
         ) |>
     ungroup() |>
     recode_male() |>
@@ -400,14 +476,34 @@ df = microdf |>
     recode_scenario()
 
 
-plot_by_scen_sex(
+plot_by_scen(
     df,
-    var=rearn, 
+    var=rearn_avg, 
     var_lab="Earnings (1000s of $2023)",
     class1=raceeth,
     class1_lab="Race/ethnicity",
+    facet=~male,
     scale=1e-3,
-    title="People age 45"
+    title="Workers age 45 born in 2024-2028"
+    )
+
+```
+
+## Median Earnings by Race/Ethnicity and Sex
+
+```{r}
+#| label: fig-med-earn-by-race-sex-45
+#| fig-cap: "Median Earnings by Race/Ethnicity and Sex"
+
+plot_by_scen(
+    df,
+    var=rearn_med, 
+    var_lab="Earnings (1000s of $2023)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    facet=~male,
+    scale=1e-3,
+    title="Workers age 45 born in 2024-2028"
     )
 
 ```
@@ -419,30 +515,53 @@ plot_by_scen_sex(
 #| fig-cap: "Average Earnings by Education and Sex"
 
 df = microdf |>
-    filter(age==45) |>
+    filter(age==45 & rearn1>0) |>
     select(degree, male, scenario, weight, rearn1, rearn2) |>
     group_by(degree, male, scenario) |>
     summarise(
-        rearn = weighted.mean(rearn1, weight)
+        rearn_avg = wtd.mean(rearn1, weight),
+        rearn_med = wtd.quantile(rearn1, weight, probs=.5)
         ) |>
     ungroup() |>
     recode_male() |>
     recode_degree() |>
     recode_scenario()
 
-plot_by_scen_sex(
+plot_by_scen(
     df,
-    var=rearn, 
+    var=rearn_avg, 
     var_lab="Earnings (1000s of $2023)",
     class1=degree,
     class1_lab="Educational attainment",
+    facet=~male,
     scale=1e-3,
-    title="People age 45",
+    title="Workers age 45 born in 2024-2028",
     dodgewidth=.5
     )
 
 ```
 
+
+## Median Earnings by Educational Attainment and Sex
+
+```{r}
+#| label: fig-med-earn-by-educ-sex-45
+#| fig-cap: "Median Earnings by Education and Sex"
+
+
+plot_by_scen(
+    df,
+    var=rearn_med, 
+    var_lab="Earnings (1000s of $2023)",
+    class1=degree,
+    class1_lab="Educational attainment",
+    facet=~male,
+    scale=1e-3,
+    title="Workers age 45 born in 2024-2028",
+    dodgewidth=.5
+    )
+
+```
 
 ## Homeownership by Race/Ethnicity and Sex
 
@@ -462,112 +581,188 @@ df = microdf |>
     recode_raceeth() |>
     recode_scenario()
 
-plot_by_scen_sex(
+plot_by_scen(
     df,
     var=ownhome, 
     var_lab="Homeownership rate(%)",
     class1=raceeth,
     class1_lab="Race/ethnicity",
+    facet=~male,
     scale=100,
-    title="People age 45",
+    title="People age 45 born in 2024-2028",
     dodgewidth=.5
     )
 ```
 
-## Home Equity by Race/Ethnicity and Sex
+## Average Home Equity by Race/Ethnicity and Sex
 
 ```{r}
-#| label: fig-homeeq-by-race-sex-45
+#| label: fig-avg-homeeq-by-race-sex-45
 #| fig-cap: "Home Equity by Race/Ethnicity and Sex"
 
 df = microdf |>
-    filter(age==45) |>
+    filter(age==45 & ownhome==1) |>
     select(raceeth, male, scenario, weight, homeeq) |>
     group_by(raceeth, male, scenario) |>
     summarise(
-        homeeq = weighted.mean(homeeq, weight)
+        homeeq_avg = wtd.mean(homeeq, weight),
+        homeeq_med = wtd.quantile(homeeq, weight, probs=.5)
         ) |>
     ungroup() |>
     recode_male() |>
     recode_raceeth() |>
     recode_scenario()
 
-plot_by_scen_sex(
+plot_by_scen(
     df,
-    var=homeeq, 
+    var=homeeq_avg, 
     var_lab="Home equity(1000s of $2023)",
     class1=raceeth,
     class1_lab="Race/ethnicity",
+    facet=~male,
     scale=1e-3,
-    title="People age 45",
+    title="Homeowners age 45 born in 2024-2028",
     dodgewidth=.5
     )
 
 ```
 
-# Age 65
-
-## Per-Capita Retirement Savings by Race/Ethnicity
+## Median Home Equity by Race/Ethnicity and Sex
 
 ```{r}
-#| label: fig-retbal-by-race-sex-45
-#| fig-cap: "Retirement Account Balance by Race/Ethnicity and Sex"
+#| label: fig-med-homeeq-by-race-sex-45
+#| fig-cap: "Median Home Equity by Race/Ethnicity and Sex"
+
+plot_by_scen(
+    df,
+    var=homeeq_med, 
+    var_lab="Home equity(1000s of $2023)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    facet=~male,
+    scale=1e-3,
+    title="Homeowners age 45 born in 2024-2028",
+    dodgewidth=.5
+    )
+
+```
+
+# Results at Age 65
+
+## Average Per-Capita Retirement Savings by Race/Ethnicity
+
+```{r}
+#| label: fig-avg-retbal-by-race-sex-45
+#| fig-cap: "Average Retirement Account Balance by Race/Ethnicity and Sex"
 
 df = microdf |>
     filter(age==65) |>
     select(raceeth, male, scenario, weight, retbal) |>
     group_by(raceeth, male, scenario) |>
     summarise(
-        retbal = weighted.mean(retbal, weight)
+        retbal_avg = wtd.mean(retbal, weight),
+        retbal_med = wtd.quantile(retbal, weight,probs=.5)
         ) |>
     ungroup() |>
     recode_male() |>
     recode_raceeth() |>
     recode_scenario()
 
-plot_by_scen_sex(
+plot_by_scen(
     df,
-    var=retbal, 
+    var=retbal_avg, 
     var_lab="Retirement savings (1000s of $2023)",
     class1=raceeth,
     class1_lab="Race/ethnicity",
+    facet=~male,
     scale=1e-3,
-    title="People age 65",
+    title="People age 65 born in 2024-2028",
     dodgewidth=.5
     )
 
 ```
 
-## Per-Capita Lifetime Earnings Savings by Race/Ethnicity
+## Median Per-Capita Retirement Savings by Race/Ethnicity
 
 ```{r}
-#| label: fig-lifearn-by-race-sex-45
-#| fig-cap: "Lifetime Earnings by Race/Ethnicity and Sex"
+#| label: fig-med-retbal-by-race-sex-45
+#| fig-cap: "Median Retirement Account Balance by Race/Ethnicity and Sex"
+
+plot_by_scen(
+    df,
+    var=retbal_med, 
+    var_lab="Retirement savings (1000s of $2023)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    facet=~male,
+    scale=1e-3,
+    title="People age 65 born in 2024-2028",
+    dodgewidth=.5
+    )
+
+```
+
+## Average Per-Capita Lifetime Earnings Savings by Race/Ethnicity
+
+```{r}
+#| label: fig-avg-lifearn-by-race-sex-45
+#| fig-cap: "Average Lifetime Earnings by Race/Ethnicity and Sex"
 
 df = microdf |>
     filter(age==65) |>
     select(raceeth, male, scenario, weight, lifeearn) |>
     group_by(raceeth, male, scenario) |>
     summarise(
-        lifeearn = weighted.mean(lifeearn, weight)
+        lifeearn_avg = wtd.mean(lifeearn, weight),
+        lifeearn_med = wtd.quantile(lifeearn, weight, probs=.5)
         ) |>
     ungroup() |>
     recode_male() |>
     recode_raceeth() |>
     recode_scenario()
 
-plot_by_scen_sex(
+plot_by_scen(
     df,
-    var=lifeearn, 
+    var=lifeearn_avg, 
     var_lab="Lifetime earnings (Millions of $2023)",
     class1=raceeth,
     class1_lab="Race/ethnicity",
+    facet=~male,
     scale=1e-6,
-    title="People age 65",
+    title="People age 65 born in 2024-2028",
     dodgewidth=.5,
     val_lab_digits=1
     )
 
 
 ```
+
+## Median Per-Capita Lifetime Earnings Savings by Race/Ethnicity
+
+```{r}
+#| label: fig-med-lifearn-by-race-sex-45
+#| fig-cap: "Median Lifetime Earnings by Race/Ethnicity and Sex"
+
+plot_by_scen(
+    df,
+    var=lifeearn_med, 
+    var_lab="Lifetime earnings (Millions of $2023)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    facet=~male,
+    scale=1e-6,
+    title="People age 65 born in 2024-2028",
+    dodgewidth=.5,
+    val_lab_digits=1
+    )
+
+
+```
+
+## Conclusion
+
+* The effect of baby bonds on college education is small and positive for people from lower-income families and for Black and Hispanic people.
+* The biggest effect of baby bonds is on student debt. For all race-sex groups, they reduce the share of people who take this debt and they reduce the amount of debt for borrowers.
+* The effect of baby bonds on earnings (annual and lifetime), homeownership rates, home equity, and retirement savings varies by race and sex, not only in magnitude but also in sign. Most likely, this is due to the random variation.
+
 
