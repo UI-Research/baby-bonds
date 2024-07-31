@@ -24,6 +24,17 @@ set_urbn_defaults(style = "print",
 
 source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
 
+ggplot2::theme_update(
+    legend.key.size = ggplot2::unit(20L, "pt"),
+    panel.grid.major.x = element_line(color = "grey",
+                                size = 0.2,
+                                linetype = 1),
+    panel.grid.minor.x = element_line(color = "grey",
+                                size = 0.2,
+                                linetype = 2)
+    )
+
+
 #obs = 50000
 obs = NA
 weight = 2537
@@ -124,8 +135,8 @@ fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf1) |> mutate(dataset=fehname1
 #| eval: true
 
 
-fehname2       = "Test1"
-fehdir2        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/test1/"
+fehname2       = "V37"
+fehdir2        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/base_v37/"
 fehdf2         = read_feh(fehdir2, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf2) |> mutate(dataset=fehname2)
 ```
