@@ -31,10 +31,11 @@ set_urbn_defaults(style = "print")
 #   into your local Baby-bonds copy as a top-level folder.
 #
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-source(paste0(here::here(), "RreadFEH/R/read_feh.R"))
+source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
 
 pidx = read_csv(paste0(here::here(), "/pindex.csv"))
-widx = read_csv(paste0(here::here(), "/windex.csv"))
+widx = read_csv(paste0(here::here(), "/windex.csv")) |>
+    mutate(windex=windex*1e3)
 pwidx = left_join(pidx, widx, by='year')
 
 yob = 1990
@@ -57,7 +58,7 @@ keep_cols = c(
 ```{r}
 #| label: read-base-feh
 #| cache: true
-#| cache-vars: dyndf
+#| output: false
 
 fehdir = "S:/damir/run_1004/"
 fehfile <- paste0(fehdir, "dynasipp_person_even.dat")
@@ -67,10 +68,10 @@ dyndf = read_feh(codebookfile, fehfile, columns=keep_cols)
 
 ```{r}
 #| label: read-new-feh
-#| cache: true
-#| cache-vars: dyndf2
+#| cache: false
+#| output: false
 
-fehdir2 = "C:/Users/dcosic/Documents/Dynasim/Dynasim-core/run/"
+fehdir2 = "C:/Users/dcosic/Documents/Dynasim/Dynasim-core/run/output/output2/"
 fehfile2 <- paste0(fehdir2, "dynasipp_person_even.dat")
 codebookfile2 = paste0(fehdir2, "codebook_2100ds.sipp2006")
 dyndf2 = read_feh(codebookfile2, fehfile2, columns=keep_cols)
@@ -82,6 +83,7 @@ wlthx2 = read_csv(paste0(fehdir2, 'nonhwlth_dump.csv')) |>
 
 ```{r}
 #| label: read-sas-data
+#| output: false
 
 sasdf = read_csv("//SAS1/Dynasim/programs/run1004(TR2023)/Wealth Charts/earn_wealth.csv") |>
       rename_with(tolower)
@@ -119,8 +121,8 @@ feh_to_long = function(data)
           earnings      = earnings / pidx1958 * pindex,
           spousern      = spousern / pidx1958 * pindex,
           famearn       = earnings+spousern,
-          finwealth_ae  = finwealth,
-          finwealth     = finwealth * windex
+          finwealth_ae  = finwealth/1e4,
+          finwealth     = finwealth_ae * windex
           )
   return(df)
 }
@@ -130,6 +132,13 @@ df2 = feh_to_long(dyndf2)
 ```
 
 ```{r}
+#| label: fig-finwealth-dist
+#| layout: [[1],[1,1]]
+#| fig-cap: "Financial wealth over a lifetime for people born in 1990: cumulative distribution, mean, and standard deviation. (Source: DYNASIM4 Run1004 FEH, modified run 1004, and post-processing.)"
+#| fig-subcap: 
+#|  - "Cumulative distribution"
+#|  - "Mean"
+#|  - "Standard deviation"
 
 plot_df = bind_rows(
   select(df, year, finwealth) |> mutate(dataset='FEH1'),
