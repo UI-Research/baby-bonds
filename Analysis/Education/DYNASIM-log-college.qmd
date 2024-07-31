@@ -16,6 +16,8 @@ toc-expand: true
 
 library(tidyverse)
 library(tidyquant)
+library(plotly)
+
 library(urbnthemes)
 set_urbn_defaults(style = "print", 
                   base_size=11,
@@ -44,13 +46,13 @@ safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#33228
 
 ```{r}
 #| label: load-data
-#| cache: true
+#| cache: false
 #| cache.lazy: false
 #| echo: false
 #| output: false
 
 #fehdir = "X:/FEHOutput/run_01006/base_v19/"
-fehdir = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/base_v20/"
+fehdir = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/test2/"
 text = read_lines(paste0(fehdir,'rundynasipp.out'))
 txtdf = tibble(text)
 txtdf = txtdf |>
@@ -140,8 +142,8 @@ xpdf = coldf |>
 
 
 plotdf = bind_rows(xbdf,xpdf) |>
-    select(-section, -varnum, -task) |>
-    pivot_longer(-c(varname, module, model, group, year)) |>
+    select(-section, -varnum, -task, -module) |>
+    pivot_longer(-c(varname, model, group, year)) |>
     mutate(value=as.numeric(value)) |>
     arrange(model,group,varname,name,year) |>
     group_by(model,group,varname,name) |>
@@ -156,7 +158,32 @@ plotdf = bind_rows(xbdf,xpdf) |>
                                         "GSENROLL")
         )
     )
-    
+
+plotdf = bind_rows(
+    plotdf,
+    bind_rows(
+        plotdf |> 
+            filter(name=="xb", grepl('^YEAR', varname)) |> 
+            group_by(year, model, group) |> 
+            summarise(value = sum(value)) |> mutate(varname="YEAR"),
+        plotdf |> 
+            filter(name=="xb", grepl('^PNW', varname)) |> 
+            group_by(year, model, group) |> 
+            summarise(value = sum(value)) |> 
+            mutate(varname="PNW"),
+        plotdf |> 
+            filter(name=="xb", grepl('^PED', varname)) |> 
+            group_by(year, model, group) |> 
+            summarise(value = sum(value)) |> 
+            mutate(varname="PED"),
+        plotdf |> 
+            filter(name=="xb" & (grepl('^ASN', varname) | grepl('ASIAN', varname))) |> 
+            group_by(year, model, group) |> 
+            summarise(value = sum(value)) |> 
+            mutate(varname="ASIAN")
+        ) |>
+        mutate(name="xbsum", maxval=1, maxdval=1)
+)
 
 models = levels(plotdf$model)
 groups = unique(plotdf$group)
@@ -174,7 +201,7 @@ cat("Version: ", tail(strsplit(fehdir, '/')[[1]], n=1))
 
 
 ```{r}
-
+#| label: functions
 
 plot_xp_by_model <- function(modeltab)
 {
@@ -183,47 +210,38 @@ plot_xp_by_model <- function(modeltab)
     "",
     "```{r}",
     "#| echo: false",
-    "plotdf %>%",
+    "ggplotly(plotdf %>%",
     "    filter(varname=='XP', name=='mean', model==modeltab) |>",
     "    ggplot(aes(x=year,y=value,color=group)) +",
     "    geom_line() +",
     "    ylab('XP') +",
-    "    theme(legend.position = 'bottom')",
+    "    theme(legend.position = 'bottom'))",
     "```",
     ""
   ), envir = environment(), quiet = TRUE)
 
 }
 
-```
 
-::: panel-tabset
-```{r}
-#| label: xp-by-model-group
-#| results: asis
-res = purrr::map_chr(models, plot_xp_by_model)
-cat(res, sep='\n')
-```
-:::
-
-
-## X-Beta Diff by Sex-Race Group
-
-
-```{r}
-
-
-plot_xb_by_group <- function(grouptab, opt_model, yvar="value", vars=NULL)
+plot_xb_by_group <- function(grouptab, opt_model, yvar="value", vars="", name="xb")
 {
   txt = c(
     "#### `r grouptab`",
     "",
     "```{r}",
     "#| echo: false",
-    "plotdf |>",
-    "    filter(group==grouptab, model==opt_model, name=='xb', maxval>0, maxdval>0) |>"
+    "ggplotly(plotdf %>%",
+    "    filter(group==grouptab, model==opt_model, maxval>0, maxdval>0) |>"
     )
-  
+
+  if( name == "xb" ) {
+    txt = c(txt, "   filter(name=='xb') |>")
+  } else if( name == "mean" ) {
+    txt = c(txt, "   filter(name=='mean') |>")
+  } else if( name == "xbsum" ) {
+    txt = c(txt, "   filter(name=='xbsum') |>")
+  }
+    
   if( vars == "years" ) {
     txt = c(txt, "   filter(grepl('^YEAR', varname)) |>")
   } else if( vars == "asian" ) {
@@ -240,8 +258,7 @@ plot_xb_by_group <- function(grouptab, opt_model, yvar="value", vars=NULL)
   txt = c(txt,
     "    geom_line() +",
     "    ggplot2::scale_color_discrete(type=safe_colorblind_palette) +",
-    "    ylab('XBeta Change') +",
-    "  theme(legend.position = 'bottom')",
+    "    theme(legend.position = 'bottom'))",
     "```",
     ""
   )
@@ -253,62 +270,37 @@ plot_xb_by_group <- function(grouptab, opt_model, yvar="value", vars=NULL)
 
 ```
 
-::: panel-tabset
-```{r}
-#| label: xb-diff-by-group-yearvars
-#| results: asis
-for(m in models) {
-    cat("### ", m)
-    cat("\n\n")
-
-    cat(":::: panel-tabset")
-    res = purrr::map_chr(groups, plot_xb_by_group, m, "dval", "years")
-    cat(res, sep='\n')
-    cat("::::")
-
-    cat("\n\n")
-}
-```
-:::
 
 ::: panel-tabset
 ```{r}
-#| label: xb-diff-by-group-corevars
+#| label: xp-by-model-group
 #| results: asis
-for(m in models) {
-    cat("### ", m)
-    cat("\n\n")
-
-    cat(":::: panel-tabset")
-    res = purrr::map_chr(groups, plot_xb_by_group, m, "dval", "core")
-    cat(res, sep='\n')
-    cat("::::")
-
-    cat("\n\n")
-}
+res = purrr::map_chr(models, plot_xp_by_model)
+cat(res, sep='\n')
 ```
 :::
 
-::: panel-tabset
-```{r}
-#| label: xb-diff-by-group-asianvars
-#| results: asis
-for(m in models) {
-    cat("### ", m)
-    cat("\n\n")
-
-    cat(":::: panel-tabset")
-    res = purrr::map_chr(groups, plot_xb_by_group, m, "dval", "asian")
-    cat(res, sep='\n')
-    cat("::::")
-
-    cat("\n\n")
-}
-```
-:::
 
 
 ## X-Beta by Sex-Race Group
+
+::: panel-tabset
+```{r}
+#| label: xbsum-by-group
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(groups, plot_xb_by_group, m, name="xbsum")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
 
 ::: panel-tabset
 ```{r}
@@ -355,7 +347,7 @@ for(m in models) {
     cat("\n\n")
 
     cat(":::: panel-tabset")
-    res = purrr::map_chr(groups, plot_xb_by_group, m, "value", "asian")
+    res = purrr::map_chr(c("FWHITE","MWHITE"), plot_xb_by_group, m, "value", "asian")
     cat(res, sep='\n')
     cat("::::")
 
@@ -364,44 +356,54 @@ for(m in models) {
 ```
 :::
 
-## X by Sex-Race Group
-
-
-```{r}
-
-
-plot_x_by_group <- function(grouptab, opt_model)
-{
-  knitr::knit_child(text = c(
-    "#### `r grouptab`",
-    "",
-    "```{r}",
-    "#| echo: false",
-    "plotdf %>%",
-    "    filter(group==grouptab, model==opt_model, name=='mean', maxval>0, maxdval>0) |>",
-    "    ggplot(aes(x=year,y=value,color=varname)) +",
-    "    geom_line() +",
-    "    ggplot2::scale_color_discrete() +",
-    "    ylab('XBeta') +",
-    "  theme(legend.position = 'bottom')",
-    "```",
-    ""
-  ), envir = environment(), quiet = TRUE)
-
-}
-
-```
+## X-Beta Diff by Sex-Race Group
 
 ::: panel-tabset
 ```{r}
-#| label: x-by-group
+#| label: xb-diff-by-group-yearvars
 #| results: asis
 for(m in models) {
     cat("### ", m)
     cat("\n\n")
 
     cat(":::: panel-tabset")
-    res = purrr::map_chr(groups, plot_x_by_group, m)
+    res = purrr::map_chr(groups, plot_xb_by_group, m, "dval", "years")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
+
+::: panel-tabset
+```{r}
+#| label: xb-diff-by-group-corevars
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(groups, plot_xb_by_group, m, "dval", "core")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
+
+::: panel-tabset
+```{r}
+#| label: xb-diff-by-group-asianvars
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(c("FWHITE","MWHITE"), plot_xb_by_group, m, "dval", "asian")
     cat(res, sep='\n')
     cat("::::")
 
@@ -411,6 +413,63 @@ for(m in models) {
 :::
 
 
+## X by Sex-Race Group
+
+
+::: panel-tabset
+```{r}
+#| label: x-by-group-yearvars
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(groups, plot_xb_by_group, m, yvar="value", vars="years", name="mean")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
+
+::: panel-tabset
+```{r}
+#| label: x-by-group-corevars
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(groups, plot_xb_by_group, m, yvar="value", vars="core", name="mean")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
+
+
+::: panel-tabset
+```{r}
+#| label: x-by-group-asianvars
+#| results: asis
+for(m in models) {
+    cat("### ", m)
+    cat("\n\n")
+
+    cat(":::: panel-tabset")
+    res = purrr::map_chr(c("FWHITE","MWHITE"), plot_xb_by_group, m, yvar="value", vars="asian", name="mean")
+    cat(res, sep='\n')
+    cat("::::")
+
+    cat("\n\n")
+}
+```
+:::
 
 
 
