@@ -23,6 +23,15 @@ set_urbn_defaults(style = "print",
                   base_line_size = 1
                   )
 
+ggplot2::theme_update(
+    panel.grid.major.x = element_line(color = "grey",
+                                size = 0.2,
+                                linetype = 1),
+    panel.grid.minor.x = element_line(color = "grey",
+                                size = 0.2,
+                                linetype = 2)
+    )
+
 source(paste0(here::here(), "/RreadFEH/R/read_feh.R"))
 
 #obs = 50000
@@ -30,10 +39,12 @@ obs = NA
 weight = 2537
 first_year= 2006
 last_year = 2060
+#last_year = 2030
 
 years  = first_year:last_year
-birth_years = 1980:2040
-ages   = 20:40
+#birth_years = 1980:2040
+birth_years = 1980:2010
+ages   = 18:40
 grades = 12:16
 sexes = c("All", "Men", "Women")
 races = c("All", "Black", "Hispanic", "White")
@@ -92,7 +103,9 @@ educs = educ_cats[2:5]
 #| echo: false
 #| output: false
 
-fehdir0        = "X:/FEHOutput/run_01006/base_v16/"
+#fehdir0        = "X:/FEHOutput/run_01006/base_v19/"
+
+fehdir0        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/test2/"
 fehdf0         = read_feh(fehdir0, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset="FEH0")
 ```
@@ -192,7 +205,7 @@ tmpdf1 = fehdf |>
     count(age, sex, race, year, educ, dataset, wt=weight) |>
     group_by(dataset, year, sex, race, age) |>
     complete(educ=educ_cats[2:5], fill=list(n=0)) |>
-    mutate(educ=factor(educ, levels=educ_cats[2:5], ordered=TRUE)) |>
+    mutate(educ=factor(educ, levels=educ_cats[2:5])) |>
     arrange(dataset, year, sex, race, age, educ) |>
     mutate(
         cumn     = cumsum(n),
@@ -238,7 +251,7 @@ tmpdf1 = fehdf |>
     count(age, sex, race, doby, educ, dataset, wt=weight) |>
     group_by(dataset, doby, sex, race, age) |>
     complete(educ=educ_cats[2:5], fill=list(n=0)) |>
-    mutate(educ=factor(educ, levels=educ_cats[2:5], ordered=TRUE)) |>
+    mutate(educ=factor(educ, levels=educ_cats[2:5])) |>
     arrange(dataset, doby, sex, race, age, educ) |>
     mutate(
         cumn     = cumsum(n),
@@ -277,8 +290,6 @@ stopifnot(dim(educByAgeBCohSexRace |>
     filter(abs(diff)>1e-5))[1] == 0)
 
 ```
-
-# DYNASIM
 
 ```{r}
 #| panel: input
@@ -444,7 +455,7 @@ output$plotByAge = renderPlot({
             y=!!sym(out2var(input$outcome, FALSE)), 
             linetype=dataset
             )) +
-        tidyquant::geom_ma(n=as.integer(input$ma_n))
+        tidyquant::geom_ma(n=as.integer(input$ma_n))        
 })
 
 output$plotByAgeEduc = renderPlot({
@@ -532,13 +543,12 @@ plotdf5 = reactive({
 })
 
 output$plotByBirthYearRace = renderPlot({
-    plotdf5(aes(
+    plotdf5() |> ggplot2::ggplot(aes(
             x=age, 
             y=!!sym(out2var(input$outcome, FALSE)), 
             color=race, 
             linetype=dataset
-            )) |>
-        ggplot2::ggplot() +
+            )) +
         tidyquant::geom_ma(n=as.integer(input$ma_n))
 })
 
