@@ -29,7 +29,7 @@ source(paste0(here::here(), "/Analysis/Education/dyn_educ_lib.R"))
 obs = NA
 weight = 2537
 first_year= 2006
-last_year = 2060
+last_year = 2100
 
 years  = first_year:last_year
 birth_years = 1980:2040
@@ -116,7 +116,7 @@ pidx2024 = pwidx |> filter(year==2024) |> select(pindex) |> pull()
 #| output: false
 
 fehname0       = "Baseline"
-fehdir0        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/base_v27/"
+fehdir0        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/base_v32/"
 fehdf0         = read_feh(fehdir0, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset=fehname0)
 ```
@@ -129,7 +129,7 @@ fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf0) |> mutate(dataset=fehname0
 #| output: false
 
 fehname1       = "Baby bonds"
-fehdir1        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/babybonds_v3"
+fehdir1        = "C:/Users/dcosic/Dynasim/Dynasim-babybonds/Dynasim-core/run/output/babybonds_v7"
 fehdf1         = read_feh(fehdir1, columns=keep_cols, obs_count=obs)
 fehdfs[[length(fehdfs)+1]] = feh_wide_to_long(fehdf1) |> mutate(dataset=fehname1)
 ```

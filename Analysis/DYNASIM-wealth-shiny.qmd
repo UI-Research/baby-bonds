@@ -77,7 +77,6 @@ fwlth_coefs = read.csv(textConnection(text), header=FALSE) |>
 #| echo: false
 #| output: false
 
-#fehdir1        = "C:/Users/dcosic/Dynasim/Dynasim-wealth/Dynasim-core/run/output/output2/"
 fehdir1        = "X:/FEHOutput/run_01006/base_v7/"
 dyndf1         = read_feh(fehdir1, columns=keep_cols)
 
