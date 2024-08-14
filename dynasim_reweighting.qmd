@@ -727,7 +727,7 @@ encode_dyn_inc_pov_r = function(data, invar, outvar)
   return(df)
 }
 
-make_multipliers = function(data, varname, targets)
+make_multipliers = function(data, varname, targetdf)
 {
     var = rlang::sym(varname)
     
@@ -736,10 +736,10 @@ make_multipliers = function(data, varname, targets)
     # Create multiplier dataframe
     mpdf = left_join(
             have,
-            targets[[varname]],
+            targetdf,
             by=varname
         ) |>
-        mutate(mplier = target/have) |>
+        mutate(mplier = if_else(have==0 & target==0, 1, target/have)) |>
         select({{var}}, mplier)
     return(mpdf)
 }
@@ -759,18 +759,18 @@ apply_multipliers = function(data, mpdf, varname)
     
 }
 
-reweight_by = function(data, varname)
+reweight_by = function(data, varname, targetdf)
 {
-    mpdf = data |> make_multipliers(varname, targets)
+    mpdf = data |> make_multipliers(varname, targetdf)
     df   = data |> apply_multipliers(mpdf, varname)
     return(df)
 }
 
-calculate_diff = function(data, varname)
+calculate_diff = function(data, varname, targetdf)
 {
     return(
         data |> 
-            make_multipliers(varname, targets) |>
+            make_multipliers(varname, targetdf) |>
             mutate(diff=abs(1-mplier)) |>
             summarise(diff=max(diff)) |>
             pull()
@@ -783,63 +783,69 @@ calculate_diff = function(data, varname)
 ```{r}
 #| label: raking-procedure
 
+rake_to_place = function(geoid, tol=.0001, maxiter=10)
+{
 
-# Create targets
-targets=list(
-    inc_pov_r   = make_income_target(places$geoid[1]),
-    sexrace     = make_sex_race_target(places$geoid[1])
-)
-
-targ_tot = map(targets, \(x) summarize(x, target=sum(target)))
-for(i in 2:length(targets)) {
-    adj = pull(targ_tot[[1]] / targ_tot[[i]])
-    targets[[i]] = mutate(targets[[i]], target=target*adj)
-}
-targ_tot2 = map(targets, \(x) summarize(x, target=sum(target)))
-
-
-# Create the micro data
-df0 = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData14AUG24.csv") |>
-    rename_all(tolower) |>
-    filter(age==18) |>
-    encode_dyn_race_sex() |>  
-    encode_dyn_inc_pov_r(lhinc, inc_pov_r) |>
-    select(pernum, weight, sexrace, inc_pov_r) |>
-    mutate(weight=weight*1000)
-
-df=df0
-
-tol=.0001
-maxiter=10
-converged=FALSE
-for(i in 1:maxiter) {
-
-    for(k in 1:length(targets)) 
-    {
-        df = df |> reweight_by(names(targets)[k])
+    print(paste0("Starting the raking procedure for geoid = ", geoid))
+    
+    # Create targets
+    targets=list(
+        inc_pov_r   = make_income_target(geoid),
+        sexrace     = make_sex_race_target(geoid)
+    )
+    
+    targ_tot = map(targets, \(x) summarize(x, target=sum(target)))
+    for(i in 2:length(targets)) {
+        adj = pull(targ_tot[[1]] / targ_tot[[i]])
+        targets[[i]] = mutate(targets[[i]], target=target*adj)
+    }
+    targ_tot2 = map(targets, \(x) summarize(x, target=sum(target)))
+    
+    
+    # Create the micro data
+    df0 = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData14AUG24.csv", show_col_types=FALSE) |>
+        rename_all(tolower) |>
+        filter(age==18) |>
+        encode_dyn_race_sex() |>  
+        encode_dyn_inc_pov_r(lhinc, inc_pov_r) |>
+        select(pernum, weight, sexrace, inc_pov_r) |>
+        mutate(weight=weight*1000)
+    
+    df=df0
+    
+    converged=FALSE
+    for(i in 1:maxiter) {
+    
+        for(k in 1:length(targets)) 
+        {
+            df = df |> reweight_by(names(targets)[k], targets[[k]])
+        }
+        
+        diffs = c()
+        for(k in 1:length(targets)) 
+        {
+            varname = names(targets)[k]
+            diffs[varname] =  df |> calculate_diff(varname, targets[[k]])
+        }
+        
+        maxdiff = max(diffs)
+        
+        print(paste0("Iteration ", i, " diff: ", paste(names(diffs), diffs, sep=":", collapse=",")))
+              
+        if(maxdiff < tol) {
+            converged=TRUE
+            print(paste0("Convergence achieved in ", i, " iterations with maxdiff = ", maxdiff))
+            break
+        }
     }
     
-    diffs = c()
-    for(k in 1:length(targets)) 
-    {
-        varname = names(targets)[k]
-        diffs[varname] =  df |> calculate_diff(varname)
+    if( ! converged ) {
+        print("No convergence")
     }
-    
-    maxdiff = max(diffs)
-    
-    print(paste0("Iteration ", i, " diff: ", paste(names(diffs), diffs, sep=":", collapse=",")))
-          
-    if(maxdiff < tol) {
-        converged=TRUE
-        print(paste0("Convergence achieved in ", i, " iterations with maxdiff = ", maxdiff))
-        break
-    }
+    return(df)
 }
 
-if( ! converged ) {
-    print("No convergence")
-}
+res = map(places$geoid, rake_to_place)
 
 ```
 
