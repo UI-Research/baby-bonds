@@ -18,7 +18,10 @@ library(tidycensus)
 library(scales)
 library(ggridges)
 library(urbnthemes)
-#set_urbn_defaults(style="print")
+set_urbn_defaults(style = "print", 
+                  base_size=11,
+                  base_line_size = 1
+                  )
 
 ```
 
@@ -252,6 +255,7 @@ plot_city_homeown("Male")
 
 acs_data_dir        = paste0(here::here(), "/ACS/")
 acs1_asr_filename   = paste0(acs_data_dir, "acs2022_asr.rds")
+acs1_pov_filename   = paste0(acs_data_dir, "acs2022_pov.rds")
 
 
 places = tribble(
@@ -264,33 +268,77 @@ places = tribble(
 
 acs1vars = load_variables(2022, "acs1", cache=TRUE)
 
-get_one_acs_table = function(table, state, geoid)
-{
-    return(
-        get_acs(
-            geography = "place", 
-            table = table,
-            survey="acs1",
-            state=state,
-            year = 2022
-        ) |>
-        filter(GEOID==geoid)
-    )
-}
-
+#
+# Returns specified ACS tables for the specified state and GEOID
+# 
 get_acs_tables = function(tables, state, geoid)
 {
+
+    get_one_acs_table = function(table, state, geoid)
+    {
+        return(
+            get_acs(
+                geography = "place", 
+                table = table,
+                survey="acs1",
+                state=state,
+                year = 2022
+            ) |>
+            filter(GEOID==geoid)
+        )
+    }
+  
     return(list_rbind(
-        map(tables, \(t) get_one_acs_table(
-            table = t,
-            state=state,
-            geoid=geoid
+        map(tables, 
+            \(t) get_one_acs_table(
+                table = t,
+                state=state,
+                geoid=geoid
+                )
             )
         )
     )
+}
+
+#
+# Returns specified ACS tables for the specified places
+# 
+get_acs_tables_for_places = function(places, tabcodes)
+{
+    return(
+        list_rbind(
+            apply(
+                places, 
+                1, 
+                \(x) get_acs_tables(tabcodes, x['state'], x['geoid'])
+            )
+        )
     )
 }
 
+get_acs_b01001_agecats = function()
+{
+    return(
+        agecatsdf = tribble(
+          ~longage,           ~shortage,
+          "Under 5 years",      "<5",
+          "5 to 9 years",       "5-9",
+          "10 to 14 years",     "10-14",
+          "15 to 17 years",     "15-17",
+          "18 and 19 years",    "18-19",
+          "20 to 24 years",     "20-24",
+          "25 to 29 years",     "25-29",
+          "30 to 34 years",     "30-34",
+          "35 to 44 years",     "35-44",
+          "45 to 54 years",     "45-54",
+          "55 to 64 years",     "55-64",
+          "65 to 74 years",     "65-74",
+          "75 to 84 years",     "75-84",
+          "85 years and over",  "85+",
+          "All",                 "All"
+        )
+    )  
+}
 
 get_acs_by_sex_age_race = function()
 {
@@ -308,14 +356,18 @@ get_acs_by_sex_age_race = function()
         "B01001I",  "Sex by Age (Hispanic or Latino)"
     )
     
+    # Age categories in these tables
+    agecatsdf = get_acs_b01001_agecats()
+    
+    #        
     # Fetch the tables
-    datadf = list_rbind(
-        apply(
-            places, 
-            1, 
-            \(x) get_acs_tables(acs1tabs$code, x['state'], x['geoid'])
-            )
-        )
+    b01001fname = paste0(here::here(), "/ACS/B01001.rds")
+    if( file.exists(b01001fname) ) {
+        datadf = readRDS(b01001fname)
+    } else {
+        datadf = get_acs_tables_for_places(places, acs1tabs$code)
+        saveRDS(datadf, b01001fname)
+    }
     
     # Create labels
     labdf = list_rbind(
@@ -355,6 +407,13 @@ get_acs_by_sex_age_race = function()
             )
         ) |>
         #
+        # Convert agecat to a factor
+        mutate(
+            agecat=factor(agecat, 
+                          levels=agecatsdf$longage, 
+                          labels=agecatsdf$shortage)
+            ) |>
+        #
         # Rename "name", we will use it for a join
         rename(variable=name)
     
@@ -367,32 +426,131 @@ get_acs_by_sex_age_race = function()
     return(resdf)
 }
 
-if( file.exists(acs1_asr_filename) ) {
-    df = readRDS(acs1_asr_filename)   
-} else {
-    df = get_acs_by_sex_age_race()
-    saveRDS(df, acs1_asr_filename)
+get_acs_b17024_agecats = function()
+{
+    return(
+        tribble(
+        ~longage,            ~shortage,
+        "Under 6 years",     "<6",
+        "6 to 11 years",     "6-11",
+        "12 to 17 years",    "12-17",
+        "18 to 24 years",    "18-24",
+        "25 to 34 years",    "25-34",
+        "35 to 44 years",    "35-44",
+        "45 to 54 years",    "45-54",
+        "55 to 64 years",    "55-64",
+        "65 to 74 years",    "65-74",
+        "75 years and over", "75+",
+        "All",               "All"
+        )
+    )
+}  
+
+get_acs_b17024_inccats = function()
+{
+    return(
+        tribble(
+            ~longinc,         ~shortinc,
+            "Under .50",      "<0.50",
+            ".50 to .74",     "0.50-0.74",
+            ".75 to .99",     "0.75-0.99",
+            "1.00 to 1.24",   "1.00-1.24",
+            "1.25 to 1.49",   "1.25-1.49",
+            "1.50 to 1.74",   "1.50-1.74",
+            "1.75 to 1.84",   "1.75-1.84",
+            "1.85 to 1.99",   "1.85-1.99",
+            "2.00 to 2.99",   "2.00-2.99",
+            "3.00 to 3.99",   "3.00-3.99",
+            "4.00 to 4.99",   "4.00-4.99",
+            "5.00 and over",  "5.00+",
+            "All",            "All"
+        )
+    )
+}
+
+get_acs_poverty_age = function()
+{
+    # Tables we need
+    acs1tabs = tribble(
+        ~code,      ~concept,
+        "B17024",   "Age by Ratio of Income to Poverty Level in the Past 12 Months"
+    )
+    
+    agecatsdf = get_acs_b17024_agecats()
+
+    inccatsdf = get_acs_b17024_inccats()
+    #        
+    # Fetch the tables
+    b17024fname = paste0(here::here(), "/ACS/B17024.rds")
+    if( file.exists(b17024fname) ) {
+        datadf = readRDS(b17024fname)
+    } else {
+        datadf = get_acs_tables_for_places(places, acs1tabs$code)
+        saveRDS(datadf, b17024fname)
+    }
+    #
+    # Create labels
+    labdf = list_rbind(
+        #
+        # Filter only variables from the tables we use
+        map(acs1tabs$code, \(x) filter(acs1vars, grepl(paste0("^",x,"_"), name)))
+        ) |>
+        #
+        # Use "All" for totals
+        mutate(
+            label=str_replace(label,"^Estimate!!Total:!*", ""),
+            label=if_else(label=="", "All:!!All", label),
+            label = if_else(!grepl("!", label), paste0(label,"!!All"), label)
+            ) |>
+        #
+        # Create columns "sex" and "agecat"
+        separate_wider_regex(
+            label, 
+            c(
+                agecat="All|.+years|.+over", 
+                ":!!", 
+                inc_pov_r=".+"
+            ),
+#            too_few = "debug"
+        ) |>
+        #
+        # Convert agecat to a factor
+        mutate(
+            agecat    =factor(agecat, 
+                              levels=agecatsdf$longage, 
+                              labels=agecatsdf$shortage),
+            inc_pov_r = factor(inc_pov_r,
+                              levels=inccatsdf$longinc, 
+                              labels=inccatsdf$shortinc)
+            ) |>
+        #
+        # Rename "name", we will use it for a join
+        rename(variable=name)
+    
+    resdf = left_join(
+        datadf,
+        labdf,
+        by="variable"
+    )
+    
+    return(resdf)
 }
 
 
-agecatsdf = tribble(
-  ~longage,           ~shortage,
-  "Under 5 years",      "<5",
-  "5 to 9 years",       "5-9",
-  "10 to 14 years",     "10-14",
-  "15 to 17 years",     "15-17",
-  "18 and 19 years",    "18-19",
-  "20 to 24 years",     "20-24",
-  "25 to 29 years",     "25-29",
-  "30 to 34 years",     "30-34",
-  "35 to 44 years",     "35-44",
-  "45 to 54 years",     "45-54",
-  "55 to 64 years",     "55-64",
-  "65 to 74 years",     "65-74",
-  "75 to 84 years",     "75-84",
-  "85 years and over",  "85+",
-  "All",                 "All"
-)
+
+if( file.exists(acs1_asr_filename) ) {
+    asrdf = readRDS(acs1_asr_filename)   
+} else {
+    asrdf = get_acs_by_sex_age_race()
+    saveRDS(asrdf, acs1_asr_filename)
+}
+
+if( file.exists(acs1_pov_filename) ) {
+    povdf = readRDS(acs1_pov_filename)   
+} else {
+    povdf = get_acs_poverty_age()
+    saveRDS(povdf, acs1_pov_filename)
+}
 
 
 ```
@@ -400,8 +558,11 @@ agecatsdf = tribble(
 ```{r}
 #| label: fig-city-population-by-race
 #| fig-cap: "Population of each city by race"
+#| fig-subcap: 
+#|  - "All ages"
+#|  - "Children younger than five"
 
-plotdf = df |> group_by(GEOID,sex,agecat,race) |>
+plotdf = asrdf |> group_by(GEOID,sex,agecat,race) |>
   summarise(population=sum(estimate, na.rm = TRUE)) |>
   ungroup() |>
   rename(geoid=GEOID) |>
@@ -415,33 +576,274 @@ plotdf |>
   ggplot() +
   geom_col(aes(x=city, y=population, fill=race)) +
   scale_y_continuous(labels=\(x) x/1000) +
-  ylab("Population (1000s)") +
+  ylab("Population (1000s)") +xlab("City") +
   geom_text(aes(x=city, y=pos, label=as.integer(population/1000)),color="white", size=3)
+
+
+plotdf = asrdf |> group_by(GEOID,sex,agecat,race) |>
+  summarise(population=sum(estimate, na.rm = TRUE)) |>
+  ungroup() |>
+  rename(geoid=GEOID) |>
+  filter(agecat=="<5") |> 
+  group_by(geoid,race) |>
+  summarise(population=sum(population, na.rm = TRUE)) |>
+  ungroup() |>
+  left_join(places, by="geoid") |>
+  arrange(city, desc(race)) |>
+  group_by(city) |>
+  mutate(pos=cumsum(population)-population/2)
+
+plotdf |>
+  ggplot() +
+  geom_col(aes(x=city, y=population, fill=race)) +
+  scale_y_continuous(labels=\(x) x/1000) +
+  ylab("Population (1000s)") + xlab("City") +
+  geom_text(aes(x=city, y=pos, label=round(population/1000,1)),color="white", size=3)
+
 ```
+
 
 ```{r}
 #| label: fig-city-population-by-race-age
 #| fig-cap: "Population of each city by race and age group"
 
-plotdf = df |> 
+plotdf = asrdf |> 
   filter(sex!="All",agecat!="All") |>
   group_by(GEOID,agecat,race) |>
   summarise(population=sum(estimate, na.rm = TRUE)) |>
   ungroup() |>
   rename(geoid=GEOID) |>
-  left_join(places, by="geoid") |>
-  mutate(agecat=factor(agecat, levels=agecatsdf$longage, labels=agecatsdf$shortage))
+  left_join(places, by="geoid")
 
 plotdf |>
   ggplot() +
   geom_col(aes(x=agecat, y=population, fill=race)) +
   facet_wrap(~city) +
   scale_y_continuous(labels=\(x) x/1000) +
-  ylab("Population (1000s)") +
+  ylab("Population (1000s)") +xlab("City") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 
 ```
+
+```{r}
+#| label: fig-inc-to-pov-by-age
+#| fig-cap: "The ratio of household income to poverty level by age"
+
+plotdf = povdf |> group_by(GEOID,agecat,inc_pov_r) |>
+  summarise(population=sum(estimate, na.rm = TRUE)) |>
+  ungroup() |>
+  rename(geoid=GEOID) |>
+  filter(agecat=="<6", inc_pov_r!="All") |> 
+  group_by(geoid,inc_pov_r) |>
+  summarise(population=sum(population, na.rm = TRUE)) |>
+  ungroup() |>
+  left_join(places, by="geoid")
+
+plotdf |>
+  ggplot() +
+  geom_col(aes(x=inc_pov_r, y=population)) +
+  facet_wrap(~city) +
+  ylab("Population") +xlab("Income-to-poverty-level ratio") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+
+```
+
+# Raking
+
+```{r}
+#| label: raking-functions    
+
+
+make_sex_race_target = function(geoid)
+{
+    df = asrdf |> 
+        filter(
+            sex!="All",
+            agecat=="<5",
+            GEOID==geoid) |>
+        mutate(
+            race = if_else(race %in% c("Black","Hispanic","White"), race, "Other")
+        ) |>
+        mutate(
+            sexrace := paste0(sex, "-", race)
+        ) |>
+        group_by(sexrace) |>
+        summarise(target=sum(estimate, na.rm = TRUE))
+    return(df)
+}
+
+make_income_target = function(geoid)
+{
+    df = povdf |> 
+        filter(
+            inc_pov_r!="All", 
+            agecat=="<6",
+            GEOID==geoid) |>
+        select(target=estimate, inc_pov_r)
+    return(df)
+}
+
+encode_dyn_race_sex = function(data)
+{
+    return(
+    data |> 
+      mutate(
+        raceeth = case_when(
+             raceeth==1 ~ "Black",
+             raceeth==2 ~ "Hispanic",
+             raceeth==3 ~ "White",
+             TRUE ~ "Other"
+         ),
+        sex = if_else(male==0, "Female", "Male"),
+        sexrace = paste0(sex, "-", raceeth)
+      )
+    )
+}
+
+encode_dyn_inc_pov_r = function(data, invar, outvar)
+{
+  incintdf = get_acs_b17024_inccats() |> 
+    filter(shortinc!="All") |> 
+    mutate(shortinc2=shortinc) |>
+    separate_wider_regex(shortinc2, c(low=".*", "\\<|\\-|\\+", high=".*")) |>
+    mutate(
+      across(c(low,high), as.numeric),
+      low = if_else(shortinc=="<0.50", -1, low)
+    )
+
+  df = data |>
+    mutate(
+      {{outvar}} := cut(
+          {{invar}}, 
+          c(incintdf$low, Inf), 
+          labels=incintdf$shortinc, 
+          right=FALSE
+          )
+    )
+  
+  return(df)
+}
+
+make_multipliers = function(data, varname, targets)
+{
+    var = rlang::sym(varname)
+    
+    have = data |> group_by({{var}}) |> summarise(have=sum(weight))
+
+    # Create multiplier dataframe
+    mpdf = left_join(
+            have,
+            targets[[varname]],
+            by=varname
+        ) |>
+        mutate(mplier = target/have) |>
+        select({{var}}, mplier)
+    return(mpdf)
+}
+
+apply_multipliers = function(data, mpdf, varname)
+{
+    var = rlang::sym(varname)
+
+    df = left_join(
+        data,
+        mpdf,
+        by=varname
+    ) |>
+        mutate(weight = weight*mplier) |>
+        select(-mplier)
+    return(df)
+    
+}
+
+reweight_by = function(data, varname)
+{
+    mpdf = data |> make_multipliers(varname, targets)
+    df   = data |> apply_multipliers(mpdf, varname)
+    return(df)
+}
+
+calculate_diff = function(data, varname)
+{
+    return(
+        data |> 
+            make_multipliers(varname, targets) |>
+            mutate(diff=abs(1-mplier)) |>
+            summarise(diff=max(diff)) |>
+            pull()
+    )
+}
+
+
+```
+
+```{r}
+#| label: raking-procedure
+
+
+# Create targets
+targets=list(
+    inc_pov_r   = make_income_target(places$geoid[1]),
+    sexrace     = make_sex_race_target(places$geoid[1])
+)
+
+targ_tot = map(targets, \(x) summarize(x, target=sum(target)))
+for(i in 2:length(targets)) {
+    adj = pull(targ_tot[[1]] / targ_tot[[i]])
+    targets[[i]] = mutate(targets[[i]], target=target*adj)
+}
+targ_tot2 = map(targets, \(x) summarize(x, target=sum(target)))
+
+
+# Create the micro data
+df0 = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData14AUG24.csv") |>
+    rename_all(tolower) |>
+    filter(age==18) |>
+    encode_dyn_race_sex() |>  
+    encode_dyn_inc_pov_r(lhinc, inc_pov_r) |>
+    select(pernum, weight, sexrace, inc_pov_r) |>
+    mutate(weight=weight*1000)
+
+df=df0
+
+tol=.0001
+maxiter=10
+converged=FALSE
+for(i in 1:maxiter) {
+
+    for(k in 1:length(targets)) 
+    {
+        df = df |> reweight_by(names(targets)[k])
+    }
+    
+    diffs = c()
+    for(k in 1:length(targets)) 
+    {
+        varname = names(targets)[k]
+        diffs[varname] =  df |> calculate_diff(varname)
+    }
+    
+    maxdiff = max(diffs)
+    
+    print(paste0("Iteration ", i, " diff: ", paste(names(diffs), diffs, sep=":", collapse=",")))
+          
+    if(maxdiff < tol) {
+        converged=TRUE
+        print(paste0("Convergence achieved in ", i, " iterations with maxdiff = ", maxdiff))
+        break
+    }
+}
+
+if( ! converged ) {
+    print("No convergence")
+}
+
+```
+
+
 
 # Bibliography
 
