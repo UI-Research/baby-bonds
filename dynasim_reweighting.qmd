@@ -256,6 +256,7 @@ plot_city_homeown("Male")
 acs_data_dir        = paste0(here::here(), "/ACS/")
 acs1_asr_filename   = paste0(acs_data_dir, "acs2022_asr.rds")
 acs1_pov_filename   = paste0(acs_data_dir, "acs2022_pov.rds")
+acs1_ten_filename   = paste0(acs_data_dir, "acs2022_ten.rds")
 
 
 places = tribble(
@@ -537,6 +538,73 @@ get_acs_poverty_age = function()
 }
 
 
+get_acs_by_tenure_race = function()
+{
+    # Tables we need
+    acs1tabs = tribble(
+        ~code,      ~concept,
+#        "B25003A",  "Tenure (White Alone)",
+        "B25003B",  "Tenure (Black or African American Alone)",
+        "B25003C",  "Tenure (American Indian and Alaska Native Alone)", 
+        "B25003D",  "Tenure (Asian Alone)", 
+        "B25003E",  "Tenure (Native Hawaiian and Other Pacific Islander Alone)",
+        "B25003F",  "Tenure (Some Other Race Alone)",
+        "B25003G",  "Tenure (Two or More Races)",
+        "B25003H",  "Tenure (White Alone, Not Hispanic or Latino)",
+        "B25003I",  "Tenure (Hispanic or Latino)"
+    )
+    
+    #        
+    # Fetch the tables
+    b25003fname = paste0(here::here(), "/ACS/B25003.rds")
+    if( file.exists(b25003fname) ) {
+        datadf = readRDS(b25003fname)
+    } else {
+        datadf = get_acs_tables_for_places(places, acs1tabs$code)
+        saveRDS(datadf, b25003fname)
+    }
+    
+    # Create labels
+    labdf = list_rbind(
+        #
+        # Filter only variables from the tables we use
+        map(acs1tabs$code, \(x) filter(acs1vars, grepl(paste0("^",x,"_"), name)))
+        ) |>
+        #
+        # Use "All" for totals
+        mutate(
+            label=str_replace(label,"^Estimate!!Total:!*", ""),
+            label=case_when(
+                label=="" ~ "All",
+                label=="Owner occupied" ~ "Owner",
+                label=="Renter occupied" ~ "Renter",
+                TRUE ~ label
+            ),
+            race=gsub("Tenure \\((.+) Householder\\)", "\\1", concept),
+            race=gsub(" Alone", "", race),
+            race=gsub(" or African American", "", race),
+            race=if_else(race=="Hispanic or Latino", "Hispanic", race),
+            race=if_else(race=="White, Not Hispanic or Latino", "White", race),
+            race=if_else(
+              race %in% c("Asian", "Black", "White", "Hispanic"), 
+              race, 
+              "Other")
+            
+        ) |>
+        #
+        # Rename "name", we will use it for a join
+        rename(variable=name, tenure=label)
+    
+    resdf = left_join(
+        datadf,
+        labdf,
+        by="variable"
+    )
+    
+    return(resdf)
+}
+
+
 
 if( file.exists(acs1_asr_filename) ) {
     asrdf = readRDS(acs1_asr_filename)   
@@ -552,6 +620,12 @@ if( file.exists(acs1_pov_filename) ) {
     saveRDS(povdf, acs1_pov_filename)
 }
 
+if( file.exists(acs1_ten_filename) ) {
+    tendf = readRDS(acs1_ten_filename)   
+} else {
+    tendf = get_acs_by_tenure_race()
+    saveRDS(povdf, acs1_ten_filename)
+}
 
 ```
 
@@ -697,6 +771,20 @@ make_income_target = function(geoid)
             agecat=="<6",
             GEOID==geoid) |>
         select(target=estimate, inc_pov_r)
+    return(df)
+}
+
+make_tenure_race_target = function(geoid)
+{
+    df = tendf |> 
+        filter(
+            tenure!="All", 
+            GEOID==geoid) |>
+        mutate(
+            race = if_else(race %in% c("Black","Hispanic","White"), race, "Other")
+        ) |>
+        group_by(tenure, race) |>
+        summarise(target=sum(estimate, na.rm = TRUE))
     return(df)
 }
 
