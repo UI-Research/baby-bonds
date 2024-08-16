@@ -1,6 +1,6 @@
 ---
 title: "Reweighting of DYNASIM Sample"
-format: pdf
+format: html
 execute: 
   echo: false
   warning: false
@@ -16,12 +16,12 @@ library(ipumsr)
 library(tidyverse)
 library(tidycensus)
 library(scales)
-library(ggridges)
 library(urbnthemes)
 set_urbn_defaults(style = "print", 
                   base_size=11,
                   base_line_size = 1
                   )
+
 
 ```
 
@@ -627,8 +627,8 @@ plotdf |>
 ```
 
 ```{r}
-#| label: fig-inc-to-pov-by-age
-#| fig-cap: "The ratio of household income to poverty level by age"
+#| label: fig-inc-to-pov-by-age-old
+#| fig-cap: "The ratio of household income to poverty level for children ages 1-5"
 
 plotdf = povdf |> group_by(GEOID,agecat,inc_pov_r) |>
   summarise(population=sum(estimate, na.rm = TRUE)) |>
@@ -655,6 +655,20 @@ plotdf |>
 
 ```{r}
 #| label: raking-functions    
+
+
+get_dynasim_sample = function()
+{
+    dynasim_file = "X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData15AUG24.csv"
+
+    df = read_csv(dynasim_file, show_col_types=FALSE) |>
+        rename_all(tolower) |>
+        filter(age==0) |>
+        encode_dyn_race_sex() |>  
+        encode_dyn_inc_pov_r(lhinc, inc_pov_r) |>
+        mutate(weight=weight*1000)
+    return(df)
+}
 
 
 make_sex_race_target = function(geoid)
@@ -782,6 +796,7 @@ calculate_diff = function(data, varname, targetdf)
 
 ```{r}
 #| label: raking-procedure
+#| ouput: false
 
 rake_to_place = function(geoid, tol=.0001, maxiter=10)
 {
@@ -803,13 +818,8 @@ rake_to_place = function(geoid, tol=.0001, maxiter=10)
     
     
     # Create the micro data
-    df0 = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData14AUG24.csv", show_col_types=FALSE) |>
-        rename_all(tolower) |>
-        filter(age==18) |>
-        encode_dyn_race_sex() |>  
-        encode_dyn_inc_pov_r(lhinc, inc_pov_r) |>
-        select(pernum, weight, sexrace, inc_pov_r) |>
-        mutate(weight=weight*1000)
+    df0 = get_dynasim_sample() |>
+        select(pernum, weight, sexrace, inc_pov_r)
     
     df=df0
     
@@ -847,9 +857,78 @@ rake_to_place = function(geoid, tol=.0001, maxiter=10)
 
 res = map(places$geoid, rake_to_place)
 
+res = map2(res, places$city, \(x,y) mutate(x, city=y)) |>
+    list_rbind()
+
 ```
 
 
+```{r}
+#| label: fig-inc-to-pov-lt6
+#| fig-cap: "The ratio of household income to poverty level for children younger than 6"
+
+plotdf = bind_rows(
+    res |> group_by(city,inc_pov_r) |>
+        summarise(population=sum(weight)) |>
+        ungroup() |>
+        mutate(source="DYNASIM"),
+
+    povdf |> 
+      rename(geoid=GEOID) |>
+      filter(agecat=="<6", inc_pov_r!="All") |> 
+      group_by(geoid,inc_pov_r) |>
+      summarise(population=sum(estimate, na.rm = TRUE)) |>
+      ungroup() |>
+      left_join(places, by="geoid") |>
+      mutate(source="ACS")
+)
+
+plotdf |>
+  ggplot() +
+  geom_col(aes(x=inc_pov_r, y=population, fill=source), position=position_dodge()) +
+  facet_wrap(~city) +
+  ylab("Population") +xlab("Income-to-poverty-level ratio") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+
+```
+
+```{r}
+#| label: fig-race-sex-lt5
+#| fig-cap: "Shaers of sex and race for children younger than 5"
+
+plotdf = bind_rows(
+
+    res |>
+        group_by(city, sexrace) |>
+        summarise(population=sum(weight)) |>
+        ungroup() |>
+        mutate(source="DYNASIM"),
+
+    asrdf |>
+        rename(geoid=GEOID) |>
+        mutate(race = if_else(race=="Asian", "Other", race)) |>
+        mutate(sexrace=paste0(sex, "-", race)) |>
+        filter(agecat=="<5", sex!="All", race!="All") |> 
+        group_by(geoid,sexrace) |>
+        summarise(population=sum(estimate, na.rm = TRUE)) |>
+        ungroup() |>
+        left_join(places, by="geoid") |>
+        select(city, sexrace, population) |>
+        mutate(source="ACS")
+)
+
+plotdf |>
+  ggplot() +
+  geom_col(aes(x=sexrace, y=population, fill=source), position=position_dodge()) +
+  facet_wrap(~city) +
+  ylab("Population") +xlab("Sex/race") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+
+```
 
 # Bibliography
 
