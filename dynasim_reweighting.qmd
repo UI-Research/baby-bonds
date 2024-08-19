@@ -744,6 +744,13 @@ get_dynasim_sample = function()
     return(df)
 }
 
+get_dynasim_wealth_sample = function()
+{
+    dynasim_wealth_file = "X:/programs/Run1006(babybonds)/BabyBonds/WealthData16Aug24.csv"
+    wealthdf = read_csv(dynasim_wealth_file) |>
+        rename_all(tolower)
+}
+
 
 make_sex_race_target = function(geoid)
 {
@@ -774,6 +781,9 @@ make_income_target = function(geoid)
     return(df)
 }
 
+# Unfortunately, there is no age information for tenure,
+# so we can't use it on the narrow sample with only people
+# born in 2024-2028.
 make_tenure_race_target = function(geoid)
 {
     df = tendf |> 
@@ -828,6 +838,7 @@ encode_dyn_inc_pov_r = function(data, invar, outvar)
   
   return(df)
 }
+
 
 make_multipliers = function(data, varname, targetdf)
 {
@@ -884,7 +895,7 @@ calculate_diff = function(data, varname, targetdf)
 
 ```{r}
 #| label: raking-procedure
-#| ouput: false
+#| output: false
 
 rake_to_place = function(geoid, tol=.0001, maxiter=10)
 {
@@ -947,6 +958,8 @@ res = map(places$geoid, rake_to_place)
 
 res = map2(res, places$city, \(x,y) mutate(x, city=y)) |>
     list_rbind()
+
+write_csv(res, paste0(here::here(), "/data/DYNASIM/city_weights.csv"))
 
 ```
 
