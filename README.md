@@ -3,6 +3,7 @@ Data analysis for the Baby Bonds project and estimation of models for DYNASIM.
 
 # Root Folder
 * [`modeling_college_ed.html`](modeling_college_ed.html): Notebook for modeling college education.
+* [`dynasim_reweighting.html`](dynasim_reweighting.html): Notebook for reweighting the DYNASIM sample.
 
 ## Analysis Folder
 ### Education
@@ -39,4 +40,6 @@ It is assumed that an R project file is in the repo's root folder and that the B
 ## Student Loan Folder
 * `student_debt_distr.qmd`: Imputes and plots student loan data.
 * [`student_debt_distr.html`](student_loans/student_debt_distr.html): Rendering of the above file.
+
+# Presentations
 
