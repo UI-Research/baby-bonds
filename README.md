@@ -6,11 +6,20 @@ Data analysis for the Baby Bonds project and estimation of models for DYNASIM.
 * [`dynasim_reweighting.html`](dynasim_reweighting.html): Notebook for reweighting the DYNASIM sample.
 
 ## Analysis Folder
+
 ### Education
 
 * `DYNASIM-college.qmd`: Quarto report on the effects of baby bonds on college education.
 * [`DYNASIM-college.html`](Analysis/Education/DYNASIM-college.html): Rendering of the above file.
 * [`DYNASIM-college-2024-05-06.html`](Analysis/Education/DYNASIM-college-2024-05-06.html): Rendering of the above file.
+
+### Results
+
+* [`BabyBonds Atlanta.html`](Analysis/Results/BabyBonds Atlanta.html)
+* [`BabyBonds Baltimore.html`](Analysis/Results/BabyBonds Baltimore.html)
+* [`BabyBonds Boston.html`](Analysis/Results/BabyBonds Boston.html)
+* [`BabyBonds Oakland.html`](Analysis/Results/BabyBonds Oakland.html)
+* [`BabyBonds USA.html`](Analysis/Results/BabyBonds USA.html)
 
 # NLSY Data
 It is assumed that an R project file is in the repo's root folder and that the Box drive is mounted in '~/..' (this is true on Windows but may not be on Mac, in which case modify `nlsy_data_dir` in common.R.
