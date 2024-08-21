@@ -29,7 +29,8 @@ microdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData16Aug2
     rename_all(tolower)
 
 wealthdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/WealthData16Aug24.csv") |>
-    rename_all(tolower)
+    rename_all(tolower) |>
+    filter(year>=2041)
 
 if( params$city != "USA" ) {
 
@@ -52,8 +53,8 @@ if( params$city != "USA" ) {
 } else {
     wealthdf = wealthdf |>
         left_join(
-            microdf |> filter(age==18) |> select(pernum, weight),
-            by="pernum"
+            microdf |> filter(age==0) |> select(pernum, weight, scenario),
+            by=c("pernum", "scenario")
         )
 }
 ```
@@ -62,13 +63,18 @@ if( params$city != "USA" ) {
 #| label: calculate-quintiles
 
 qtiles = seq(.2,.8,.2)
-lhiqdf = microdf |> 
-    dplyr::reframe(lhiq = wtd.quantile(lhinc, weight, probs=qtiles), q=qtiles*100) |>
-    pivot_wider(names_from=q, values_from = lhiq, names_prefix="lhiq")
+lhiqdf = microdf |>
+    filter(age==0) |>
+    dplyr::reframe(
+        lhiq = wtd.quantile(lhinc, weight, probs=qtiles), 
+        q=qtiles*100,
+        .by=scenario) |>
+    pivot_wider(id_cols=scenario, names_from=q, values_from = lhiq, names_prefix="lhiq")
     
-microdf = bind_cols(
+microdf = left_join(
     microdf |> select(-paste0("lhi", c(50, seq(20,80,20)))),
-    lhiqdf
+    lhiqdf,
+    by="scenario"
 ) |>
     mutate(
         lhinc0quin = case_when(
@@ -82,6 +88,14 @@ microdf = bind_cols(
 
 ```
 
+
+```{r}
+#| label: filter-by-race
+
+microdf  = filter(microdf,  raceeth <= 3)
+wealthdf = filter(wealthdf, raceeth <= 3)
+
+```
 
 
 ```{r}
