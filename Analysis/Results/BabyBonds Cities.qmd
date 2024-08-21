@@ -12,7 +12,7 @@ fig-cap-location: top
 toc: true
 toc-expand: true
 params:
-    city: "Baltimore"
+    city: "USA"
 ---
 
 
@@ -25,10 +25,10 @@ set_urbn_defaults(style = "print",
                   base_line_size = 1
                   )
 
-microdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData.csv") |>
+microdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData16Aug24.csv") |>
     rename_all(tolower)
 
-wealthdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/WealthData.csv") |>
+wealthdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/WealthData16Aug24.csv") |>
     rename_all(tolower)
 
 if( params$city != "USA" ) {
