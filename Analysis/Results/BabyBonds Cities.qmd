@@ -12,7 +12,7 @@ fig-cap-location: top
 toc: true
 toc-expand: true
 params:
-    city: "USA"
+    city: "Baltimore"
 ---
 
 
@@ -57,6 +57,32 @@ if( params$city != "USA" ) {
         )
 }
 ```
+
+```{r}
+#| label: calculate-quintiles
+
+qtiles = seq(.2,.8,.2)
+lhiqdf = microdf |> 
+    dplyr::reframe(lhiq = wtd.quantile(lhinc, weight, probs=qtiles), q=qtiles*100) |>
+    pivot_wider(names_from=q, values_from = lhiq, names_prefix="lhiq")
+    
+microdf = bind_cols(
+    microdf |> select(-paste0("lhi", c(50, seq(20,80,20)))),
+    lhiqdf
+) |>
+    mutate(
+        lhinc0quin = case_when(
+            lhinc<=lhiq20 ~ 1,
+            lhinc<=lhiq40 ~ 2,
+            lhinc<=lhiq60 ~ 3,
+            lhinc<=lhiq80 ~ 4,
+            TRUE ~ 5
+        )
+    )
+
+```
+
+
 
 ```{r}
 #| label: functions
