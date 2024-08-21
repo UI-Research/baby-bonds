@@ -12,7 +12,7 @@ fig-cap-location: top
 toc: true
 toc-expand: true
 params:
-    city: "Baltimore"
+    city: "USA"
 ---
 
 
@@ -385,6 +385,37 @@ plot_by_scen(
     )
 ```
 
+## Average Student Loan Debt at College Exit among College Attendees by Race/Ethnicity and Family Income at Birth
+
+```{r}
+#| label: fig-avg-stdebt-by-race-lhincquin-45
+#| fig-cap: "Average Student Loan Debt by Race/Ethnicity and Family Income at Birth"
+
+df = microdf |>
+    filter(age==45, degree>=3) |>
+    select(raceeth, lhinc0quin, scenario, weight, studdebt) |>
+    group_by(raceeth, lhinc0quin, scenario) |>
+    summarise(
+        debt_avg = wtd.mean(studdebt, weight)
+        ) |>
+    ungroup() |>
+    recode_quintile(lhinc0quin) |>
+    recode_raceeth() |>
+    recode_scenario()
+
+
+plot_by_scen(
+    df,
+    var=debt_avg, 
+    var_lab="Student loan debt (1000s of $2023)",
+    class1=lhinc0quin,
+    class1_lab="Quintile of family income at birth",
+    facet=~raceeth,
+    scale=1e-3,
+    title="People age 45 born in 2024-2028 who attended college"
+    )
+```
+
 
 ## Median Home Equity by Race/Ethnicity and Sex
 
@@ -419,12 +450,13 @@ plot_by_scen(
 
 ```
 
+# Results at Age 65
 
-## Average Per-Capita Retirement Savings by Family Income at Birth and Sex
+## Average Per-Capita Retirement at 65 Savings by Family Income at Birth and Sex
 
 ```{r}
-#| label: fig-avg-retbal-by-lhincquin-sex-45
-#| fig-cap: "Average Retirement Account Balance by Family Income at Birth and Sex"
+#| label: fig-avg-retbal-by-lhincquin-sex-65
+#| fig-cap: "Average Retirement Account Balance at 65 by Family Income at Birth and Sex"
 
 df = microdf |>
     filter(age==65) |>
