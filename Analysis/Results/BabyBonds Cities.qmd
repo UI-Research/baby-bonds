@@ -1,7 +1,8 @@
 ---
 #title: "Baby Bonds: Results for {{< meta params.city >}}"
 title: "Baby Bonds: Results for `r params$city`"
-date: "19 August 2024"
+date: today
+date-format: long
 format: 
   html:
     embed-resources: true
@@ -25,10 +26,10 @@ set_urbn_defaults(style = "print",
                   base_line_size = 1
                   )
 
-microdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData16Aug24.csv") |>
+microdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/BabyBondsData23Aug24.csv") |>
     rename_all(tolower)
 
-wealthdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/WealthData16Aug24.csv") |>
+wealthdf = read_csv("X:/programs/Run1006(babybonds)/BabyBonds/WealthData23Aug24.csv") |>
     rename_all(tolower) |>
     filter(year>=2041)
 
@@ -254,7 +255,45 @@ df |> ggplot() +
 
 ```
 
-## Family Financial Wealth by Race/Ethnicity (Restricted to dependent 18-year-olds)
+## Family Liquid Wealth by Race/Ethnicity (Restricted to dependent 18-year-olds)
+
+```{r}
+#| label: fig-liqwealth-by-race-dep18
+#| fig-cap: "Family liquid wealth by race/ethnicity for dependent 18-year-olds"
+
+df = wealthdf |>
+    filter(yhead==0) |>
+    select(raceeth, fam_liq_wealth, scenario, weight) |>
+    group_by(raceeth, scenario) |>
+    summarise(
+        fin_wealth_avg = weighted.mean(         fam_liq_wealth, weight),
+        fin_wealth_med = Hmisc::wtd.quantile(   fam_liq_wealth, weight, probs=.5)
+        ) |>
+    recode_raceeth() |>
+    recode_scenario() |>
+    pivot_longer(
+        cols=c(fin_wealth_avg, fin_wealth_med), 
+        names_prefix="fin_wealth_", 
+        names_to="Statistic", 
+        values_to="fin_wealth"
+        ) |>
+    mutate(Statistic=if_else(Statistic=="avg", "Mean", "Median"))
+    
+plot_by_scen(
+    df,
+    var=fin_wealth, 
+    var_lab="Family liquid wealth (thousands of $2023)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    facet=~Statistic,
+    scale=1e-3,
+    title="Families of people born in 2024-2028 at age 18"
+    )
+
+```
+
+
+## Family Financial Wealth Including Retirement Savings by Race/Ethnicity (Restricted to dependent 18-year-olds)
 
 ```{r}
 #| label: fig-finwealth-by-race-dep18
@@ -292,7 +331,7 @@ plot_by_scen(
 ```
 
 
-## Family Financial Wealth by Family Income at Birth (Restricted to dependent 18-year-olds)
+## Family Financial Wealth Including Retirement Savings by Family Income at Birth (Restricted to dependent 18-year-olds)
 
 ```{r}
 #| label: fig-finwealth-by-lhincquin-dep18
