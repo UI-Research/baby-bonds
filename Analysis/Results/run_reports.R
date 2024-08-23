@@ -2,7 +2,7 @@
 library(tidyverse)
 library(quarto)
 
-places = tribble(
+report_places = tribble(
     ~state,   ~geoid,       ~city,
     "CA",     "0653000",    "Oakland",
     "GA",     "1304000",    "Atlanta",
@@ -11,7 +11,7 @@ places = tribble(
     "",       "",           "USA"
 )
 
-cities = places$city
+cities = report_places$city
 
 report_dir = paste0(here::here(), "/Analysis/Results/")
 
