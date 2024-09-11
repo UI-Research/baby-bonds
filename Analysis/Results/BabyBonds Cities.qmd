@@ -620,3 +620,35 @@ plot_by_scen(
 
 ```
 
+## Median Per-Capita Retirement at 65 Savings by Race and Sex
+
+```{r}
+#| label: fig-med-retbal-by-race-sex-65
+#| fig-cap: "Median Retirement Account Balance at 65 by Race and Sex"
+
+df = microdf |>
+    filter(age==65) |>
+    select(raceeth, male, scenario, weight, retbal) |>
+    group_by(raceeth, male, scenario) |>
+    summarise(
+        retbal_avg = wtd.mean(retbal, weight),
+        retbal_med = wtd.quantile(retbal, weight, probs=.5)
+        ) |>
+    ungroup() |>
+    recode_male() |>
+    recode_raceeth() |>
+    recode_scenario()
+
+plot_by_scen(
+    df,
+    var=retbal_med, 
+    var_lab="Retirement savings (1000s of $2023)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    facet=~male,
+    scale=1e-3,
+    title="People age 65 born in 2024-2028",
+    dodgewidth=.5
+    )
+
+```
