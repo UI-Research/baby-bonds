@@ -209,6 +209,18 @@ recode_degree = function(data)
 
 # Results at Age 18
 
+## The Average Baby-Bonds Amount
+
+```{r}
+bbavg = microdf |>
+    filter(age==18, scenario==1) |>
+    select(weight, bbonds) |>
+    summarise(bbonds=weighted.mean(bbonds, weight)) |>
+    pull() |> round()
+```
+
+The average amount of baby bonds for 18-year-olds born in 2024-2028 is `{r} paste0('$', format(bbavg, big.mark=","))`.
+
 ## The Average Baby-Bonds Amount by Race/Ethnicity
 
 ```{r}
@@ -222,12 +234,18 @@ df = microdf |>
     summarise(bbonds=weighted.mean(bbonds, weight)) |>
     recode_raceeth()
 
-df |> ggplot() +
-    geom_col(aes(x=raceeth, y=bbonds), position=position_dodge()) +
+df |> ggplot(aes(x=raceeth, y=bbonds)) +
+    geom_col(position=position_dodge()) +
     scale_y_continuous(labels=function(x) x/1000) +
     xlab("Race/ethnicity") + ylab("Baby bonds (1000s of $2023)") +
-    ggtitle("People age 18 born in 2024-2028")
-
+    ggtitle("People age 18 born in 2024-2028") +
+    geom_text(
+        aes(label=round(bbonds/1000)), 
+        color="white", 
+        vjust=1, 
+        size=4,
+        show.legend = FALSE
+        )
 
 ```
 
@@ -250,8 +268,15 @@ df |> ggplot() +
     geom_col(aes(x=lhinc0quin, y=bbonds, fill=raceeth), position=position_dodge()) +
     scale_y_continuous(labels=function(x) x/1000) +
     xlab("Quintile of family income at birth") + ylab("Baby bonds (1000s of $2023)") +
-    ggtitle("People age 18 born in 2024-2028")
-
+    ggtitle("People age 18 born in 2024-2028") +
+    scale_color_manual(values=c("white", "black", "white")) +
+    geom_text(
+        aes(x=lhinc0quin, y=bbonds, group=raceeth, color=raceeth, label=round(bbonds/1000)), 
+        size=3,
+        position=position_dodge(width=.7),
+        vjust=1,
+        show.legend = FALSE
+        )
 
 ```
 
@@ -495,6 +520,37 @@ plot_by_scen(
     )
 ```
 
+
+## Homeownership by Race/Ethnicity and Sex
+
+```{r}
+#| label: fig-homeown-by-race-sex-45
+#| fig-cap: "Homeownership by Race/Ethnicity and Sex"
+
+df = microdf |>
+    filter(age==45) |>
+    select(raceeth, male, scenario, weight, ownhome) |>
+    group_by(raceeth, male, scenario) |>
+    summarise(
+        ownhome = weighted.mean(ownhome, weight)
+        ) |>
+    ungroup() |>
+    recode_male() |>
+    recode_raceeth() |>
+    recode_scenario()
+
+plot_by_scen(
+    df,
+    var=ownhome, 
+    var_lab="Homeownership rate(%)",
+    class1=raceeth,
+    class1_lab="Race/ethnicity",
+    facet=~male,
+    scale=100,
+    title="People age 45 born in 2024-2028",
+    dodgewidth=.5
+    )
+```
 
 ## Median Home Equity by Race/Ethnicity and Sex
 
