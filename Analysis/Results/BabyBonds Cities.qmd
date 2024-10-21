@@ -20,6 +20,7 @@ params:
 ```{r}
 library(Hmisc)
 library(tidyverse)
+library(writexl)
 library(urbnthemes)
 set_urbn_defaults(style = "print", 
                   base_size=11,
@@ -58,6 +59,10 @@ if( params$city != "USA" ) {
             by=c("pernum", "scenario")
         )
 }
+
+# Output: chart data
+chartfname = paste0(here::here(), "/Analysis/Results/Chart-Data-", params$city, ".xlsx")
+chartdfs = list()
 ```
 
 ```{r}
@@ -247,6 +252,10 @@ df |> ggplot(aes(x=raceeth, y=bbonds)) +
         show.legend = FALSE
         )
 
+df = df |>
+    mutate(bbonds = round(bbonds/1000))
+
+chartdfs = c(chartdfs, list("Figure 1"=df))
 ```
 
 
@@ -277,6 +286,11 @@ df |> ggplot() +
         vjust=1,
         show.legend = FALSE
         )
+
+df = df |> 
+    mutate(bbonds = round(bbonds/1000)) |>
+    pivot_wider(id_cols = lhinc0quin, names_from=raceeth, values_from = bbonds)
+chartdfs = c(chartdfs, list("Figure 2"=df))
 
 ```
 
@@ -315,6 +329,11 @@ plot_by_scen(
     title="Families of people born in 2024-2028 at age 18"
     )
 
+df = df |> 
+    mutate(fin_wealth = round(fin_wealth/1000)) |>
+    pivot_wider(id_cols = c(Statistic, raceeth), names_from=scenario, values_from = fin_wealth) |> arrange(Statistic)
+chartdfs = c(chartdfs, list("Figure 3"=df))
+
 ```
 
 
@@ -352,6 +371,11 @@ plot_by_scen(
     scale=1e-3,
     title="Families of people born in 2024-2028 at age 18"
     )
+
+df = df |> 
+    mutate(fin_wealth = round(fin_wealth/1000)) |>
+    pivot_wider(id_cols = c(Statistic, raceeth), names_from=scenario, values_from = fin_wealth) |> arrange(Statistic)
+chartdfs = c(chartdfs, list("Figure 4"=df))
 
 ```
 
@@ -395,6 +419,11 @@ plot_by_scen(
     title="Families of people born in 2024-2028 at age 18"
     )
 
+df = df |> 
+    mutate(fin_wealth = round(fin_wealth/1000)) |>
+    pivot_wider(id_cols = c(Statistic, lhinc0quin), names_from=scenario, values_from = fin_wealth) |> arrange(Statistic)
+chartdfs = c(chartdfs, list("Figure 5"=df))
+
 ```
 
 # Results at Age 45
@@ -423,6 +452,11 @@ plot_by_scen(
     scale=1e2,
     title="People age 45 born in 2024-2028"
     )
+
+df = df |> 
+    mutate(ed_coldeg = round(ed_coldeg*100)) |>
+    pivot_wider(id_cols = raceeth, names_from=scenario, values_from = ed_coldeg)
+chartdfs = c(chartdfs, list("Figure 6"=df))
     
 ```
 
@@ -455,6 +489,11 @@ plot_by_scen(
     title="People age 45 born in 2024-2028 who attended college"
     )
 
+df = df |> 
+    mutate(hasdebt = round(hasdebt*100)) |>
+    pivot_wider(id_cols = c(male, raceeth), names_from=scenario, values_from = hasdebt) |>
+    arrange(desc(male))
+chartdfs = c(chartdfs, list("Figure 7"=df))
 
 ```
 
@@ -487,6 +526,12 @@ plot_by_scen(
     scale=1e-3,
     title="People age 45 born in 2024-2028 who attended college"
     )
+
+df = df |> 
+    mutate(debt_avg = round(debt_avg/1000)) |>
+    pivot_wider(id_cols = c(male, raceeth), names_from=scenario, values_from = debt_avg) |>
+    arrange(desc(male))
+chartdfs = c(chartdfs, list("Figure 8"=df))
 ```
 
 ## Average Student Loan Debt at College Exit among College Attendees by Race/Ethnicity and Family Income at Birth
@@ -518,6 +563,10 @@ plot_by_scen(
     scale=1e-3,
     title="People age 45 born in 2024-2028 who attended college"
     )
+
+df = df |> 
+    mutate(debt_avg = round(debt_avg/1000))
+chartdfs = c(chartdfs, list("Figure 9"=df))
 ```
 
 
@@ -550,6 +599,12 @@ plot_by_scen(
     title="People age 45 born in 2024-2028",
     dodgewidth=.5
     )
+
+df = df |> 
+    mutate(ownhome = round(ownhome*100)) |>
+    pivot_wider(id_cols = c(male, raceeth), names_from=scenario, values_from = ownhome) |>
+    arrange(desc(male))
+chartdfs = c(chartdfs, list("Figure 10"=df))
 ```
 
 ## Median Home Equity by Race/Ethnicity and Sex
@@ -583,6 +638,11 @@ plot_by_scen(
     dodgewidth=.5
     )
 
+df = df |> 
+    mutate(homeeq_med = round(homeeq_med/1000)) |>
+    pivot_wider(id_cols = c(male, raceeth), names_from=scenario, values_from = homeeq_med) |>
+    arrange(desc(male))
+chartdfs = c(chartdfs, list("Figure 11"=df))
 ```
 
 # Results at Age 65
@@ -618,6 +678,9 @@ plot_by_scen(
     dodgewidth=.5
     )
 
+df = df |> 
+    mutate(across(where(is.double), \(x) round(x/1000)))
+chartdfs = c(chartdfs, list("Figure 12"=df))
 ```
 
 ## Median Per-Capita Retirement at 65 Savings by Race and Sex
@@ -651,4 +714,15 @@ plot_by_scen(
     dodgewidth=.5
     )
 
+df = df |> 
+    mutate(retbal_med = round(retbal_med/1000)) |>
+    pivot_wider(id_cols = c(male, raceeth), names_from=scenario, values_from = retbal_med) |>
+    arrange(desc(male))
+chartdfs = c(chartdfs, list("Figure 13"=df))
+
+```
+
+```{r}
+
+write_xlsx(chartdfs, chartfname)
 ```

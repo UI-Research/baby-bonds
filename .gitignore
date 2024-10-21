@@ -20,6 +20,7 @@
 !*renv.activate.R
 .Rproj.user
 !*.csv
+!*.xlsx
 NLSY/NLSY-college-finance_imp.csv
 *_cache/
 !*.bib
